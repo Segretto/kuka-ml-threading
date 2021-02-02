@@ -10,14 +10,10 @@ from numpy import arange
 import optuna
 
 # THE USER SHOULD MODIFY THESE ONES
-parameters = 'fx|fy|fz|mx|my|mz'  # parameters = 'fz'
-label = 'svm'  # lstm or mlp or svm or cnn or rf
 labels = ['mlp', 'rf', 'svm', 'cnn', 'gru', 'lstm']
 # labels = ['gru']
-# dataset = 'nivelado'  # 'original'
 datasets = ['original', 'nivelado', 'quadruplicado']
-models_metrics = {}
-models_losses = {}
+# datasets = ['nivelado']
 
 N_TRIALS = 5
 TIMEOUT = 600
@@ -41,7 +37,6 @@ for dataset in datasets:
             study.optimize(models_build.objective_lstm, n_trials=N_TRIALS, timeout=TIMEOUT)
         if label is 'cnn':
             study.optimize(models_build.objective_cnn, n_trials=N_TRIALS, timeout=TIMEOUT)
-        # nao usar esse por enquanto
         if label is 'gru':
            study.optimize(models_build.objective_gru, n_trials=N_TRIALS, timeout=TIMEOUT)
 
