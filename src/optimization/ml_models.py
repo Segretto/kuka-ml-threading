@@ -48,12 +48,12 @@ class ModelsBuild:
         n_hidden = trial.suggest_int('n_hidden', 0, 5)
         if n_hidden == 0:
             model.add(keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 8),
-                                        input_shape=(input_shape, features),
+                                        input_shape=(INPUT_SHAPE, FEATURES),
                                         return_sequences=False,
                                         dropout=trial.suggest_uniform('dropout_input', 0, 0.6)))
         else:
             model.add(keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 8),
-                                        input_shape=(input_shape, features),
+                                        input_shape=(INPUT_SHAPE, FEATURES),
                                         return_sequences=True,
                                         dropout=trial.suggest_uniform('dropout_input', 0, 0.6),
                                         recurrent_dropout=trial.suggest_uniform('dropout_rec_input', 0, 0.6)))
@@ -89,35 +89,33 @@ class ModelsBuild:
         return score[1]
 
     def objective_gru(self, trial):
-        print("NOT WORKING. Problems with shapes...")
-        return
+        # print("NOT WORKING. Problems with shapes...")
+        # return
         model = keras.models.Sequential()
         n_hidden = trial.suggest_int('n_hidden', 0, 5)
-        input_shape = 1556
-        features = 6
         # input layer
         if n_hidden == 0:
             model.add(keras.layers.GRU(units=trial.suggest_int('n_input', 1, 8),
-                                       input_shape=(input_shape, features),
+                                       input_shape=(INPUT_SHAPE, FEATURES),
                                        return_sequences=False,
                                        dropout=trial.suggest_uniform('dropout_input', 0, 0.6)))
         else:
             model.add(keras.layers.GRU(units=trial.suggest_int('n_input', 1, 8),
-                                       input_shape=(input_shape, features),
+                                       input_shape=(INPUT_SHAPE, FEATURES),
                                        return_sequences=True,
                                        dropout=trial.suggest_uniform('dropout_input', 0, 0.6),
                                        recurrent_dropout=trial.suggest_uniform('dropout_rec_input', 0, 0.6)))
-        if n_hidden >= 1:
-            for layer in range(n_hidden-1):
-                model.add(keras.layers.GRU(units=trial.suggest_int('n_hidden_' + str(layer + 1), 1, 8),
-                                           return_sequences=True,
-                                           dropout=trial.suggest_uniform('dropout_' + str(layer + 1), 0, 0.6),
-                                           recurrent_dropout=trial.suggest_uniform('dropout_rec_' + str(layer + 1), 0,
-                                                                                    0.6)))
-        else:
-            model.add(keras.layers.GRU(units=trial.suggest_int('n_hidden_' + str(n_hidden + 1), 1, 8),
-                                       return_sequences=False,
-                                       dropout=trial.suggest_uniform('dropout_' + str(n_hidden + 1), 0, 0.6)))
+            if n_hidden >= 1:
+                for layer in range(n_hidden-1):
+                    model.add(keras.layers.GRU(units=trial.suggest_int('n_hidden_' + str(layer), 1, 8),
+                                               return_sequences=True,
+                                               dropout=trial.suggest_uniform('dropout_' + str(layer), 0, 0.6),
+                                               recurrent_dropout=trial.suggest_uniform('dropout_rec_' + str(layer), 0,
+                                                                                        0.6)))
+                else:
+                    model.add(keras.layers.GRU(units=trial.suggest_int('n_hidden_' + str(n_hidden), 1, 8),
+                                           return_sequences=False,
+                                           dropout=trial.suggest_uniform('dropout_' + str(n_hidden), 0, 0.6)))
 
         # TODO: change optimizer and add batchNorm in layers. It is taking too long to train
         # output layer
@@ -147,8 +145,8 @@ class ModelsBuild:
         model.add(keras.layers.InputLayer(input_shape=[input_shape*features]))
         n_hidden = trial.suggest_int('n_hidden', 1, 5)
         for layer in range(n_hidden):
-            model.add(keras.layers.Dense(trial.suggest_int('n_neurons_' + str(layer+1), 1, 128, step=16), activation='relu'))
-            model.add(keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer+1), 0, 0.6)))
+            model.add(keras.layers.Dense(trial.suggest_int('n_neurons_' + str(layer), 1, 128, step=16), activation='relu'))
+            model.add(keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer), 0, 0.6)))
         model.add(keras.layers.Dense(3, activation="softmax"))
         # optimizer = keras.optimizers.SGD(lr=learning_rate)
         optimizer = keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
@@ -206,20 +204,20 @@ class ModelsBuild:
         # model.add(keras.layers.MaxPooling1D(pool_size=pool_size))
 
         for layer in range(n_layers_cnn):
-            model.add(keras.layers.Conv1D(filters=trial.suggest_categorical("filters_"+str(layer+1), [32, 64]),
-                                          kernel_size=trial.suggest_categorical("kernel_"+str(layer+1), [1, 3, 5]),
+            model.add(keras.layers.Conv1D(filters=trial.suggest_categorical("filters_"+str(layer), [32, 64]),
+                                          kernel_size=trial.suggest_categorical("kernel_"+str(layer), [1, 3, 5]),
                                           padding='same',
                                           activation='relu'))
-            model.add(keras.layers.MaxPooling1D(pool_size=trial.suggest_categorical("pool_size_"+str(layer+1), [1, 2])))
+            model.add(keras.layers.MaxPooling1D(pool_size=trial.suggest_categorical("pool_size_"+str(layer), [1, 2])))
 
         model.add(keras.layers.Flatten())
 
         n_layers_dense = trial.suggest_int('n_hidden', 1, 4)
         for layer in range(n_layers_dense):
-            model.add(keras.layers.Dense(trial.suggest_int('n_neurons_dense' + str(layer+1), 1, 128, step=16),
+            model.add(keras.layers.Dense(trial.suggest_int('n_neurons_dense' + str(layer), 1, 128, step=16),
                                          activation='relu'))
             # TODO: add dropout and regularizer?
-            # model.add(keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer+1), 0, 0.6)))
+            # model.add(keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer), 0, 0.6)))
 
         # model.add(keras.layers.Dense(units=n_neurons,
         #                              kernel_regularizer=keras.regularizers.l2(0.01),
