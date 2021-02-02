@@ -1,5 +1,5 @@
 import pandas as pd
-import optimization.ml_models_utils as ml_models
+import optimization.ml_models as ml_models
 import optimization.ml_dataset_manipulation as ml_data_manip
 import optimization.ml_model_optimization as ml_model_optim
 import numpy as np
