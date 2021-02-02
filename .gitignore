@@ -133,6 +133,7 @@ fabric.properties
 .idea/caches/build_file_checksums.ser
 
 data/
+dataset/
 .DS_Store
-.idea
+.idea/
 ./models/error_analysis/model/
