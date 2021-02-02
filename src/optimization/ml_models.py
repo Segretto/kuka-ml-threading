@@ -16,6 +16,8 @@ BATCHSIZE = 128
 BATCHSIZE_RECURRENT = int(BATCHSIZE/4)
 EPOCHS = 100
 OUTPUT_SHAPE = 3
+INPUT_SHAPE = 1556
+FEATURES = 6
 
 
 class ModelsBuild:
@@ -143,8 +145,8 @@ class ModelsBuild:
         input_shape = 1556
         features = 6
         model.add(keras.layers.InputLayer(input_shape=[input_shape*features]))
-        # for layer in range(n_hidden):
-        for layer in range(trial.suggest_int('n_hidden', 1, 5)):
+        n_hidden = trial.suggest_int('n_hidden', 1, 5)
+        for layer in range(n_hidden):
             model.add(keras.layers.Dense(trial.suggest_int('n_neurons_' + str(layer+1), 1, 128, step=16), activation='relu'))
             model.add(keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer+1), 0, 0.6)))
         model.add(keras.layers.Dense(3, activation="softmax"))
@@ -193,22 +195,57 @@ class ModelsBuild:
     def objective_cnn(self, trial):
         model = keras.models.Sequential()
 
-        # first layer
-        model.add(keras.layers.Conv1D(filters=filters, kernel_size=kernel_size,
-                                      input_shape=(input_shape, features), padding='same', activation='relu'))
-        # model.add(keras.layers.Dropout(dropout))
-        model.add(keras.layers.MaxPooling1D(pool_size=pool_size))
+        n_layers_cnn = trial.suggest_int('n_hidden', 1, 5)
 
-        for _ in range(n_hidden):
-            model.add(keras.layers.Conv1D(filters, kernel_size, padding='same', activation='relu'))
-            model.add(keras.layers.MaxPooling1D(pool_size=pool_size))
+        model.add(keras.layers.InputLayer(input_shape=[INPUT_SHAPE, FEATURES]))
+
+        # # first layer
+        # model.add(keras.layers.Conv1D(filters=trial.suggest_categorical("filters", [32, 64]), kernel_size=kernel_size,
+        #                               input_shape=(input_shape, features), padding='same', activation='relu'))
+        # # model.add(keras.layers.Dropout(dropout))
+        # model.add(keras.layers.MaxPooling1D(pool_size=pool_size))
+
+        for layer in range(n_layers_cnn):
+            model.add(keras.layers.Conv1D(filters=trial.suggest_categorical("filters_"+str(layer+1), [32, 64]),
+                                          kernel_size=trial.suggest_categorical("kernel_"+str(layer+1), [1, 3, 5]),
+                                          padding='same',
+                                          activation='relu'))
+            model.add(keras.layers.MaxPooling1D(pool_size=trial.suggest_categorical("pool_size_"+str(layer+1), [1, 2])))
 
         model.add(keras.layers.Flatten())
-        model.add(keras.layers.Dense(units=n_neurons, kernel_regularizer=keras.regularizers.l2(0.01), activation='relu'))  # TODO: add dropout here?
-        model.add(keras.layers.Dense(units=int(n_neurons/2), kernel_regularizer=keras.regularizers.l2(0.01), activation='relu'))
+
+        n_layers_dense = trial.suggest_int('n_hidden', 1, 4)
+        for layer in range(n_layers_dense):
+            model.add(keras.layers.Dense(trial.suggest_int('n_neurons_dense' + str(layer+1), 1, 128, step=16),
+                                         activation='relu'))
+            # TODO: add dropout and regularizer?
+            # model.add(keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer+1), 0, 0.6)))
+
+        # model.add(keras.layers.Dense(units=n_neurons,
+        #                              kernel_regularizer=keras.regularizers.l2(0.01),
+        #                              activation='relu'))
+        # model.add(keras.layers.Dense(units=int(n_neurons/2),
+        #                              kernel_regularizer=keras.regularizers.l2(0.01),
+        #                              activation='relu'))
+
         model.add(keras.layers.Dense(units=3, activation='softmax'))
 
-        model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+        optimizer = keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+        model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+
+        model.fit(
+            self.dataset.X_train,
+            self.dataset.y_train,
+            validation_data=(self.dataset.X_train_vl, self.dataset.y_train_vl),
+            shuffle=False,
+            batch_size=BATCHSIZE,
+            epochs=EPOCHS,
+            verbose=False,
+        )
+
+        score = model.evaluate(self.dataset.X_test, self.dataset.y_test, verbose=0)
+
+        return score[1]
 
         return
 
