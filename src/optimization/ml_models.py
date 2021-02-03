@@ -20,10 +20,10 @@ INPUT_SHAPE = 1556
 FEATURES = 6
 MAX_DROPOUT = 0.6
 
-
+# TODO: work on keras callbacks for precision training
 class ModelsBuild:
-    def __init__(self, label='mlp'):
-        self.dataset = DatasetManip(label)
+    def __init__(self, label='mlp', dataset='original'):
+        self.dataset = DatasetManip(label, dataset)
 
     def build_model(self, trial, label='lstm'):
         if label == 'lstm':
@@ -152,7 +152,8 @@ class ModelsBuild:
         model.add(keras.layers.Dense(3, activation="softmax"))
         # optimizer = keras.optimizers.SGD(lr=learning_rate)
         optimizer = keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
-        model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+        model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer,
+                      metrics=['accuracy'])
 
         model.fit(
             self.dataset.X_train,

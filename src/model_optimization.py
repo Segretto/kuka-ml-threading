@@ -21,9 +21,11 @@ TIMEOUT = 600
 for dataset in datasets:
     for label in labels:
 
-        models_build = ModelsBuild(label)
+        models_build = ModelsBuild(label, dataset)
 
         # all equal
+        # TODO: make a standard way to create names. It is possible to stop and pick it up from stopping point.
+        # Check functions Study.create_study(name=str()) and .load_study()
         study = optuna.create_study(direction="maximize")
 
         # craft the objective here # TODO: jeito melhor pra selecionar o modelo
@@ -50,4 +52,11 @@ for dataset in datasets:
         print("  Params: ")
         for key, value in trial.params.items():
             print("    {}: {}".format(key, value))
+
+        # TODO: get more insight on visualization
+        # optuna.visualization.plot_pareto_front(study)
+
+# https://optuna.readthedocs.io/en/stable/reference/generated/optuna.study.Study.html#optuna.study.Study
+# TODO: at the end, use previous link to get a pandas dataframe and save to json
+
 
