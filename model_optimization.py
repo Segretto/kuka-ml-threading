@@ -7,15 +7,15 @@ labels = ['mlp', 'rf', 'svm', 'cnn', 'gru', 'lstm']
 datasets = ['original', 'nivelado', 'quadruplicado']
 # datasets = ['nivelado']
 
-N_TRIALS = 2
+N_TRIALS = 3
 TIMEOUT = 600
 METRICS = 'recall'  # or 'precision' or 'multi' for both
-path_to_models_meta_data = 'optimization/models_meta_data/'
 
 for dataset in datasets:
     for label in labels:
+        print("\n\n------------- Starting training for " + label + " in dataset " + dataset + " -------------")
 
-        # TODO: load all data only once
+        # TODO: load all data only once + kfold testing
         models_build = ModelsBuild(label, dataset, metrics=METRICS)
 
         study_name = dataset + '_' + label
@@ -37,7 +37,7 @@ for dataset in datasets:
         if label is 'cnn':
             study.optimize(models_build.objective_cnn, n_trials=N_TRIALS, timeout=TIMEOUT)
         if label is 'gru':
-           study.optimize(models_build.objective_gru, n_trials=N_TRIALS, timeout=TIMEOUT)
+            study.optimize(models_build.objective_gru, n_trials=N_TRIALS, timeout=TIMEOUT)
 
         print("Number of finished trials: {}".format(len(study.trials)))
 
@@ -50,9 +50,8 @@ for dataset in datasets:
         for key, value in best_trial.params.items():
             print("    {}: {}".format(key, value))
 
-        # TODO: save not only params, but the .h5 model
-        study.trials_dataframe().iloc[best_trial.number].to_json(
-            path_to_models_meta_data+'dataset_'+dataset+'_model_'+label+'.json')
+        models_build.save_best_model(study, dataset, label)
+        models_build.save_meta_data(study, dataset, label)
 
         # TODO: get more insight on visualization for single objective
         # optuna.visualization.plot_pareto_front(study)

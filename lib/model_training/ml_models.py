@@ -1,15 +1,13 @@
 from tensorflow import keras
-import yaml
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier as RF
-import sklearn
-import sklearn_json as skjson
-import tensorflow as tf
-import json
+import os
+from joblib import dump
 from keras.callbacks import Callback
 from sklearn.metrics import f1_score, precision_score, recall_score, classification_report
 import numpy as np
 from src.ml_dataset_manipulation import DatasetManip
+from shutil import move
 
 
 BATCHSIZE = 128
@@ -23,8 +21,13 @@ MAX_DROPOUT = 0.6
 
 class ModelsBuild:
     def __init__(self, label='mlp', dataset='original', metrics='recall'):
+        self.label = label
+        self.dataset_name = dataset
         self.dataset = DatasetManip(label, dataset)
         self.metrics = metrics
+        self.path_to_models_meta_data = 'output/models_meta_data/'
+        self.path_to_temp_trained_models = 'output/models_trained/temp/'
+        self.path_to_best_trained_models = 'output/models_trained/best/'
 
     def objective_lstm(self, trial):
         model = keras.models.Sequential()
@@ -69,6 +72,7 @@ class ModelsBuild:
             verbose=False,
         )
         score = self.get_score(model)
+        self._save_model(trial, model)
         return score
 
     def objective_gru(self, trial):
@@ -118,6 +122,7 @@ class ModelsBuild:
         )
 
         score = self.get_score(model)
+        self._save_model(trial, model)
         return score
 
     def objective_mlp(self, trial):
@@ -149,6 +154,9 @@ class ModelsBuild:
         # optimizing over different metric than accuracy
         # ps: take a look at score function to check for multi-objective optimization
         score = self.get_score(model)
+
+        self._save_model(trial, model)
+
         return score
 
     def objective_svm(self, trial):
@@ -158,6 +166,7 @@ class ModelsBuild:
                     class_weight=trial.suggest_categorical("class_weight", ['balanced', None]))
         model.fit(self.dataset.X_train, self.dataset.y_train.reshape((len(self.dataset.y_train, ))))
         score = self.get_score(model)
+        self._save_model(trial, model)
         return score
 
     def objective_rf(self, trial):
@@ -168,6 +177,7 @@ class ModelsBuild:
         model.fit(self.dataset.X_train, self.dataset.y_train.reshape((len(self.dataset.y_train,))))
         # # TODO: change score
         score = self.get_score(model)
+        self._save_model(trial, model)
         return score
 
     def objective_cnn(self, trial):
@@ -212,6 +222,7 @@ class ModelsBuild:
         )
 
         score = self.get_score(model)
+        self._save_model(trial, model)
         return score
 
     def metrics_report(self, model):
@@ -233,56 +244,45 @@ class ModelsBuild:
         if self.metrics == 'multi':
             return [report['mounted']['recall'], report['jammed']['precision']]
 
-    # OLD FUNCTIONS
-    '''
-    def save_model(self, label, model_wrapped, path_model, path_model_meta_data, dataset):
+    def save_best_model(self, study, dataset=None, label=None):
+        # 1 get paths
+        # temp_files = os.listdir(self.path_to_temp_trained_models)
+        old_path = self.path_to_temp_trained_models + str(study.best_trial.number) + '_temp_' + label + '_' + dataset
+        new_path = self.path_to_best_trained_models + 'best_' + label + '_' + dataset
 
         if label == 'svm' or label == 'rf':
-            from joblib import dump, load
-            svm_file_json = path_model + label + '_' + dataset + '_dataset.json'
-            svm_file_yaml = path_model + label + '_' + dataset + '_dataset.yaml'
-            svm_file_joblib = path_model + label + '_' + dataset + '_dataset.joblib'
-            try:
-                skjson.to_json(model_wrapped.best_estimator_, svm_file_json)
-            except:
-                print("No JSON file was saved...")
-            # with open(svm_file_yaml, 'w') as f:
-            #     yaml.dump(model_wrapped.best_estimator_.get_values(), f)
-            dump(model_wrapped.best_estimator_, svm_file_joblib)
+            old_path += '.joblib'
+            new_path += '.joblib'
         else:
-            # writing meta data. Model was saved within the callbacks
-            # json_string = model_wrapped.best_estimator_.model.to_json() AQUIII
-            yaml_string = model_wrapped.best_estimator_.model.to_yaml()
-            # sklearn.to_json() nao funciona com modelo do keras
-            # skjson.to_json(model_wrapped.best_estimator_, 'teste.json')
+            old_path += '.h5'
+            new_path += '.h5'
 
-            # json_string.update()
+        # 2 move it to the "best" folder
+        move(old_path, new_path)
 
-            # keras.save_model(path_model + label + dataset + "dataset.h5")
+        # 2 delete all files from "temp" folder
+        folder_list = os.listdir(self.path_to_temp_trained_models)
+        for file in folder_list:
+            os.remove(self.path_to_temp_trained_models + file)
 
-            # with open(path_model + label + '_' + dataset + '_dataset.json', 'w') as json_file:
-            #     json_file.write(json_string)
+    def save_meta_data(self, study, dataset=None, label=None):
+        new_path = self.path_to_best_trained_models + 'best_' + label + '_' + dataset + '.json'
+        study.trials_dataframe().iloc[study.best_trial.number].to_json(new_path)
 
-            with open(path_model + label + '_' + dataset + '_dataset.yaml', 'w') as yaml_file:
-                yaml_file.write(yaml_string)
+    def _save_model(self, trial, model):
+        if self.label == 'svm' or self.label == 'rf':
+            # sklearn
+            model_path = self.path_to_temp_trained_models + \
+                         str(trial.number) + '_temp_' + self.label + '_' + self.dataset_name + '.joblib'
+            dump(model, model_path)
+        else:
+            # keras models
+            model_path = self.path_to_temp_trained_models + \
+                         str(trial.number) + '_temp_' + self.label + '_' + self.dataset_name + '.h5'
+            model.save(model_path)
 
-            # scores and others
-            best_params_in_yaml = yaml.dump(model_wrapped.best_params_)
-            with open(path_model_meta_data + label + '_best_params_' + dataset + '_dataset.yaml', 'w') as yaml_file:
-                yaml_file.write(best_params_in_yaml)
-
-            cv_results_in_yaml = yaml.dump(model_wrapped.cv_results_)
-            with open(path_model_meta_data + label + '_cv_results_' + dataset + '_dataset.yaml', 'w') as yaml_file:
-                yaml_file.write(cv_results_in_yaml)
-
-
-
-            # writing model scores in this setup
-            # how to save metrics
-            # implement for svm
-
-        return
-
+    # OLD FUNCTIONS
+    '''
     def load_model(self, path_model, label, dataset, parameters, random_weights=False):  # TODO: parameters still not used yet
         path_to_load_model = path_model + dataset + "/" + label + "_" + dataset + "_" + "dataset"
         if label == 'mlp':
