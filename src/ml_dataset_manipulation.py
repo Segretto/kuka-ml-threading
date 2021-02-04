@@ -7,13 +7,14 @@ class DatasetManip():
     def __init__(self, label='mlp', dataset='original'):
         print('Loading data')
         self.path_dataset, self.path_model, self.path_meta_data, self.path_model_meta_data = self.load_paths()
-        X_train, X_test, y_train, y_test = self.load_data()  # aqui foi preguiça
+        X_train, X_test, y_train, y_test = self.load_data(dataset=dataset)
         X_train['labels'] = y_train.copy()
         X_train, X_test = self.data_normalization(X_train, X_test, label)
         self.X_train, self.X_train_vl, self.X_val, self.X_test, self.y_train, self.y_train_vl, self.y_val, self.y_test = \
             self.create_validation_set(X_train, X_test, y_train, y_test, label)
         print('Loading data done')
 
+    # TODO: delete the file str_of_root_folder.yaml
     # def _load_root_path(self):
     #     path_to_root_file = './str_of_root_folder.yaml'
     #     with open(path_to_root_file, 'r') as file:
@@ -24,7 +25,7 @@ class DatasetManip():
     def load_paths(self):
         # path_root = self._load_root_path()
         path_root = ''
-        path_dataset = path_root + '../dataset/'
+        path_dataset = path_root + 'dataset/'
         path_model = path_root + 'models/optimization/model/'
         path_meta_data = path_root + 'models/optimization/meta_data/'
         path_model_meta_data = path_root + 'models/optimization/models_meta_data/'
