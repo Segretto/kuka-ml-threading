@@ -29,6 +29,21 @@ class ModelsBuild:
         self.path_to_temp_trained_models = 'output/models_trained/temp/'
         self.path_to_best_trained_models = 'output/models_trained/best/'
 
+    def objective(self, trial, label=None):
+        if label == 'lstm':
+            score = self.objective_lstm(trial)
+        if label == 'gru':
+            score = self.objective_gru(trial)
+        if label == 'mlp':
+            score = self.objective_mlp(trial)
+        if label == 'svm':
+            score = self.objective_svm(trial)
+        if label == 'cnn':
+            score = self.objective_cnn(trial)
+        if label == 'rf':
+            score = self.objective_rf(trial)
+        return score
+
     def objective_lstm(self, trial):
         model = keras.models.Sequential()
         # input layer
@@ -173,7 +188,7 @@ class ModelsBuild:
         model = RF(n_estimators=int(trial.suggest_loguniform('rf_n_estimators', 1, 100)),
                    max_depth=int(trial.suggest_loguniform('rf_max_depth', 2, 32)),
                    max_leaf_nodes=trial.suggest_int('rf_max_leaf', 2, 40),
-                   min_samples_split=trial.suggest_int('rf_min_samples_split', 1.1, 10.1))
+                   min_samples_split=trial.suggest_int('rf_min_samples_split', 2, 10))
         model.fit(self.dataset.X_train, self.dataset.y_train.reshape((len(self.dataset.y_train,))))
         # # TODO: change score
         score = self.get_score(model)
@@ -266,7 +281,7 @@ class ModelsBuild:
             os.remove(self.path_to_temp_trained_models + file)
 
     def save_meta_data(self, study, dataset=None, label=None):
-        new_path = self.path_to_best_trained_models + 'best_' + label + '_' + dataset + '.json'
+        new_path = self.path_to_models_meta_data + 'best_' + label + '_' + dataset + '.json'
         study.trials_dataframe().iloc[study.best_trial.number].to_json(new_path)
 
     def _save_model(self, trial, model):

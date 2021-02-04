@@ -3,9 +3,7 @@ import optuna
 
 # THE USER SHOULD MODIFY THESE ONES
 labels = ['mlp', 'rf', 'svm', 'cnn', 'gru', 'lstm']
-# labels = ['gru']
 datasets = ['original', 'nivelado', 'quadruplicado']
-# datasets = ['nivelado']
 
 N_TRIALS = 3
 TIMEOUT = 600
@@ -25,27 +23,12 @@ for dataset in datasets:
             study = optuna.create_study(study_name=study_name, directions=["maximize", "maximize"])
 
         # craft the objective here
-        # TODO: better way to choose model --> read question 2 https://optuna.readthedocs.io/en/stable/faq.html
-        if label is 'mlp':
-            study.optimize(models_build.objective_mlp, n_trials=N_TRIALS, timeout=TIMEOUT)
-        if label is 'svm':
-            study.optimize(models_build.objective_svm, n_trials=N_TRIALS, timeout=TIMEOUT)
-        if label is 'rf':
-            study.optimize(models_build.objective_rf, n_trials=N_TRIALS, timeout=TIMEOUT)
-        if label is 'lstm':
-            study.optimize(models_build.objective_lstm, n_trials=N_TRIALS, timeout=TIMEOUT)
-        if label is 'cnn':
-            study.optimize(models_build.objective_cnn, n_trials=N_TRIALS, timeout=TIMEOUT)
-        if label is 'gru':
-            study.optimize(models_build.objective_gru, n_trials=N_TRIALS, timeout=TIMEOUT)
+        study.optimize(lambda trial: models_build.objective(trial, label=label), timeout=TIMEOUT, n_trials=N_TRIALS)
 
         print("Number of finished trials: {}".format(len(study.trials)))
-
         print("Best trial:")
         best_trial = study.best_trial
-
         print("  Value: {}".format(best_trial.value))
-
         print("  Params: ")
         for key, value in best_trial.params.items():
             print("    {}: {}".format(key, value))
