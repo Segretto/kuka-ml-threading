@@ -7,7 +7,7 @@ import sklearn_json as skjson
 import tensorflow as tf
 import json
 from keras.callbacks import Callback
-from sklearn.metrics import f1_score, precision_score, recall_score
+from sklearn.metrics import f1_score, precision_score, recall_score, classification_report
 import numpy as np
 from .ml_dataset_manipulation import DatasetManip
 
@@ -20,35 +20,18 @@ INPUT_SHAPE = 1556
 FEATURES = 6
 MAX_DROPOUT = 0.6
 
-# TODO: work on keras callbacks for precision training
+
 class ModelsBuild:
-    def __init__(self, label='mlp', dataset='original'):
+    def __init__(self, label='mlp', dataset='original', metrics='recall'):
         self.dataset = DatasetManip(label, dataset)
-
-    def build_model(self, trial, label='lstm'):
-        if label == 'lstm':
-            model = keras.wrappers.scikit_learn.KerasClassifier(self.build_model_lstm)
-        if label == 'gru':
-            model = keras.wrappers.scikit_learn.KerasClassifier(self.build_model_gru)
-        if label == 'mlp':
-            score = self.objective_mlp(trial)
-        if label == 'svm':
-            model = self.build_model_svm()
-        if label == 'cnn':
-            model = keras.wrappers.scikit_learn.KerasClassifier(self.build_model_cnn)
-        if label == 'rf':
-            model = self.build_model_rf()
-
-        return score
+        self.metrics = metrics
 
     def objective_lstm(self, trial):
         model = keras.models.Sequential()
-        input_shape = 1556
-        features = 6
         # input layer
         n_hidden = trial.suggest_int('n_hidden', 0, 5)
         if n_hidden == 0:
-            model.add(keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 8),
+            model.add(keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 9),
                                         input_shape=(INPUT_SHAPE, FEATURES),
                                         return_sequences=False,
                                         dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT)))
@@ -60,12 +43,12 @@ class ModelsBuild:
                                         recurrent_dropout=trial.suggest_uniform('dropout_rec_input', 0, MAX_DROPOUT)))
             if n_hidden >= 1:
                 for layer in range(n_hidden-1):
-                    model.add(keras.layers.LSTM(units=trial.suggest_int('n_hidden_' + str(layer + 1), 1, 8),
+                    model.add(keras.layers.LSTM(units=trial.suggest_int('n_hidden_' + str(layer + 1), 1, 9),
                                                 return_sequences=True,
                                                 dropout=trial.suggest_uniform('dropout_' + str(layer + 1), 0, MAX_DROPOUT),
                                                 recurrent_dropout=trial.suggest_uniform('dropout_rec_' + str(layer + 1), 0, MAX_DROPOUT)))
                 else:
-                    model.add(keras.layers.LSTM(units=trial.suggest_int('n_hidden_' + str(n_hidden + 1), 1, 8),
+                    model.add(keras.layers.LSTM(units=trial.suggest_int('n_hidden_' + str(n_hidden + 1), 1, 9),
                                                 return_sequences=False,
                                                 dropout=trial.suggest_uniform('dropout_' + str(n_hidden + 1), 0, MAX_DROPOUT)))
 
@@ -85,9 +68,8 @@ class ModelsBuild:
             epochs=EPOCHS,
             verbose=False,
         )
-        score = model.evaluate(self.dataset.X_test, self.dataset.y_test, verbose=0)
-
-        return score[1]
+        score = self.get_score(model)
+        return score
 
     def objective_gru(self, trial):
         # print("NOT WORKING. Problems with shapes...")
@@ -96,19 +78,19 @@ class ModelsBuild:
         n_hidden = trial.suggest_int('n_hidden', 0, 5)
         # input layer
         if n_hidden == 0:
-            model.add(keras.layers.GRU(units=trial.suggest_int('n_input', 1, 8),
+            model.add(keras.layers.GRU(units=trial.suggest_int('n_input', 1, 9),
                                        input_shape=(INPUT_SHAPE, FEATURES),
                                        return_sequences=False,
                                        dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT)))
         else:
-            model.add(keras.layers.GRU(units=trial.suggest_int('n_input', 1, 8),
+            model.add(keras.layers.GRU(units=trial.suggest_int('n_input', 1, 9),
                                        input_shape=(INPUT_SHAPE, FEATURES),
                                        return_sequences=True,
                                        dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT),
                                        recurrent_dropout=trial.suggest_uniform('dropout_rec_input', 0, MAX_DROPOUT)))
             if n_hidden >= 1:
                 for layer in range(n_hidden-1):
-                    model.add(keras.layers.GRU(units=trial.suggest_int('n_hidden_' + str(layer), 1, 8),
+                    model.add(keras.layers.GRU(units=trial.suggest_int('n_hidden_' + str(layer), 1, 9),
                                                return_sequences=True,
                                                dropout=trial.suggest_uniform('dropout_' + str(layer), 0, MAX_DROPOUT),
                                                recurrent_dropout=trial.suggest_uniform('dropout_rec_' + str(layer), 0,
@@ -135,22 +117,18 @@ class ModelsBuild:
             verbose=False,
         )
 
-        score = model.evaluate(self.dataset.X_test, self.dataset.y_test, verbose=0)
-
-        return score[1]
+        score = self.get_score(model)
+        return score
 
     def objective_mlp(self, trial):
         model = keras.models.Sequential()
-        input_shape = 1556
-        features = 6
-        model.add(keras.layers.InputLayer(input_shape=[input_shape*features]))
+        model.add(keras.layers.InputLayer(input_shape=[INPUT_SHAPE*FEATURES]))
         n_hidden = trial.suggest_int('n_hidden', 1, 5)
         for layer in range(n_hidden):
-            n_neurons = trial.suggest_int('n_neurons_' + str(layer), 8, 128, step=8)
+            n_neurons = trial.suggest_int('n_neurons_' + str(layer), 1, 128)
             model.add(keras.layers.Dense(n_neurons, activation='relu'))
             model.add(keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer), 0, MAX_DROPOUT)))
         model.add(keras.layers.Dense(3, activation="softmax"))
-        # optimizer = keras.optimizers.SGD(lr=learning_rate)
         optimizer = keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
         model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer,
                       metrics=['accuracy'])
@@ -164,39 +142,38 @@ class ModelsBuild:
             epochs=EPOCHS,
             verbose=False,
         )
-        score = model.evaluate(self.dataset.X_test, self.dataset.y_test, verbose=0)
+        # OLD
+        # score = model.evaluate(self.dataset.X_test, self.dataset.y_test, verbose=0)
+        # return score[1]
 
-        return score[1]
+        # optimizing over different metric than accuracy
+        # ps: take a look at score function to check for multi-objective optimization
+        score = self.get_score(model)
+        return score
 
     def objective_svm(self, trial):
         model = SVC(C=trial.suggest_loguniform('svc_c', 1e-10, 1e10),
                     kernel=trial.suggest_categorical("kernel", ["rbf", "sigmoid"]),
-                    probability=True, gamma='auto', class_weight=trial.suggest_categorical("class_weight", ['balanced', None]))
-        score = sklearn.model_selection.cross_val_score(model, self.dataset.X_train,
-                                                        self.dataset.y_train.reshape((len(self.dataset.y_train,))),
-                                                        n_jobs=-1, cv=3)
-        # TODO: change score
-        accuracy = score.mean()
-        return accuracy
+                    probability=True, gamma='auto',
+                    class_weight=trial.suggest_categorical("class_weight", ['balanced', None]))
+        model.fit(self.dataset.X_train, self.dataset.y_train.reshape((len(self.dataset.y_train, ))))
+        score = self.get_score(model)
+        return score
 
     def objective_rf(self, trial):
         model = RF(n_estimators=int(trial.suggest_loguniform('rf_n_estimators', 1, 100)),
                    max_depth=int(trial.suggest_loguniform('rf_max_depth', 2, 32)),
                    max_leaf_nodes=trial.suggest_int('rf_max_leaf', 2, 40),
-                   min_samples_split=trial.suggest_int('rf_min_samples_split', 1, 10))
-        score = sklearn.model_selection.cross_val_score(model, self.dataset.X_train,
-                                                        self.dataset.y_train.reshape((len(self.dataset.y_train,))),
-                                                        n_jobs=-1, cv=3)
-        # TODO: change score
-        accuracy = score.mean()
-        return accuracy
+                   min_samples_split=trial.suggest_int('rf_min_samples_split', 1.1, 10.1))
+        model.fit(self.dataset.X_train, self.dataset.y_train.reshape((len(self.dataset.y_train,))))
+        # # TODO: change score
+        score = self.get_score(model)
+        return score
 
-    # def build_model_cnn(self, input_shape=1556, n_hidden=1, features=1, filters=16, kernel_size=7,
-    #                     dropout=0.2, pool_size=2, n_neurons=512):
     def objective_cnn(self, trial):
         model = keras.models.Sequential()
 
-        n_layers_cnn = trial.suggest_int('n_hidden', 1, 5)
+        n_layers_cnn = trial.suggest_int('n_hidden_cnn', 1, 5)
 
         model.add(keras.layers.InputLayer(input_shape=[INPUT_SHAPE, FEATURES]))
 
@@ -211,7 +188,7 @@ class ModelsBuild:
 
         n_layers_dense = trial.suggest_int('n_hidden', 1, 4)
         for layer in range(n_layers_dense):
-            model.add(keras.layers.Dense(trial.suggest_int('n_neurons_dense' + str(layer), 1, 129, step=16),
+            model.add(keras.layers.Dense(trial.suggest_int('n_neurons_dense' + str(layer), 1, 129),
                                          activation='relu'))
             # TODO: add dropout and regularizer?
             # model.add(keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer), 0, MAX_DROPOUT)))
@@ -234,12 +211,30 @@ class ModelsBuild:
             verbose=False,
         )
 
-        score = model.evaluate(self.dataset.X_test, self.dataset.y_test, verbose=0)
+        score = self.get_score(model)
+        return score
 
-        return score[1]
+    def metrics_report(self, model):
+        try:  # TODO: le gamabiarra pra quando é NN e quando é sklearn
+            y_pred = np.argmax(model.predict(self.dataset.X_test.values).reshape(self.dataset.X_test.values.shape[0], 1),
+                               axis=1)
+        except ValueError:
+            y_pred = np.argmax(model.predict(self.dataset.X_test.values), axis=1)
+        # return recall_score(y_true=self.dataset.y_test, y_pred=y_pred, average='macro')
+        return classification_report(y_true=self.dataset.y_test, y_pred=y_pred,
+                                     output_dict=True, target_names=['mounted', 'not mounted', 'jammed'])
 
-        return
+    def get_score(self, model):
+        report = self.metrics_report(model)
+        if self.metrics == 'recall':
+            return report['mounted']['recall']
+        if self.metrics == 'precision':
+            return report['jammed']['precision']
+        if self.metrics == 'multi':
+            return [report['mounted']['recall'], report['jammed']['precision']]
 
+    # OLD FUNCTIONS
+    '''
     def save_model(self, label, model_wrapped, path_model, path_model_meta_data, dataset):
 
         if label == 'svm' or label == 'rf':
@@ -382,55 +377,7 @@ class ModelsBuild:
         path_to_load_model = path_to_load_model + ".joblib"
         model = joblib.load(path_to_load_model)
         return model
-
     '''
-    #unused class
-    
-    class GetLossAnalysis(keras.callbacks.Callback):
-        def on_epoch_end(self, epoch, logs=None):
-            get_stats = pd.read_csv(path_meta_data + 'lstm_error_analysis.csv', index_col=0)
-    
-            if len(get_stats.columns) == 0:
-                get_stats.columns = ['epoch', 'train_loss', 'test_loss']
-    
-            get_stats['epoch'] = epoch
-            get_stats['train_loss'] = logs.get('loss')
-            get_stats['test_loss'] = logs.get('val_loss')
-    
-            get_stats.to_csv(path_meta_data + 'lstm_error_analysis.csv')
-    
-    loss_analisys_cb = GetLossAnalysis()
-    
-    get_stats = pd.DataFrame([])
-    get_stats.to_csv(path_meta_data + label + '_error_analysis.csv')
-    '''
-
-    # from keras.models import load_model
-    # from keras.utils import CustomObjectScope
-    # from keras.initializers import glorot_uniform
-    #
-    # with CustomObjectScope({'GlorotUniform': glorot_uniform()}):
-    #     model = tf.keras.models.load_weights(path)
-    # return model
-
-
-class Metrics(Callback):
-    def on_train_begin(self, logs={}):
-        self.val_f1s = []
-        self.val_recalls = []
-        self.val_precisions = []
-
-    def on_epoch_end(self, epoch, logs={}):
-        val_predict = (np.asarray(self.model.predict(self.model.validation_data[0]))).round()
-        val_targ = self.model.validation_data[1]
-        _val_f1 = f1_score(val_targ, val_predict)
-        _val_recall = recall_score(val_targ, val_predict)
-        _val_precision = precision_score(val_targ, val_predict)
-        self.val_f1s.append(_val_f1)
-        self.val_recalls.append(_val_recall)
-        self.val_precisions.append(_val_precision)
-        print(" - val_f1: % f - val_precision: % f - val_recall % f" %(_val_f1, _val_precision, _val_recall))
-        return
 
 
 class Metrics(Callback):

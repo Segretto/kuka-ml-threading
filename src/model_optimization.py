@@ -15,22 +15,24 @@ labels = ['mlp', 'rf', 'svm', 'cnn', 'gru', 'lstm']
 datasets = ['original', 'nivelado', 'quadruplicado']
 # datasets = ['nivelado']
 
-N_TRIALS = 5
+N_TRIALS = 2
 TIMEOUT = 600
+METRICS = 'recall'  # or 'precision' or 'multi' for both
 
 for dataset in datasets:
     for label in labels:
 
-        # TODO: only load once
-        models_build = ModelsBuild(label, dataset)
+        # TODO: load all data only once
+        models_build = ModelsBuild(label, dataset, metrics=METRICS)
 
-        # all equal
-        # TODO: make a standard way to create names. It is possible to stop and pick it up from stopping point.
-        # Check functions Study.create_study(name=str()) and .load_study()
-        study = optuna.create_study(direction="maximize")
+        study_name = dataset + '_' + label
+        if METRICS is not 'multi':
+            study = optuna.create_study(study_name=study_name, direction="maximize")
+        else:
+            study = optuna.create_study(study_name=study_name, directions=["maximize", "maximize"])
 
-        # craft the objective here # TODO: jeito melhor pra selecionar o modelo
-        # TODO: http://rali.iro.umontreal.ca/rali/sites/default/files/publis/SokolovaLapalme-JIPM09.pdf multiclass
+        # craft the objective here
+        # TODO: better way to choose model
         if label is 'mlp':
             study.optimize(models_build.objective_mlp, n_trials=N_TRIALS, timeout=TIMEOUT)
         if label is 'svm':
@@ -61,3 +63,9 @@ for dataset in datasets:
 
         # TODO: get more insight on visualization
         # optuna.visualization.plot_pareto_front(study)
+
+# what is worse:
+#   - the classifier says the it is going to mount and then get jammed (FN); --> Recall for mounted
+# or
+#   - the classifier says it is going to jam and mount (FP); --> Precision for jammed
+# http://rali.iro.umontreal.ca/rali/sites/default/files/publis/SokolovaLapalme-JIPM09.pdf multiclass

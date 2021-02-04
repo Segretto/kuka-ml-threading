@@ -36,7 +36,7 @@ predictions = pd.DataFrame(pred_shape, columns=pred_columns)
 
 # Recreating the optimized model but with re-initialized weights in order to fit them with each data size
 #################
-model = ml_models.load_model(path_model, label, dataset, parameters, random_weights=True)  # TODO: LOADING MY MODEL
+model = ml_models.load_model(path_model, label, dataset, parameters, random_weights=True)
 
 ##################
 # learning curve plots: https://scikit-learn.org/stable/auto_examples/model_selection/plot_learning_curve.html
