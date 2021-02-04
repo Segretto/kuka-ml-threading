@@ -21,6 +21,7 @@ TIMEOUT = 600
 for dataset in datasets:
     for label in labels:
 
+        # TODO: only load once
         models_build = ModelsBuild(label, dataset)
 
         # all equal
@@ -45,18 +46,15 @@ for dataset in datasets:
         print("Number of finished trials: {}".format(len(study.trials)))
 
         print("Best trial:")
-        trial = study.best_trial
+        best_trial = study.best_trial
 
-        print("  Value: {}".format(trial.value))
+        print("  Value: {}".format(best_trial.value))
 
         print("  Params: ")
-        for key, value in trial.params.items():
+        for key, value in best_trial.params.items():
             print("    {}: {}".format(key, value))
+
+        study.trials_dataframe().iloc[best_trial.number].to_json('dataset_'+dataset+'_model_'+label+'.json')
 
         # TODO: get more insight on visualization
         # optuna.visualization.plot_pareto_front(study)
-
-# https://optuna.readthedocs.io/en/stable/reference/generated/optuna.study.Study.html#optuna.study.Study
-# TODO: at the end, use previous link to get a pandas dataframe and save to json
-
-
