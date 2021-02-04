@@ -9,7 +9,7 @@ import json
 from keras.callbacks import Callback
 from sklearn.metrics import f1_score, precision_score, recall_score, classification_report
 import numpy as np
-from .ml_dataset_manipulation import DatasetManip
+from src.ml_dataset_manipulation import DatasetManip
 
 
 BATCHSIZE = 128

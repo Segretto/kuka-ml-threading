@@ -1,12 +1,4 @@
-from optimization.ml_models import ModelsBuild
-import optimization.ml_dataset_manipulation as ml_dataset_manip
-import optimization.ml_models_parameters as ml_optim
-from sklearn.model_selection import RandomizedSearchCV
-import matplotlib.pyplot as plt
-import json
-from sklearn.metrics import classification_report
-import pandas as pd
-from numpy import arange
+from lib.model_training.ml_models import ModelsBuild
 import optuna
 
 # THE USER SHOULD MODIFY THESE ONES

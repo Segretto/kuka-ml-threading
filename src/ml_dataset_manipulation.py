@@ -4,7 +4,7 @@ import yaml
 
 
 class DatasetManip():
-    def __init__(self, label='mlp'):
+    def __init__(self, label='mlp', dataset='original'):
         print('Loading data')
         self.path_dataset, self.path_model, self.path_meta_data, self.path_model_meta_data = self.load_paths()
         X_train, X_test, y_train, y_test = self.load_data()  # aqui foi preguiça
