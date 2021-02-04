@@ -74,7 +74,6 @@ class ModelsBuild:
         # output layer
         model.add(keras.layers.Dense(OUTPUT_SHAPE, activation='softmax'))
         optimizer = keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
-        # TODO: change metric
         model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
         model.fit(
@@ -123,7 +122,6 @@ class ModelsBuild:
         # output layer
         model.add(keras.layers.Dense(OUTPUT_SHAPE, activation='softmax'))
         optimizer = keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
-        # TODO: change metric
         model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
         model.fit(
@@ -190,7 +188,6 @@ class ModelsBuild:
                    max_leaf_nodes=trial.suggest_int('rf_max_leaf', 2, 40),
                    min_samples_split=trial.suggest_int('rf_min_samples_split', 2, 10))
         model.fit(self.dataset.X_train, self.dataset.y_train.reshape((len(self.dataset.y_train,))))
-        # # TODO: change score
         score = self.get_score(model)
         self._save_model(trial, model)
         return score

@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-import yaml
 
 
 class DatasetManip():
@@ -13,14 +12,6 @@ class DatasetManip():
         self.X_train, self.X_train_vl, self.X_val, self.X_test, self.y_train, self.y_train_vl, self.y_val, self.y_test = \
             self.create_validation_set(X_train, X_test, y_train, y_test, label)
         print('Loading data done')
-
-    # TODO: delete the file str_of_root_folder.yaml
-    # def _load_root_path(self):
-    #     path_to_root_file = './str_of_root_folder.yaml'
-    #     with open(path_to_root_file, 'r') as file:
-    #         p = yaml.safe_load(file)
-    #         path_root = p['paths']['path_root']
-    #     return path_root
 
     def load_paths(self):
         # path_root = self._load_root_path()
