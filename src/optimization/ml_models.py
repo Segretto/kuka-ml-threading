@@ -211,7 +211,7 @@ class ModelsBuild:
 
         n_layers_dense = trial.suggest_int('n_hidden', 1, 4)
         for layer in range(n_layers_dense):
-            model.add(keras.layers.Dense(trial.suggest_int('n_neurons_dense' + str(layer), 1, 128, step=16),
+            model.add(keras.layers.Dense(trial.suggest_int('n_neurons_dense' + str(layer), 1, 129, step=16),
                                          activation='relu'))
             # TODO: add dropout and regularizer?
             # model.add(keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer), 0, MAX_DROPOUT)))
