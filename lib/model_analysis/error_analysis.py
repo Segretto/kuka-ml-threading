@@ -1,15 +1,15 @@
 import pandas as pd
-import optimization.ml_models as ml_models
+import optimization.ml_models_utils as ml_models
 import optimization.ml_dataset_manipulation as ml_data_manip
-import optimization.ml_models_parameters as ml_model_optim
+import optimization.ml_model_optimization as ml_model_optim
 import numpy as np
 import keras
 import matplotlib.pyplot as plt
 
 # THE USER SHOULD MODIFY THESE ONES
 parameters = 'fx|fy|fz|mx|my|mz'  # parameters = 'fz'
-label = 'lstm'  # lstm or mlp or svm or cnn or rf
-dataset = 'nivelado'
+label = 'mlp'  # lstm or mlp or svm or cnn or rf
+dataset = 'original'
 
 # Loading paths
 _, path_model, path_meta_data, _ = ml_data_manip.load_paths()
@@ -26,7 +26,7 @@ X_train, X_train_vl, X_val, X_test, y_train, y_train_vl, y_val, y_test = \
 stats = pd.DataFrame([])
 
 # The amount of data added for each training
-data_batch = 50
+data_batch = 1
 number_of_steps = int(X_train.shape[0] / data_batch)
 
 # Setting the prediction data frame which will store the predictions of each trained model
@@ -51,13 +51,12 @@ for i in range(1, number_of_steps):
         model.set_weights(init_weights)
 
     if i * data_batch > X_train.shape[0] - 1:
-        if label == 'mlp' or label == 'cnn' or label == 'lstm':
-            history = model.fit(X_train[:X_train.shape[0] - 1, :], y_train[:y_train.shape[0] - 1], epochs=100,
-                                validation_data=(X_test, y_test),
-                                callbacks=[early_stopping], workers=8)
-        else:
-            history = model.fit(X_train[:X_train.shape[0] - 1, :], y_train[:y_train.shape[0] - 1]) #,
-                                #validation_data=(X_test, y_test), workers=8)
+        # if label == 'mlp' or label == 'cnn' or label == 'lstm':
+        history = model.fit(X_train[:X_train.shape[0] - 1, :], y_train[:y_train.shape[0] - 1], epochs=100,
+                            validation_data=(X_test, y_test),
+                            callbacks=[early_stopping], workers=8)
+        # else:
+        #     history = model.fit(X_train[:X_train.shape[0] - 1, :], y_train[:y_train.shape[0] - 1])  # validation_data=(X_test, y_test), workers=8)
 
         predictions['size_' + str(i * data_batch)] = model.predict(X_test, y_test)
 
@@ -65,17 +64,16 @@ for i in range(1, number_of_steps):
         stats = pd.append([stats, temp.iloc[temp.shape[0] - 1, :]])
         break
 
-    if label == 'mlp' or label == 'cnn' or label == 'lstm':
-        history = model.fit(X_train[:i * data_batch], y_train[:i * data_batch], batch_size=32, epochs=100,
-                            validation_data=(X_test, y_test),
-                            callbacks=[early_stopping], workers=8)
-    else:
-        history = model.fit(X_train[:i * data_batch], y_train[:i * data_batch]) #,
-                            # validation_data=(X_test, y_test), workers=8)
+    # if label == 'mlp' or label == 'cnn' or label == 'lstm':
+    history = model.fit(X_train[:i * data_batch], y_train[:i * data_batch], epochs=100,
+                        validation_data=(X_test, y_test),
+                        callbacks=[early_stopping], workers=8)
+    # else:
+    #     history = model.fit(X_train[:i * data_batch], y_train[:i * data_batch])  # ,validation_data=(X_test, y_test), workers=8)
 
     predictions['size_' + str(i)] = np.argmax(model.predict(X_test))#, axis=1)
 
-    temp = pd.DataFrame(history.history)  # TODO: adjust this guy to RF and SVM
+    temp = pd.DataFrame(history.history)
     stats = stats.append(temp.iloc[temp.shape[0] - 1, :])
 
 # Log of models data
