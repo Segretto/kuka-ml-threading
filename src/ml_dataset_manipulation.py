@@ -4,13 +4,12 @@ import numpy as np
 
 class DatasetManip():
     def __init__(self, label='mlp', dataset='original'):
+        self.label = label
         print('Loading data')
         self.path_dataset, self.path_model, self.path_meta_data, self.path_model_meta_data = self.load_paths()
-        X_train, X_test, y_train, y_test = self.load_data(dataset=dataset)
-        X_train['labels'] = y_train.copy()
-        X_train, X_test = self.data_normalization(X_train, X_test, label)
-        self.X_train, self.X_train_vl, self.X_val, self.X_test, self.y_train, self.y_train_vl, self.y_val, self.y_test = \
-            self.create_validation_set(X_train, X_test, y_train, y_test, label)
+        X_train, X_test, self.y_train, self.y_test = self.load_data(dataset=dataset)
+        self.X_train, self.X_test = self.data_normalization(X_train, X_test)
+
         print('Loading data done')
 
     def load_paths(self):
@@ -53,13 +52,17 @@ class DatasetManip():
         print('Shape y_train: ', np.shape(y[0]))
         print('Shape y_test : ', np.shape(y[1]))
 
+        y[0] = y[0] - 1
+        y[1] = y[1] - 1
+
         # return X_train, X_test, y_train, y_test
         return X[0], X[1], y[0], y[1]  # X_train, X_test, y_train, y_test
 
-    def reshape_lstm_process(self, X_reshape, parameters):
+    def reshape_lstm_process(self, X_reshape, parameters=6):
         X_reshape = np.array(X_reshape)
         # X_reshape = np.array(X_train)[:,:-1]
-        number_of_features = parameters.count('|') + 1
+        # number_of_features = parameters.count('|') + 1
+        number_of_features = parameters
 
         shape_input = int(np.shape(X_reshape)[1] / number_of_features)
         X_new = np.array([])
@@ -98,7 +101,7 @@ class DatasetManip():
 
         return X
 
-    def data_normalization(self, X_train, X_test, label):
+    def data_normalization(self, X_train, X_test):
         # X_train = X_train / 30
         # X_test = X_test / 30
         # X_train_vl = X_train_vl / 30
@@ -120,13 +123,13 @@ class DatasetManip():
                                                                                                     axis=0)
         return df
 
-    def create_validation_set(self, X_train, X_test, y_train, y_test, label, parameters='fx|fy|fz|mx|my|mz'):
+    def create_validation_set(self, parameters='fx|fy|fz|mx|my|mz'):
         from sklearn.model_selection import StratifiedShuffleSplit
 
-        split = StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=27)
-        for train, val in split.split(X_train, X_train['labels']):
-            X_train_vl = X_train.iloc[train].copy()
-            X_val = X_train.iloc[val].copy()
+        split = StratifiedShuffleSplit(n_splits=1, test_size=0.2)  # , random_state=27)
+        for train, val in split.split(self.X_train, self.X_train['labels']):
+            X_train_vl = self.X_train.iloc[train].copy()
+            X_val = self.X_train.iloc[val].copy()
 
         y_train_vl = X_train_vl['labels'].copy()
         y_val = X_val['labels'].copy()
@@ -134,12 +137,12 @@ class DatasetManip():
         X_train_vl = X_train_vl.iloc[:, ~X_train_vl.columns.str.contains('labels')]
         X_val = X_val.iloc[:, ~X_val.columns.str.contains('labels')]
         # X_train = X_train.iloc[:, ~X_train.columns.str.contains('labels')]
-        X_train = X_train.drop(['labels'], axis=1)
+        X_train = self.X_train.drop(['labels'], axis=1)
 
         y_train_vl = np.array(y_train_vl) - 1
         y_val = np.array(y_val) - 1
-        y_test = np.array(y_test) - 1
-        y_train = np.array(y_train) - 1
+        y_test = np.array(self.y_test) - 1
+        y_train = np.array(self.y_train) - 1
 
         print("X_train_vl.shape = ", X_train_vl.shape)
         print("X_val.shape = ", X_val.shape)
@@ -147,10 +150,10 @@ class DatasetManip():
         print("y_train_vl.shape = ", y_train_vl.shape)
         print("y_val.shape = ", y_val.shape)
 
-        if label == 'lstm' or label == 'cnn' or label == 'gru':
+        if self.label == 'lstm' or self.label == 'cnn' or self.label == 'gru':
             # Reshaping data for LSTM and CNN
             print("Reshaping for LSTM/CNN")
-            X_train, X_test, X_train_vl, X_val = self.reshape_for_lstm(X_train, X_test, X_train_vl, X_val, parameters)
+            X_train, X_test, X_train_vl, X_val = self.reshape_for_lstm(X_train, self.X_test, X_train_vl, X_val, parameters)
 
         return X_train, X_train_vl, X_val, X_test, y_train, y_train_vl, y_val, y_test
 

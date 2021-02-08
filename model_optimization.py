@@ -2,26 +2,31 @@ from lib.model_training.ml_models import ModelsBuild
 import optuna
 
 # THE USER SHOULD MODIFY THESE ONES
-labels = ['mlp', 'rf', 'svm', 'cnn', 'gru', 'lstm']
+labels = ['mlp', 'svm', 'rf', 'cnn']  # ,  'gru', 'lstm']
 datasets = ['original', 'nivelado', 'quadruplicado']
+# metrics = ['recall', 'precision', 'multi']
 
-N_TRIALS = 3
+
+N_TRIALS = 10
 TIMEOUT = 600
-METRICS = 'recall'  # or 'precision' or 'multi' for both
+METRICS = 'mounted'  # or 'jammed' or 'multi' for both
 
 for dataset in datasets:
     for label in labels:
         print("\n\n------------- Starting training for " + label + " in dataset " + dataset + " -------------")
 
-        # TODO: load all data only once + kfold testing
+        # TODO: load all data only once
+        # TODO: check new dataset
         models_build = ModelsBuild(label, dataset, metrics=METRICS)
 
         study_name = dataset + '_' + label
+        # TODO: put metrics in the file name
         if METRICS is not 'multi':
             study = optuna.create_study(study_name=study_name, direction="maximize")
         else:
             study = optuna.create_study(study_name=study_name, directions=["maximize", "maximize"])
 
+        # TODO: create new models
         # craft the objective here
         study.optimize(lambda trial: models_build.objective(trial, label=label), timeout=TIMEOUT, n_trials=N_TRIALS)
 
@@ -40,7 +45,8 @@ for dataset in datasets:
         # optuna.visualization.plot_pareto_front(study)
 
 # what is worse:
-#   - the classifier says the it is going to mount and then get jammed (FN); --> Recall for mounted
+#   - the classifier says the it is going to mount and then get jammed (FP); --> Precision for mounted --> THE PROBLEM
+#   - the classifier says the it is not going to mount and then mount (FN); --> Recall for mounted
 # or
 #   - the classifier says it is going to jam and mount (FP); --> Precision for jammed
 # http://rali.iro.umontreal.ca/rali/sites/default/files/publis/SokolovaLapalme-JIPM09.pdf multiclass

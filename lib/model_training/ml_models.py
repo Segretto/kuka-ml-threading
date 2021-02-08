@@ -1,22 +1,25 @@
-from tensorflow import keras
+import keras
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier as RF
 import os
 from joblib import dump
 from keras.callbacks import Callback
 from sklearn.metrics import f1_score, precision_score, recall_score, classification_report
+from sklearn.model_selection import StratifiedShuffleSplit
 import numpy as np
 from src.ml_dataset_manipulation import DatasetManip
 from shutil import move
 
 
-BATCHSIZE = 128
-BATCHSIZE_RECURRENT = int(BATCHSIZE/4)
+BATCH_SIZE = 128
+BATCHSIZE_RECURRENT = int(BATCH_SIZE / 4)
 EPOCHS = 100
 OUTPUT_SHAPE = 3
 INPUT_SHAPE = 1556
 FEATURES = 6
 MAX_DROPOUT = 0.6
+N_SPLITS = 5
+TEST_SPLIT_SIZE = 0.2
 
 
 class ModelsBuild:
@@ -76,15 +79,16 @@ class ModelsBuild:
         optimizer = keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
         model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
-        model.fit(
-            self.dataset.X_train,
-            self.dataset.y_train.reshape((len(self.dataset.y_train),)),
-            validation_data=(self.dataset.X_train_vl, self.dataset.y_train_vl.reshape((len(self.dataset.y_train_vl),))),
-            shuffle=False,
-            batch_size=BATCHSIZE_RECURRENT,
-            epochs=EPOCHS,
-            verbose=False,
-        )
+        # model.fit(
+        #     self.dataset.X_train,
+        #     self.dataset.y_train.reshape((len(self.dataset.y_train),)),
+        #     validation_data=(self.dataset.X_train_vl, self.dataset.y_train_vl.reshape((len(self.dataset.y_train_vl),))),
+        #     shuffle=False,
+        #     batch_size=BATCHSIZE_RECURRENT,
+        #     epochs=EPOCHS,
+        #     verbose=False,
+        # )
+        model = self._model_fit(model)
         score = self.get_score(model)
         self._save_model(trial, model)
         return score
@@ -124,16 +128,7 @@ class ModelsBuild:
         optimizer = keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
         model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
-        model.fit(
-            self.dataset.X_train,
-            self.dataset.y_train.reshape((len(self.dataset.y_train),)),
-            validation_data=(self.dataset.X_train_vl, self.dataset.y_train_vl.reshape((len(self.dataset.y_train_vl),))),
-            shuffle=False,
-            batch_size=BATCHSIZE_RECURRENT,
-            epochs=EPOCHS,
-            verbose=False,
-        )
-
+        model = self._model_fit(model)
         score = self.get_score(model)
         self._save_model(trial, model)
         return score
@@ -146,23 +141,14 @@ class ModelsBuild:
             n_neurons = trial.suggest_int('n_neurons_' + str(layer), 1, 128)
             model.add(keras.layers.Dense(n_neurons, activation='relu'))
             model.add(keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer), 0, MAX_DROPOUT)))
-        model.add(keras.layers.Dense(3, activation="softmax"))
+        model.add(keras.layers.Dense(OUTPUT_SHAPE, activation="softmax"))
         optimizer = keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
-        model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer,
-                      metrics=['accuracy'])
+        model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
-        model.fit(
-            self.dataset.X_train,
-            self.dataset.y_train,
-            validation_data=(self.dataset.X_train_vl, self.dataset.y_train_vl),
-            shuffle=False,
-            batch_size=BATCHSIZE,
-            epochs=EPOCHS,
-            verbose=False,
-        )
-        # OLD
-        # score = model.evaluate(self.dataset.X_test, self.dataset.y_test, verbose=0)
-        # return score[1]
+        # TODO: implementar esses kfolds em cada modelo de NN
+        model = self._model_fit(model)
+
+        # TODO: implement cross-validation
 
         # optimizing over different metric than accuracy
         # ps: take a look at score function to check for multi-objective optimization
@@ -177,7 +163,7 @@ class ModelsBuild:
                     kernel=trial.suggest_categorical("kernel", ["rbf", "sigmoid"]),
                     probability=True, gamma='auto',
                     class_weight=trial.suggest_categorical("class_weight", ['balanced', None]))
-        model.fit(self.dataset.X_train, self.dataset.y_train.reshape((len(self.dataset.y_train, ))))
+        model = self._model_fit(model)
         score = self.get_score(model)
         self._save_model(trial, model)
         return score
@@ -187,7 +173,7 @@ class ModelsBuild:
                    max_depth=int(trial.suggest_loguniform('rf_max_depth', 2, 32)),
                    max_leaf_nodes=trial.suggest_int('rf_max_leaf', 2, 40),
                    min_samples_split=trial.suggest_int('rf_min_samples_split', 2, 10))
-        model.fit(self.dataset.X_train, self.dataset.y_train.reshape((len(self.dataset.y_train,))))
+        model = self._model_fit(model)
         score = self.get_score(model)
         self._save_model(trial, model)
         return score
@@ -218,43 +204,48 @@ class ModelsBuild:
             #                              kernel_regularizer=keras.regularizers.l2(0.01),
             #                              activation='relu'))
 
-        model.add(keras.layers.Dense(units=3, activation='softmax'))
+        model.add(keras.layers.Dense(units=OUTPUT_SHAPE, activation='softmax'))
 
         optimizer = keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
         model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
-        model.fit(
-            self.dataset.X_train,
-            self.dataset.y_train,
-            validation_data=(self.dataset.X_train_vl, self.dataset.y_train_vl),
-            shuffle=False,
-            batch_size=BATCHSIZE,
-            epochs=EPOCHS,
-            verbose=False,
-        )
-
+        # model.fit(
+        #     self.dataset.X_train,
+        #     self.dataset.y_train,
+        #     validation_data=(self.dataset.X_train_vl, self.dataset.y_train_vl),
+        #     shuffle=False,
+        #     batch_size=BATCH_SIZE,
+        #     epochs=EPOCHS,
+        #     verbose=False,
+        # )
+        model = self._model_fit(model)
         score = self.get_score(model)
         self._save_model(trial, model)
         return score
 
     def metrics_report(self, model):
-        try:  # TODO: le gamabiarra pra quando é NN e quando é sklearn
-            y_pred = np.argmax(model.predict(self.dataset.X_test.values).reshape(self.dataset.X_test.values.shape[0], 1),
-                               axis=1)
-        except ValueError:
-            y_pred = np.argmax(model.predict(self.dataset.X_test.values), axis=1)
+        if self.label == 'lstm' or self.label == 'cnn' or self.label == 'gru':
+            X_test = self.dataset.reshape_lstm_process(self.dataset.X_test)
+        else:
+            X_test = self.dataset.X_test
+
+        if self.label == 'rf' or self.label == 'svm':
+            y_pred = np.argmax(model.predict(X_test.values).reshape(X_test.shape[0], 1), axis=1)
+        else:
+            y_pred = np.argmax(model.predict(X_test), axis=1)
+
         # return recall_score(y_true=self.dataset.y_test, y_pred=y_pred, average='macro')
-        return classification_report(y_true=self.dataset.y_test, y_pred=y_pred,
+        return classification_report(y_true=self.dataset.y_test.values, y_pred=y_pred,
                                      output_dict=True, target_names=['mounted', 'not mounted', 'jammed'])
 
     def get_score(self, model):
         report = self.metrics_report(model)
-        if self.metrics == 'recall':
-            return report['mounted']['recall']
-        if self.metrics == 'precision':
+        if self.metrics == 'mounted':
+            return report['mounted']['precision']
+        if self.metrics == 'jammed':
             return report['jammed']['precision']
-        if self.metrics == 'multi':
-            return [report['mounted']['recall'], report['jammed']['precision']]
+        if self.metrics == 'multi_mounted':
+            return report['mounted']['recall'], report['mounted']['precision']
 
     def save_best_model(self, study, dataset=None, label=None):
         # 1 get paths
@@ -278,20 +269,66 @@ class ModelsBuild:
             os.remove(self.path_to_temp_trained_models + file)
 
     def save_meta_data(self, study, dataset=None, label=None):
+        # TODO: save models report along with hyperparams
         new_path = self.path_to_models_meta_data + 'best_' + label + '_' + dataset + '.json'
         study.trials_dataframe().iloc[study.best_trial.number].to_json(new_path)
 
     def _save_model(self, trial, model):
+        model_path = self.path_to_temp_trained_models + \
+                     str(trial.number) + '_temp_' + self.label + '_' + self.dataset_name
         if self.label == 'svm' or self.label == 'rf':
             # sklearn
-            model_path = self.path_to_temp_trained_models + \
-                         str(trial.number) + '_temp_' + self.label + '_' + self.dataset_name + '.joblib'
+            model_path += '.joblib'
             dump(model, model_path)
         else:
             # keras models
-            model_path = self.path_to_temp_trained_models + \
-                         str(trial.number) + '_temp_' + self.label + '_' + self.dataset_name + '.h5'
-            model.save(model_path)
+            model_path += '.h5'
+            keras.models.save_model(model, model_path)
+
+    def _model_fit(self, model):
+
+        split_iter = 0
+
+        if self.label == 'lstm' or self.label == 'cnn' or self.label == 'gru':
+            X_train = self.dataset.reshape_lstm_process(self.dataset.X_train)
+            # X_test = self.dataset.reshape_lstm_process(self.dataset.X_train)
+        else:
+            X_train = self.dataset.X_train.values
+
+        split = StratifiedShuffleSplit(n_splits=N_SPLITS, test_size=TEST_SPLIT_SIZE)
+        for train, val in split.split(X_train, self.dataset.y_train):
+            print("Training ", self.label, " in dataset ", self.dataset_name, " for the ", split_iter, " split.")
+            X_train_vl = X_train[train].copy()
+            X_val = X_train[val].copy()
+
+            y_train_vl = self.dataset.y_train.iloc[train].copy()
+            y_val = self.dataset.y_train.iloc[val].copy()
+
+            if self.label == 'svm' or self.label == 'rf':
+                # TODO: do these guys use X_val?
+                model.fit(X_train_vl, y_train_vl.values.reshape((len(y_train_vl, ))))
+            else:
+
+                # model.fit(
+                #     self.dataset.X_train,
+                #     self.dataset.y_train.reshape((len(self.dataset.y_train),)),
+                #     validation_data=(
+                #     self.dataset.X_train_vl, self.dataset.y_train_vl.reshape((len(self.dataset.y_train_vl),))),
+                #     shuffle=False,
+                #     batch_size=BATCHSIZE_RECURRENT,
+                #     epochs=EPOCHS,
+                #     verbose=False,
+                # )
+
+                model.fit(
+                    X_train_vl, y_train_vl,
+                    validation_data=(X_val, y_val),
+                    shuffle=False,
+                    batch_size=BATCH_SIZE,
+                    epochs=EPOCHS,
+                    verbose=False)
+            split_iter += 1
+        return model
 
     # OLD FUNCTIONS
     '''
