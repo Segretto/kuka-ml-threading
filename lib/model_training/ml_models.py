@@ -1,4 +1,4 @@
-import keras
+import tensorflow as tf
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier as RF
 import os
@@ -50,35 +50,35 @@ class ModelsBuild:
         return score
 
     def objective_lstm(self, trial):
-        model = keras.models.Sequential()
+        model = tf.keras.models.Sequential()
         # input layer
         n_hidden = trial.suggest_int('n_hidden', 0, 5)
         if n_hidden == 0:
-            model.add(keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 9),
+            model.add(tf.keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 9),
                                         input_shape=(INPUT_SHAPE, FEATURES),
                                         return_sequences=False,
                                         dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT)))
         else:
-            model.add(keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 8),
+            model.add(tf.keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 8),
                                         input_shape=(INPUT_SHAPE, FEATURES),
                                         return_sequences=True,
                                         dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT),
                                         recurrent_dropout=trial.suggest_uniform('dropout_rec_input', 0, MAX_DROPOUT)))
             if n_hidden >= 1:
                 for layer in range(n_hidden-1):
-                    model.add(keras.layers.LSTM(units=trial.suggest_int('n_hidden_' + str(layer + 1), 1, 9),
+                    model.add(tf.keras.layers.LSTM(units=trial.suggest_int('n_hidden_' + str(layer + 1), 1, 9),
                                                 return_sequences=True,
                                                 dropout=trial.suggest_uniform('dropout_' + str(layer + 1), 0, MAX_DROPOUT),
                                                 recurrent_dropout=trial.suggest_uniform('dropout_rec_' + str(layer + 1), 0, MAX_DROPOUT)))
                 else:
-                    model.add(keras.layers.LSTM(units=trial.suggest_int('n_hidden_' + str(n_hidden + 1), 1, 9),
+                    model.add(tf.keras.layers.LSTM(units=trial.suggest_int('n_hidden_' + str(n_hidden + 1), 1, 9),
                                                 return_sequences=False,
                                                 dropout=trial.suggest_uniform('dropout_' + str(n_hidden + 1), 0, MAX_DROPOUT)))
 
         # TODO: change optimizer and add batchNorm in layers. It is taking too long to train
         # output layer
-        model.add(keras.layers.Dense(OUTPUT_SHAPE, activation='softmax'))
-        optimizer = keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+        model.add(tf.keras.layers.Dense(OUTPUT_SHAPE, activation='softmax'))
+        optimizer = tf.keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
         model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
         # model.fit(
@@ -96,17 +96,17 @@ class ModelsBuild:
         return score
 
     def objective_bidirectional_lstm(self, trial):
-        model = keras.models.Sequential()
+        model = tf.keras.models.Sequential()
         # input layer
         n_hidden = trial.suggest_int('n_hidden', 0, 5)
         if n_hidden == 0:
-            model.add(keras.layers.Bidirectional(keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 9),
+            model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 9),
                                                     input_shape=(INPUT_SHAPE, FEATURES),
                                                     return_sequences=False,
                                                     dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT)),
                                                  merge_mode=trial.suggest_categorical('merge_mode', ['sum', 'mul', 'concat', 'ave', None])))
         else:
-            model.add(keras.layers.Bidirectional(keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 8),
+            model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 8),
                                                     input_shape=(INPUT_SHAPE, FEATURES),
                                                     return_sequences=True,
                                                     dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT),
@@ -114,21 +114,21 @@ class ModelsBuild:
                                                  merge_mode=trial.suggest_categorical('merge_mode_' + str(0), ['sum', 'mul', 'concat', 'ave', None])))
             if n_hidden >= 1:
                 for layer in range(n_hidden-1):
-                    model.add(keras.layers.Bidirectional(keras.layers.LSTM(units=trial.suggest_int('n_hidden_' + str(layer + 1), 1, 9),
+                    model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units=trial.suggest_int('n_hidden_' + str(layer + 1), 1, 9),
                                                 return_sequences=True,
                                                 dropout=trial.suggest_uniform('dropout_' + str(layer + 1), 0, MAX_DROPOUT),
                                                 recurrent_dropout=trial.suggest_uniform('dropout_rec_' + str(layer + 1), 0, MAX_DROPOUT)),
                                                          merge_mode=trial.suggest_categorical('merge_mode_' + str(layer + 1), ['sum', 'mul', 'concat', 'ave', None])))
                 else:
-                    model.add(keras.layers.Bidirectional(keras.layers.LSTM(units=trial.suggest_int('n_hidden_' + str(n_hidden + 1), 1, 9),
+                    model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units=trial.suggest_int('n_hidden_' + str(n_hidden + 1), 1, 9),
                                                 return_sequences=False,
                                                 dropout=trial.suggest_uniform('dropout_' + str(n_hidden + 1), 0, MAX_DROPOUT)),
                                                          merge_mode=trial.suggest_categorical('merge_mode_' + str(layer + 1), ['sum', 'mul', 'concat', 'ave', None])))
 
         # TODO: change optimizer and add batchNorm in layers. It is taking too long to train
         # output layer
-        model.add(keras.layers.Dense(OUTPUT_SHAPE, activation='softmax'))
-        optimizer = keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+        model.add(tf.keras.layers.Dense(OUTPUT_SHAPE, activation='softmax'))
+        optimizer = tf.keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
         model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
         model = self._model_fit(model)
@@ -139,36 +139,36 @@ class ModelsBuild:
     def objective_gru(self, trial):
         # print("NOT WORKING. Problems with shapes...")
         # return
-        model = keras.models.Sequential()
+        model = tf.keras.models.Sequential()
         n_hidden = trial.suggest_int('n_hidden', 0, 5)
         # input layer
         if n_hidden == 0:
-            model.add(keras.layers.GRU(units=trial.suggest_int('n_input', 1, 9),
+            model.add(tf.keras.layers.GRU(units=trial.suggest_int('n_input', 1, 9),
                                        input_shape=(INPUT_SHAPE, FEATURES),
                                        return_sequences=False,
                                        dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT)))
         else:
-            model.add(keras.layers.GRU(units=trial.suggest_int('n_input', 1, 9),
+            model.add(tf.keras.layers.GRU(units=trial.suggest_int('n_input', 1, 9),
                                        input_shape=(INPUT_SHAPE, FEATURES),
                                        return_sequences=True,
                                        dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT),
                                        recurrent_dropout=trial.suggest_uniform('dropout_rec_input', 0, MAX_DROPOUT)))
             if n_hidden >= 1:
                 for layer in range(n_hidden-1):
-                    model.add(keras.layers.GRU(units=trial.suggest_int('n_hidden_' + str(layer), 1, 9),
+                    model.add(tf.keras.layers.GRU(units=trial.suggest_int('n_hidden_' + str(layer), 1, 9),
                                                return_sequences=True,
                                                dropout=trial.suggest_uniform('dropout_' + str(layer), 0, MAX_DROPOUT),
                                                recurrent_dropout=trial.suggest_uniform('dropout_rec_' + str(layer), 0,
                                                                                         MAX_DROPOUT)))
                 else:
-                    model.add(keras.layers.GRU(units=trial.suggest_int('n_hidden_' + str(n_hidden), 1, 8),
+                    model.add(tf.keras.layers.GRU(units=trial.suggest_int('n_hidden_' + str(n_hidden), 1, 8),
                                            return_sequences=False,
                                            dropout=trial.suggest_uniform('dropout_' + str(n_hidden), 0, MAX_DROPOUT)))
 
         # TODO: change optimizer and add batchNorm in layers. It is taking too long to train
         # output layer
-        model.add(keras.layers.Dense(OUTPUT_SHAPE, activation='softmax'))
-        optimizer = keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+        model.add(tf.keras.layers.Dense(OUTPUT_SHAPE, activation='softmax'))
+        optimizer = tf.keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
         model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
         model = self._model_fit(model)
@@ -177,15 +177,15 @@ class ModelsBuild:
         return score
 
     def objective_mlp(self, trial):
-        model = keras.models.Sequential()
-        model.add(keras.layers.InputLayer(input_shape=[INPUT_SHAPE*FEATURES]))
+        model = tf.keras.models.Sequential()
+        model.add(tf.keras.layers.InputLayer(input_shape=[INPUT_SHAPE*FEATURES]))
         n_hidden = trial.suggest_int('n_hidden', 1, 5)
         for layer in range(n_hidden):
             n_neurons = trial.suggest_int('n_neurons_' + str(layer), 1, 128)
-            model.add(keras.layers.Dense(n_neurons, activation='relu'))
-            model.add(keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer), 0, MAX_DROPOUT)))
-        model.add(keras.layers.Dense(OUTPUT_SHAPE, activation="softmax"))
-        optimizer = keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+            model.add(tf.keras.layers.Dense(n_neurons, activation='relu'))
+            model.add(tf.keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer), 0, MAX_DROPOUT)))
+        model.add(tf.keras.layers.Dense(OUTPUT_SHAPE, activation="softmax"))
+        optimizer = tf.keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
         model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
         # TODO: implementar esses kfolds em cada modelo de NN
@@ -222,34 +222,34 @@ class ModelsBuild:
         return score
 
     def objective_cnn(self, trial):
-        model = keras.models.Sequential()
+        model = tf.keras.models.Sequential()
 
         n_layers_cnn = trial.suggest_int('n_hidden_cnn', 1, 5)
 
-        model.add(keras.layers.InputLayer(input_shape=[INPUT_SHAPE, FEATURES]))
+        model.add(tf.keras.layers.InputLayer(input_shape=[INPUT_SHAPE, FEATURES]))
 
         for layer in range(n_layers_cnn):
-            model.add(keras.layers.Conv1D(filters=trial.suggest_categorical("filters_"+str(layer), [32, 64]),
+            model.add(tf.keras.layers.Conv1D(filters=trial.suggest_categorical("filters_"+str(layer), [32, 64]),
                                           kernel_size=trial.suggest_categorical("kernel_"+str(layer), [1, 3, 5]),
                                           padding='same',
                                           activation='relu'))
-            model.add(keras.layers.MaxPooling1D(pool_size=trial.suggest_categorical("pool_size_"+str(layer), [1, 2])))
+            model.add(tf.keras.layers.MaxPooling1D(pool_size=trial.suggest_categorical("pool_size_"+str(layer), [1, 2])))
 
-        model.add(keras.layers.Flatten())
+        model.add(tf.keras.layers.Flatten())
 
         n_layers_dense = trial.suggest_int('n_hidden', 1, 4)
         for layer in range(n_layers_dense):
-            model.add(keras.layers.Dense(trial.suggest_int('n_neurons_dense' + str(layer), 1, 129),
+            model.add(tf.keras.layers.Dense(trial.suggest_int('n_neurons_dense' + str(layer), 1, 129),
                                          activation='relu'))
             # TODO: add dropout and regularizer?
-            # model.add(keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer), 0, MAX_DROPOUT)))
-            # model.add(keras.layers.Dense(units=n_neurons,
-            #                              kernel_regularizer=keras.regularizers.l2(0.01),
+            # model.add(tf.keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer), 0, MAX_DROPOUT)))
+            # model.add(tf.keras.layers.Dense(units=n_neurons,
+            #                              kernel_regularizer=tf.keras.regularizers.l2(0.01),
             #                              activation='relu'))
 
-        model.add(keras.layers.Dense(units=OUTPUT_SHAPE, activation='softmax'))
+        model.add(tf.keras.layers.Dense(units=OUTPUT_SHAPE, activation='softmax'))
 
-        optimizer = keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+        optimizer = tf.keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
         model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
         # model.fit(
@@ -326,7 +326,7 @@ class ModelsBuild:
         else:
             # keras models
             model_path += '.h5'
-            keras.models.save_model(model, model_path)
+            tf.keras.models.save_model(model, model_path)
 
     def _model_fit(self, model):
 
@@ -402,25 +402,25 @@ class ModelsBuild:
         input_shape = 1556
         with open(path_model + ".json", 'r') as json_file:
             model_arch = json.load(json_file)
-            # model = tf.keras.models.model_from_json(model_arch)
+            # model = tf.tf.keras.models.model_from_json(model_arch)
         print(model_arch)
 
-        model = tf.keras.models.Sequential()
+        model = tf.tf.keras.models.Sequential()
 
-        model.add(tf.keras.layers.InputLayer(input_shape=[input_shape * features]))
+        model.add(tf.tf.keras.layers.InputLayer(input_shape=[input_shape * features]))
         n_layers = len(model_arch['config']['layers'])
         for i in range(n_layers - 1):
             layer = model_arch['config']['layers'][i]
             if layer['class_name'] == 'Dense':
-                model.add(tf.keras.layers.Dense(layer['config']['units'], activation=layer['config']['activation']))
+                model.add(tf.tf.keras.layers.Dense(layer['config']['units'], activation=layer['config']['activation']))
             if layer['class_name'] == 'Dropout':
-                model.add(tf.keras.layers.Dropout(layer['config']['rate']))
+                model.add(tf.tf.keras.layers.Dropout(layer['config']['rate']))
 
         n_units_last_layer = model_arch['config']['layers'][n_layers - 1]['config']['units']
         activation_last_layer = model_arch['config']['layers'][n_layers - 1]['config']['activation']
-        model.add(tf.keras.layers.Dense(n_units_last_layer, activation=activation_last_layer))
+        model.add(tf.tf.keras.layers.Dense(n_units_last_layer, activation=activation_last_layer))
 
-        optimizer = tf.keras.optimizers.SGD(lr=0.003)
+        optimizer = tf.tf.keras.optimizers.SGD(lr=0.003)
         if not random_weights:
             model.load_weights(path_model + ".h5")
         model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
@@ -432,26 +432,26 @@ class ModelsBuild:
         input_shape = 1556
         with open(path_model + ".json", 'r') as json_file:
             model_arch = json.load(json_file)
-            # model = tf.keras.models.model_from_json(model_arch)
+            # model = tf.tf.keras.models.model_from_json(model_arch)
 
-        model = tf.keras.models.Sequential()
+        model = tf.tf.keras.models.Sequential()
 
         n_layers = len(model_arch['config']['layers'])
         for i in range(n_layers):
             layer = model_arch['config']['layers'][i]
             if i == 0:
-                model.add(keras.layers.LSTM(units=layer['config']['units'], input_shape=(input_shape, features),
+                model.add(tf.keras.layers.LSTM(units=layer['config']['units'], input_shape=(input_shape, features),
                                             return_sequences=layer['config']['return_sequences'],
                                             dropout=layer['config']['dropout']))
             else:
                 if layer['class_name'] == 'Dense':
-                    model.add(keras.layers.Dense(units=layer['config']['units'],
+                    model.add(tf.keras.layers.Dense(units=layer['config']['units'],
                                                  activation=layer['config']['activation']))
                 else:
-                    model.add(keras.layers.LSTM(units=layer['config']['units'], return_sequences=True,
+                    model.add(tf.keras.layers.LSTM(units=layer['config']['units'], return_sequences=True,
                                                 dropout=layer['config']['dropout'],
                                                 recurrent_dropout=layer['config']['recurrent_dropout']))
-        optimizer = tf.keras.optimizers.SGD(lr=0.003)
+        optimizer = tf.tf.keras.optimizers.SGD(lr=0.003)
         if not random_weights:
             model.load_weights(path_model + ".h5")
         model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
