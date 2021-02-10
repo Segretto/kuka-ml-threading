@@ -2,7 +2,7 @@ from lib.model_training.ml_models import ModelsBuild
 import optuna
 
 # THE USER SHOULD MODIFY THESE ONES
-labels = ['mlp', 'svm', 'rf', 'cnn']  # ,  'gru', 'lstm']
+labels = ['bidirec_lstm', 'mlp', 'svm', 'rf', 'cnn']  # ,  'gru', 'lstm', 'bidirec_lstm']
 datasets = ['original', 'nivelado', 'quadruplicado']
 # metrics = ['recall', 'precision', 'multi']
 

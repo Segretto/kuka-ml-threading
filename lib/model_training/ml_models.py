@@ -35,6 +35,8 @@ class ModelsBuild:
     def objective(self, trial, label=None):
         if label == 'lstm':
             score = self.objective_lstm(trial)
+        if label == 'bidirec_lstm':
+            score = self.objective_bidirectional_lstm(trial)
         if label == 'gru':
             score = self.objective_gru(trial)
         if label == 'mlp':
@@ -88,6 +90,47 @@ class ModelsBuild:
         #     epochs=EPOCHS,
         #     verbose=False,
         # )
+        model = self._model_fit(model)
+        score = self.get_score(model)
+        self._save_model(trial, model)
+        return score
+
+    def objective_bidirectional_lstm(self, trial):
+        model = keras.models.Sequential()
+        # input layer
+        n_hidden = trial.suggest_int('n_hidden', 0, 5)
+        if n_hidden == 0:
+            model.add(keras.layers.Bidirectional(keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 9),
+                                                    input_shape=(INPUT_SHAPE, FEATURES),
+                                                    return_sequences=False,
+                                                    dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT)),
+                                                 merge_mode=trial.suggest_categorical('merge_mode', ['sum', 'mul', 'concat', 'ave', None])))
+        else:
+            model.add(keras.layers.Bidirectional(keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 8),
+                                                    input_shape=(INPUT_SHAPE, FEATURES),
+                                                    return_sequences=True,
+                                                    dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT),
+                                                    recurrent_dropout=trial.suggest_uniform('dropout_rec_input', 0, MAX_DROPOUT)),
+                                                 merge_mode=trial.suggest_categorical('merge_mode_' + str(0), ['sum', 'mul', 'concat', 'ave', None])))
+            if n_hidden >= 1:
+                for layer in range(n_hidden-1):
+                    model.add(keras.layers.Bidirectional(keras.layers.LSTM(units=trial.suggest_int('n_hidden_' + str(layer + 1), 1, 9),
+                                                return_sequences=True,
+                                                dropout=trial.suggest_uniform('dropout_' + str(layer + 1), 0, MAX_DROPOUT),
+                                                recurrent_dropout=trial.suggest_uniform('dropout_rec_' + str(layer + 1), 0, MAX_DROPOUT)),
+                                                         merge_mode=trial.suggest_categorical('merge_mode_' + str(layer + 1), ['sum', 'mul', 'concat', 'ave', None])))
+                else:
+                    model.add(keras.layers.Bidirectional(keras.layers.LSTM(units=trial.suggest_int('n_hidden_' + str(n_hidden + 1), 1, 9),
+                                                return_sequences=False,
+                                                dropout=trial.suggest_uniform('dropout_' + str(n_hidden + 1), 0, MAX_DROPOUT)),
+                                                         merge_mode=trial.suggest_categorical('merge_mode_' + str(layer + 1), ['sum', 'mul', 'concat', 'ave', None])))
+
+        # TODO: change optimizer and add batchNorm in layers. It is taking too long to train
+        # output layer
+        model.add(keras.layers.Dense(OUTPUT_SHAPE, activation='softmax'))
+        optimizer = keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+        model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+
         model = self._model_fit(model)
         score = self.get_score(model)
         self._save_model(trial, model)
@@ -289,7 +332,7 @@ class ModelsBuild:
 
         split_iter = 0
 
-        if self.label == 'lstm' or self.label == 'cnn' or self.label == 'gru':
+        if self.label == 'lstm' or self.label == 'cnn' or self.label == 'gru' or self.label == 'bidirec_lstm':
             X_train = self.dataset.reshape_lstm_process(self.dataset.X_train)
             # X_test = self.dataset.reshape_lstm_process(self.dataset.X_train)
         else:
@@ -321,8 +364,8 @@ class ModelsBuild:
                 # )
 
                 model.fit(
-                    X_train_vl, y_train_vl,
-                    validation_data=(X_val, y_val),
+                    X_train_vl, y_train_vl.values,
+                    validation_data=(X_val, y_val.values),
                     shuffle=False,
                     batch_size=BATCH_SIZE,
                     epochs=EPOCHS,
