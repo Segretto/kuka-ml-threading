@@ -45,6 +45,8 @@ class ModelsBuild:
             score = self.objective_svm(trial)
         if label == 'cnn':
             score = self.objective_cnn(trial)
+        if label == 'wavenet':
+            score = self.objective_wavenet(trial)
         if label == 'rf':
             score = self.objective_rf(trial)
         return score
@@ -252,19 +254,34 @@ class ModelsBuild:
         optimizer = tf.keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
         model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
-        # model.fit(
-        #     self.dataset.X_train,
-        #     self.dataset.y_train,
-        #     validation_data=(self.dataset.X_train_vl, self.dataset.y_train_vl),
-        #     shuffle=False,
-        #     batch_size=BATCH_SIZE,
-        #     epochs=EPOCHS,
-        #     verbose=False,
-        # )
         model = self._model_fit(model)
         score = self.get_score(model)
         self._save_model(trial, model)
         return score
+
+    def objective_wavenet(self, trial):
+        model = tf.keras.models.Sequential()
+        model.add(tf.keras.layers.InputLayer(input_shape=[INPUT_SHAPE, FEATURES]))
+        for layer, rate in enumerate((1, 2, 4, 8) * 2):
+            model.add(tf.keras.layers.Conv1D(filters=trial.suggest_categorical("filters_"+str(layer), [32, 64]),
+                                             kernel_size=trial.suggest_categorical("kernel_"+str(layer), [1, 3, 5]),
+                                             padding="causal", activation="relu", dilation_rate=rate))
+        # model.add(tf.keras.layers.Conv1D(filters=10, kernel_size=1))
+        model.add(tf.keras.layers.Flatten())
+        n_layers_dense = trial.suggest_int('n_hidden', 1, 4)
+        for layer in range(n_layers_dense):
+            model.add(tf.keras.layers.Dense(trial.suggest_int('n_neurons_dense' + str(layer), 1, 129),
+                                            activation='relu'))
+        model.add(tf.keras.layers.Dense(units=OUTPUT_SHAPE, activation='softmax'))
+
+        optimizer = tf.keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+        model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+
+        model = self._model_fit(model)
+        score = self.get_score(model)
+        self._save_model(trial, model)
+        return score
+
 
     def metrics_report(self, model):
         if self.label == 'lstm' or self.label == 'cnn' or self.label == 'gru':
@@ -332,7 +349,8 @@ class ModelsBuild:
 
         split_iter = 0
 
-        if self.label == 'lstm' or self.label == 'cnn' or self.label == 'gru' or self.label == 'bidirec_lstm':
+        if self.label == 'lstm' or self.label == 'cnn' or self.label == 'gru' or self.label == 'bidirec_lstm'\
+                or self.label == 'wavenet':
             X_train = self.dataset.reshape_lstm_process(self.dataset.X_train)
             # X_test = self.dataset.reshape_lstm_process(self.dataset.X_train)
         else:
