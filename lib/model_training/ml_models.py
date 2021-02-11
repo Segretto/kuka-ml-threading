@@ -260,19 +260,67 @@ class ModelsBuild:
         return score
 
     def objective_wavenet(self, trial):
-        model = tf.keras.models.Sequential()
-        model.add(tf.keras.layers.InputLayer(input_shape=[INPUT_SHAPE, FEATURES]))
-        for layer, rate in enumerate((1, 2, 4, 8) * 2):
-            model.add(tf.keras.layers.Conv1D(filters=trial.suggest_categorical("filters_"+str(layer), [32, 64]),
-                                             kernel_size=trial.suggest_categorical("kernel_"+str(layer), [1, 3, 5]),
-                                             padding="causal", activation="relu", dilation_rate=rate))
-        # model.add(tf.keras.layers.Conv1D(filters=10, kernel_size=1))
-        model.add(tf.keras.layers.Flatten())
+
+        # code implemented from:
+        # https://github.com/ageron/handson-ml2/blob/master/15_processing_sequences_using_rnns_and_cnns.ipynb
+
+        class GatedActivationUnit(tf.keras.layers.Layer):
+            def __init__(self, activation="tanh", **kwargs):
+                super().__init__(**kwargs)
+                self.activation = tf.keras.activations.get(activation)
+
+            def call(self, inputs):
+                n_filters = inputs.shape[-1] // 2
+                linear_output = self.activation(inputs[..., :n_filters])
+                gate = tf.keras.activations.sigmoid(inputs[..., n_filters:])
+                return self.activation(linear_output) * gate
+
+        def wavenet_residual_block(inputs, n_filters, dilation_rate):
+            z = tf.keras.layers.Conv1D(2 * n_filters, kernel_size=2, padding="causal",
+                                    dilation_rate=dilation_rate)(inputs)
+            z = GatedActivationUnit()(z)
+            z = tf.keras.layers.Conv1D(n_filters, kernel_size=1)(z)
+            return tf.keras.layers.Add()([z, inputs]), z
+
+        n_layers_per_block = trial.suggest_int("n_layers_per_block", 3, 11)  # 10 in the paper
+        n_blocks = trial.suggest_categorical("n_blocks", [1, 2, 3])  # 3 in the paper
+        n_filters = trial.suggest_categorical("n_filters", [32, 64])  # 128 in the paper
+        n_outputs_conv = trial.suggest_categorical("n_outputs", [32, 64, 128])  # 256 in the paper
+        kernel = trial.suggest_categorical("kernel", [1, 3, 5])
+
+        inputs = tf.keras.layers.Input(shape=[INPUT_SHAPE, FEATURES])
+        z = tf.keras.layers.Conv1D(n_filters, kernel_size=2, padding="causal")(inputs)
+        skip_to_last = []
+        for dilation_rate in [2 ** i for i in range(n_layers_per_block)] * n_blocks:
+            z, skip = wavenet_residual_block(z, n_filters, dilation_rate)
+            skip_to_last.append(skip)
+        z = tf.keras.activations.relu(tf.keras.layers.Add()(skip_to_last))
+        z = tf.keras.layers.Conv1D(n_filters, kernel_size=kernel, activation="relu")(z)
+        z = tf.keras.layers.Conv1D(n_outputs_conv, kernel_size=kernel, activation="relu")(z)
+
+        z = tf.keras.layers.Flatten()(z)
         n_layers_dense = trial.suggest_int('n_hidden', 1, 4)
         for layer in range(n_layers_dense):
-            model.add(tf.keras.layers.Dense(trial.suggest_int('n_neurons_dense' + str(layer), 1, 129),
-                                            activation='relu'))
-        model.add(tf.keras.layers.Dense(units=OUTPUT_SHAPE, activation='softmax'))
+            z = tf.keras.layers.Dense(trial.suggest_int('n_neurons_dense' + str(layer), 1, 129),
+                                            activation='relu')(z)
+        Y_outputs = tf.keras.layers.Dense(units=OUTPUT_SHAPE, activation='softmax')(z)
+
+        model = tf.keras.models.Model(inputs=[inputs], outputs=[Y_outputs])
+
+        # Vanilla Wavenet
+        # model = tf.keras.models.Sequential()
+        # model.add(tf.keras.layers.InputLayer(input_shape=[INPUT_SHAPE, FEATURES]))
+        # for layer, rate in enumerate((1, 2, 4, 8) * 2):
+        #     model.add(tf.keras.layers.Conv1D(filters=trial.suggest_categorical("filters_"+str(layer), [32, 64]),
+        #                                      kernel_size=trial.suggest_categorical("kernel_"+str(layer), [1, 3, 5]),
+        #                                      padding="causal", activation="relu", dilation_rate=rate))
+        # # model.add(tf.keras.layers.Conv1D(filters=10, kernel_size=1))
+        # model.add(tf.keras.layers.Flatten())
+        # n_layers_dense = trial.suggest_int('n_hidden', 1, 4)
+        # for layer in range(n_layers_dense):
+        #     model.add(tf.keras.layers.Dense(trial.suggest_int('n_neurons_dense' + str(layer), 1, 129),
+        #                                     activation='relu'))
+        # model.add(tf.keras.layers.Dense(units=OUTPUT_SHAPE, activation='softmax'))
 
         optimizer = tf.keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
         model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
