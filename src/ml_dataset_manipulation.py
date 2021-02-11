@@ -3,12 +3,13 @@ import numpy as np
 
 
 class DatasetManip():
-    def __init__(self, label='mlp', dataset='original'):
+    def __init__(self, label='mlp', dataset='original', load_models=True):
         self.label = label
         print('Loading data')
         self.path_dataset, self.path_model, self.path_meta_data, self.path_model_meta_data = self.load_paths()
-        X_train, X_test, self.y_train, self.y_test = self.load_data(dataset=dataset)
-        self.X_train, self.X_test = self.data_normalization(X_train, X_test)
+        if load_models:
+            X_train, X_test, self.y_train, self.y_test = self.load_data(dataset=dataset)
+            self.X_train, self.X_test = self.data_normalization(X_train, X_test)
 
         print('Loading data done')
 

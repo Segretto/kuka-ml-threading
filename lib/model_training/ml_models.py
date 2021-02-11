@@ -377,7 +377,6 @@ class ModelsBuild:
             os.remove(self.path_to_temp_trained_models + file)
 
     def save_meta_data(self, study, dataset=None, label=None):
-        # TODO: save models report along with hyperparams
         new_path = self.path_to_models_meta_data + 'best_' + label + '_' + dataset + '.json'
         study.trials_dataframe().iloc[study.best_trial.number].to_json(new_path)
 
@@ -439,122 +438,24 @@ class ModelsBuild:
             split_iter += 1
         return model
 
-    # OLD FUNCTIONS
-    '''
-    def load_model(self, path_model, label, dataset, parameters, random_weights=False):  # TODO: parameters still not used yet
-        path_to_load_model = path_model + dataset + "/" + label + "_" + dataset + "_" + "dataset"
-        if label == 'mlp':
-            # path_to_load_model = path_model + label + "_" + dataset + "_" + "dataset"
-            model = self.load_model_mlp(path_to_load_model, label, dataset, random_weights=random_weights)
-            print(model.summary())
 
-        if label == 'lstm':
-            # path_to_load_model = path_model + label + "_" + dataset + "_" + "dataset"
-            model = self.load_model_lstm(path_to_load_model, label, dataset, random_weights=random_weights)
-            print(model.summary())
-
-        if label == 'svm':
-            model = self.load_model_svm(path_to_load_model)
-            print(model)
-
-        if label == 'rf':
-            model = self.load_model_rf(path_to_load_model)
-            print(model)
-
-        return model
-
-    def load_model_mlp(self, path_model, label, dataset, random_weights):
-        features = 6  # TODO: esse cara tem que ser junto pro lstm, cnn e ele. Alem disso, features pode ser menos que 6
-        input_shape = 1556
-        with open(path_model + ".json", 'r') as json_file:
-            model_arch = json.load(json_file)
-            # model = tf.tf.keras.models.model_from_json(model_arch)
-        print(model_arch)
-
-        model = tf.tf.keras.models.Sequential()
-
-        model.add(tf.tf.keras.layers.InputLayer(input_shape=[input_shape * features]))
-        n_layers = len(model_arch['config']['layers'])
-        for i in range(n_layers - 1):
-            layer = model_arch['config']['layers'][i]
-            if layer['class_name'] == 'Dense':
-                model.add(tf.tf.keras.layers.Dense(layer['config']['units'], activation=layer['config']['activation']))
-            if layer['class_name'] == 'Dropout':
-                model.add(tf.tf.keras.layers.Dropout(layer['config']['rate']))
-
-        n_units_last_layer = model_arch['config']['layers'][n_layers - 1]['config']['units']
-        activation_last_layer = model_arch['config']['layers'][n_layers - 1]['config']['activation']
-        model.add(tf.tf.keras.layers.Dense(n_units_last_layer, activation=activation_last_layer))
-
-        optimizer = tf.tf.keras.optimizers.SGD(lr=0.003)
-        if not random_weights:
-            model.load_weights(path_model + ".h5")
-        model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
-
-        return model
-
-    def load_model_lstm(self, path_model, label, dataset, random_weights):
-        features = 6
-        input_shape = 1556
-        with open(path_model + ".json", 'r') as json_file:
-            model_arch = json.load(json_file)
-            # model = tf.tf.keras.models.model_from_json(model_arch)
-
-        model = tf.tf.keras.models.Sequential()
-
-        n_layers = len(model_arch['config']['layers'])
-        for i in range(n_layers):
-            layer = model_arch['config']['layers'][i]
-            if i == 0:
-                model.add(tf.keras.layers.LSTM(units=layer['config']['units'], input_shape=(input_shape, features),
-                                            return_sequences=layer['config']['return_sequences'],
-                                            dropout=layer['config']['dropout']))
-            else:
-                if layer['class_name'] == 'Dense':
-                    model.add(tf.keras.layers.Dense(units=layer['config']['units'],
-                                                 activation=layer['config']['activation']))
-                else:
-                    model.add(tf.keras.layers.LSTM(units=layer['config']['units'], return_sequences=True,
-                                                dropout=layer['config']['dropout'],
-                                                recurrent_dropout=layer['config']['recurrent_dropout']))
-        optimizer = tf.tf.keras.optimizers.SGD(lr=0.003)
-        if not random_weights:
-            model.load_weights(path_model + ".h5")
-        model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
-
-        return model
-
-    def load_model_svm(self, path_to_load_model):
-        import joblib
-        path_to_load_model = path_to_load_model + ".joblib"
-        model = joblib.load(path_to_load_model)
-        return model
-
-    def load_model_rf(self, path_to_load_model):
-        import joblib
-        path_to_load_model = path_to_load_model + ".joblib"
-        model = joblib.load(path_to_load_model)
-        return model
-    '''
-
-
-class Metrics(Callback):
-    def on_train_begin(self, logs={}):
-        self.val_f1s = []
-        self.val_recalls = []
-        self.val_precisions = []
-
-    def on_epoch_end(self, epoch, logs={}):
-        val_predict = (np.asarray(self.model.predict(self.model.validation_data[0]))).round()
-        val_targ = self.model.validation_data[1]
-        _val_f1 = f1_score(val_targ, val_predict)
-        _val_recall = recall_score(val_targ, val_predict)
-        _val_precision = precision_score(val_targ, val_predict)
-        self.val_f1s.append(_val_f1)
-        self.val_recalls.append(_val_recall)
-        self.val_precisions.append(_val_precision)
-        print(" - val_f1: % f - val_precision: % f - val_recall % f" %(_val_f1, _val_precision, _val_recall))
-        return
+# class Metrics(Callback):
+#     def on_train_begin(self, logs={}):
+#         self.val_f1s = []
+#         self.val_recalls = []
+#         self.val_precisions = []
+#
+#     def on_epoch_end(self, epoch, logs={}):
+#         val_predict = (np.asarray(self.model.predict(self.model.validation_data[0]))).round()
+#         val_targ = self.model.validation_data[1]
+#         _val_f1 = f1_score(val_targ, val_predict)
+#         _val_recall = recall_score(val_targ, val_predict)
+#         _val_precision = precision_score(val_targ, val_predict)
+#         self.val_f1s.append(_val_f1)
+#         self.val_recalls.append(_val_recall)
+#         self.val_precisions.append(_val_precision)
+#         print(" - val_f1: % f - val_precision: % f - val_recall % f" %(_val_f1, _val_precision, _val_recall))
+#         return
 
 
 if __name__ == '__main__':
