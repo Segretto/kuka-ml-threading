@@ -265,8 +265,9 @@ class ModelsBuild:
         # https://github.com/ageron/handson-ml2/blob/master/15_processing_sequences_using_rnns_and_cnns.ipynb
 
         class GatedActivationUnit(tf.keras.layers.Layer):
-            def __init__(self, activation="tanh", **kwargs):
+            def __init__(self, **kwargs):
                 super().__init__(**kwargs)
+                activation = "tanh"
                 self.activation = tf.keras.activations.get(activation)
 
             def call(self, inputs):
