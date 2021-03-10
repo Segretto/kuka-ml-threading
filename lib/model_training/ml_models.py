@@ -32,6 +32,13 @@ class ModelsBuild:
         self.path_to_temp_trained_models = 'output/models_trained/temp/'
         self.path_to_best_trained_models = 'output/models_trained/best/'
 
+        if not os.path.isdir('output'):
+            os.mkdir('output')
+            os.mkdir('output/models_trained')
+            os.mkdir(self.path_to_temp_trained_models)
+            os.mkdir(self.path_to_best_trained_models)
+
+
     def objective(self, trial, label=None):
         if label == 'lstm':
             score = self.objective_lstm(trial)
