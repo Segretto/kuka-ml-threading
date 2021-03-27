@@ -236,7 +236,7 @@ class ModelsBuild:
 
         n_layers_cnn = trial.suggest_int('n_hidden_cnn', 1, 5)
 
-        model.add(tf.keras.layers.InputLayer(input_shape=[INPUT_SHAPE_CNN_RNN, FEATURES]))
+        model.add(tf.keras.layers.InputLayer(input_shape=[INPUT_SHAPE, FEATURES]))
 
         for layer in range(n_layers_cnn):
             model.add(tf.keras.layers.Conv1D(filters=trial.suggest_categorical("filters_"+str(layer), [32, 64]),
