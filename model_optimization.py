@@ -2,13 +2,15 @@ from lib.model_training.ml_models import ModelsBuild
 import optuna
 
 # THE USER SHOULD MODIFY THESE ONES
-labels = ['mlp', 'svm', 'rf', 'cnn']  # ,  'gru', 'lstm', 'bidirec_lstm', 'wavenet',]
+labels = ['mlp', 'svm', 'rf', 'cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
+#labels = ['gru', 'lstm', 'bidirec_lstm', 'wavenet']
 datasets = ['original', 'nivelado', 'quadruplicado']
 # metrics = ['recall', 'precision', 'multi']
 
 
 N_TRIALS = 10
-TIMEOUT = 600
+TIMEOUT = None
+n_jobs = -1
 METRICS = 'mounted'  # or 'jammed' or 'multi' for both
 
 for dataset in datasets:
@@ -28,7 +30,8 @@ for dataset in datasets:
 
         # TODO: create new models
         # craft the objective here
-        study.optimize(lambda trial: models_build.objective(trial, label=label), timeout=TIMEOUT, n_trials=N_TRIALS)
+        study.optimize(lambda trial: models_build.objective(trial, label=label), timeout=TIMEOUT, n_trials=N_TRIALS,
+                       n_jobs=n_jobs)
 
         print("Number of finished trials: {}".format(len(study.trials)))
         print("Best trial:")

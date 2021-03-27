@@ -16,6 +16,7 @@ BATCHSIZE_RECURRENT = int(BATCH_SIZE / 4)
 EPOCHS = 100
 OUTPUT_SHAPE = 3
 INPUT_SHAPE = 1556
+INPUT_SHAPE_CNN_RNN = None
 FEATURES = 6
 MAX_DROPOUT = 0.6
 N_SPLITS = 5
@@ -64,12 +65,12 @@ class ModelsBuild:
         n_hidden = trial.suggest_int('n_hidden', 0, 5)
         if n_hidden == 0:
             model.add(tf.keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 9),
-                                        input_shape=(INPUT_SHAPE, FEATURES),
+                                        input_shape=(INPUT_SHAPE_CNN_RNN, FEATURES),
                                         return_sequences=False,
                                         dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT)))
         else:
             model.add(tf.keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 8),
-                                        input_shape=(INPUT_SHAPE, FEATURES),
+                                        input_shape=(INPUT_SHAPE_CNN_RNN, FEATURES),
                                         return_sequences=True,
                                         dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT),
                                         recurrent_dropout=trial.suggest_uniform('dropout_rec_input', 0, MAX_DROPOUT)))
@@ -110,13 +111,13 @@ class ModelsBuild:
         n_hidden = trial.suggest_int('n_hidden', 0, 5)
         if n_hidden == 0:
             model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 9),
-                                                    input_shape=(INPUT_SHAPE, FEATURES),
+                                                    input_shape=(INPUT_SHAPE_CNN_RNN, FEATURES),
                                                     return_sequences=False,
                                                     dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT)),
                                                  merge_mode=trial.suggest_categorical('merge_mode', ['sum', 'mul', 'concat', 'ave', None])))
         else:
             model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 8),
-                                                    input_shape=(INPUT_SHAPE, FEATURES),
+                                                    input_shape=(INPUT_SHAPE_CNN_RNN, FEATURES),
                                                     return_sequences=True,
                                                     dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT),
                                                     recurrent_dropout=trial.suggest_uniform('dropout_rec_input', 0, MAX_DROPOUT)),
@@ -153,12 +154,12 @@ class ModelsBuild:
         # input layer
         if n_hidden == 0:
             model.add(tf.keras.layers.GRU(units=trial.suggest_int('n_input', 1, 9),
-                                       input_shape=(INPUT_SHAPE, FEATURES),
+                                       input_shape=(INPUT_SHAPE_CNN_RNN, FEATURES),
                                        return_sequences=False,
                                        dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT)))
         else:
             model.add(tf.keras.layers.GRU(units=trial.suggest_int('n_input', 1, 9),
-                                       input_shape=(INPUT_SHAPE, FEATURES),
+                                       input_shape=(INPUT_SHAPE_CNN_RNN, FEATURES),
                                        return_sequences=True,
                                        dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT),
                                        recurrent_dropout=trial.suggest_uniform('dropout_rec_input', 0, MAX_DROPOUT)))
@@ -235,7 +236,7 @@ class ModelsBuild:
 
         n_layers_cnn = trial.suggest_int('n_hidden_cnn', 1, 5)
 
-        model.add(tf.keras.layers.InputLayer(input_shape=[INPUT_SHAPE, FEATURES]))
+        model.add(tf.keras.layers.InputLayer(input_shape=[INPUT_SHAPE_CNN_RNN, FEATURES]))
 
         for layer in range(n_layers_cnn):
             model.add(tf.keras.layers.Conv1D(filters=trial.suggest_categorical("filters_"+str(layer), [32, 64]),
@@ -296,7 +297,7 @@ class ModelsBuild:
         n_outputs_conv = trial.suggest_categorical("n_outputs", [32, 64, 128])  # 256 in the paper
         kernel = trial.suggest_categorical("kernel", [1, 3, 5])
 
-        inputs = tf.keras.layers.Input(shape=[INPUT_SHAPE, FEATURES])
+        inputs = tf.keras.layers.Input(shape=[INPUT_SHAPE_CNN_RNN, FEATURES])
         z = tf.keras.layers.Conv1D(n_filters, kernel_size=2, padding="causal")(inputs)
         skip_to_last = []
         for dilation_rate in [2 ** i for i in range(n_layers_per_block)] * n_blocks:
