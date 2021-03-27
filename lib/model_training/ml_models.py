@@ -239,7 +239,7 @@ class ModelsBuild:
 
         n_layers_cnn = trial.suggest_int('n_hidden_cnn', 1, 5)
 
-        model.add(tf.keras.layers.InputLayer(input_shape=[INPUT_SHAPE, FEATURES]))
+        model.add(tf.keras.layers.InputLayer(input_shape=[INPUT_SHAPE_CNN_RNN, FEATURES]))
 
         for layer in range(n_layers_cnn):
             model.add(tf.keras.layers.Conv1D(filters=trial.suggest_categorical("filters_"+str(layer), [32, 64]),
@@ -248,7 +248,7 @@ class ModelsBuild:
                                           activation='relu'))
             model.add(tf.keras.layers.MaxPooling1D(pool_size=trial.suggest_categorical("pool_size_"+str(layer), [1, 2])))
 
-        # tf.keras.layers.GlobalMaxPooling1D()
+        model.add(tf.keras.layers.GlobalMaxPooling1D())
 
         model.add(tf.keras.layers.Flatten())
 
@@ -417,7 +417,7 @@ class ModelsBuild:
         else:
             X_train = self.dataset.X_train.values
 
-        split = StratifiedShuffleSplit(n_splits=N_SPLITS+1, test_size=TEST_SPLIT_SIZE)
+        split = StratifiedShuffleSplit(n_splits=N_SPLITS, test_size=TEST_SPLIT_SIZE)
         for train, val in split.split(X_train, self.dataset.y_train):
             print("Training ", self.label, " in dataset ", self.dataset_name, " for the ", split_iter, " split.")
             X_train_vl = X_train[train].copy()
