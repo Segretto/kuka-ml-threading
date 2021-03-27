@@ -3,10 +3,9 @@ import optuna
 
 # THE USER SHOULD MODIFY THESE ONES
 labels = ['mlp', 'svm', 'rf', 'cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
-#labels = ['gru', 'lstm', 'bidirec_lstm', 'wavenet']
+#labels = ['cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
 datasets = ['original', 'nivelado', 'quadruplicado']
 # metrics = ['recall', 'precision', 'multi']
-
 
 N_TRIALS = 10
 TIMEOUT = None
