@@ -19,7 +19,7 @@ INPUT_SHAPE = 1556
 INPUT_SHAPE_CNN_RNN = None
 FEATURES = 6
 MAX_DROPOUT = 0.6
-N_SPLITS = 5
+N_SPLITS = 10
 TEST_SPLIT_SIZE = 0.2
 
 
@@ -36,8 +36,11 @@ class ModelsBuild:
         if not os.path.isdir('output'):
             os.mkdir('output')
             os.mkdir('output/models_trained')
+            os.mkdir('output/models_meta_data')
             os.mkdir(self.path_to_temp_trained_models)
             os.mkdir(self.path_to_best_trained_models)
+            os.mkdir(self.path_to_models_meta_data)
+
 
 
     def objective(self, trial, label=None):
@@ -245,6 +248,8 @@ class ModelsBuild:
                                           activation='relu'))
             model.add(tf.keras.layers.MaxPooling1D(pool_size=trial.suggest_categorical("pool_size_"+str(layer), [1, 2])))
 
+        # tf.keras.layers.GlobalMaxPooling1D()
+
         model.add(tf.keras.layers.Flatten())
 
         n_layers_dense = trial.suggest_int('n_hidden', 1, 4)
@@ -412,7 +417,7 @@ class ModelsBuild:
         else:
             X_train = self.dataset.X_train.values
 
-        split = StratifiedShuffleSplit(n_splits=N_SPLITS, test_size=TEST_SPLIT_SIZE)
+        split = StratifiedShuffleSplit(n_splits=N_SPLITS+1, test_size=TEST_SPLIT_SIZE)
         for train, val in split.split(X_train, self.dataset.y_train):
             print("Training ", self.label, " in dataset ", self.dataset_name, " for the ", split_iter, " split.")
             X_train_vl = X_train[train].copy()
