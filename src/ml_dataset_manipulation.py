@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
+import os
 
 class DatasetManip():
     def __init__(self, label='mlp', dataset='original', load_models=True):
@@ -25,33 +26,45 @@ class DatasetManip():
 
     def load_data(self, parameters='fx|fy|fz|mx|my|mz', dataset_name='original'):
         print("Loading data with all components")
-        n_batches = 4  # TODO: read all files in folders
+        dir_abs = os.path.abspath('.')
+        dir_new_dataset = dir_abs + '/dataset/dataset_new_iros21/'
+        # here we get all folders. We will hhave also with angular error and angular/linear error
+        dir_all_trials = [dir_new_dataset + dir_ for dir_ in os.listdir(dir_new_dataset)]
+
+        all_files = []
+        for dir_ in dir_all_trials:
+            for file in os.listdir(dir_ + '/data_insertion/'):
+                all_files.append(dir_ + '/data_insertion/' + file)
+
         if 'novo' in dataset_name:
-            vel = ['vx', 'vy', 'vz', 'vrotx', 'vroty']
-            forces = ['fx', 'fy', 'fz', 'mx', 'my', 'mz']
             all_data = []
             max_seq_len = 0
-            for batch in range(n_batches):
-                for bolt in range(40):
-                    file = '~/kuka-ml-threading/dataset/dataset_new_iros21/new_dataset_with_linear_error/data_insertion/data_insertion_batch_' + \
-                           str(batch).zfill(4) + '_bolt_' + str(bolt).zfill(2)
+            for file in all_files:
+                data = pd.read_csv(file)
+                data = self.remove_offset(data)
 
-                    data = pd.read_csv(file + '.csv')
-                    data = self.remove_offset(data)
-                    # plt.plot(data[features])
-                    # plt.legend(features)
-                    max_seq_len = max(max_seq_len, len(data.values[:, 0]))
+                max_seq_len = max(max_seq_len, len(data.values[:, 0]))
 
-                    # plt.title('Batch #' + str(batch) + ', Bolt #' + str(bolt))
-                    # plt.show()
-                    data = self.generate_velocity(data)
-                    data.drop(columns=['Unnamed: 13'], inplace=True)
-                    # all_data.append(data[forces + vel].values)
-                    all_data.append(data[parameters.split('|')])
+                data = self.generate_velocity(data)
+                data.drop(columns=['Unnamed: 13'], inplace=True)
+                # all_data.append(data[forces + vel].values)
+                all_data.append(data[parameters.split('|')])
+
             all_data = tf.keras.preprocessing.sequence.pad_sequences(all_data, maxlen=max_seq_len, padding='post',
                                                                     dtype='float32')
-            labels = pd.read_csv(
-                '~/kuka-ml-threading/dataset/dataset_new_iros21/new_dataset_with_linear_error/data_labels/labels.csv').values
+
+            labels = None
+            for dir_ in dir_all_trials:
+                if labels is None:
+                    labels = pd.read_csv(dir_ + '/data_labels/labels.csv').values
+                else:
+                    labels = np.vstack((labels, pd.read_csv(dir_ + '/data_labels/labels.csv').values))
+
+            # TODO: REMOVE THIS AFTER MORE DATA (only 1 label with idx 1)
+            idx = np.where(labels == 1)[0]
+            labels = np.delete(labels, idx)
+            all_data = np.delete(all_data, idx, axis=0)
+
             train, test, train_labels, test_labels = train_test_split(all_data, labels, test_size=0.33, random_state=42)
             return train, test, train_labels, test_labels
         else:
