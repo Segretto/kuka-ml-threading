@@ -33,14 +33,17 @@ class ModelsBuild:
         self.path_to_temp_trained_models = 'output/models_trained/temp/'
         self.path_to_best_trained_models = 'output/models_trained/best/'
 
+        # dir creation for logging
         if not os.path.isdir('output'):
             os.mkdir('output')
+        if not os.path.isdir('output/models_trained'):
             os.mkdir('output/models_trained')
-            os.mkdir('output/models_meta_data')
+        if not os.path.isdir(self.path_to_temp_trained_models):
             os.mkdir(self.path_to_temp_trained_models)
+        if not os.path.isdir(self.path_to_best_trained_models):
             os.mkdir(self.path_to_best_trained_models)
+        if not os.path.isdir(self.path_to_models_meta_data):
             os.mkdir(self.path_to_models_meta_data)
-
 
 
     def objective(self, trial, label=None):
