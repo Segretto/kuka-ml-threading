@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
-
+import tensorflow as tf
+from sklearn.model_selection import train_test_split
 
 class DatasetManip():
     def __init__(self, label='mlp', dataset='original', load_models=True):
@@ -8,8 +9,8 @@ class DatasetManip():
         print('Loading data')
         self.path_dataset, self.path_model, self.path_meta_data, self.path_model_meta_data = self.load_paths()
         if load_models:
-            X_train, X_test, self.y_train, self.y_test = self.load_data(dataset=dataset)
-            self.X_train, self.X_test = self.data_normalization(X_train, X_test)
+            X_train, X_test, self.y_train, self.y_test = self.load_data(dataset_name=dataset)
+            self.X_train, self.X_test = self.data_normalization(X_train, X_test, dataset_name=dataset)
 
         print('Loading data done')
 
@@ -22,42 +23,88 @@ class DatasetManip():
         path_model_meta_data = path_root + 'models/optimization/models_meta_data/'
         return path_dataset, path_model, path_meta_data, path_model_meta_data
 
-    def load_data(self, parameters='fx|fy|fz|mx|my|mz', dataset='original'):
+    def load_data(self, parameters='fx|fy|fz|mx|my|mz', dataset_name='original'):
         print("Loading data with all components")
-        if dataset == 'original':
-            names_X = ['X_train.csv', 'X_test.csv']
-            names_y = ['y_train.csv', 'y_test.csv']
-        if dataset == 'nivelado':
-            names_X = ['X_train_labels_niveladas.csv','X_test.csv']
-            names_y = ['y_train_labels_niveladas.csv', 'y_test.csv']
-        if dataset == 'quadruplicado':
-            names_X = ['X_train_labels_niveladas_quadriplicado.csv', 'X_test.csv']
-            names_y = ['y_train_labels_niveladas_quadriplicado.csv', 'y_test.csv']
+        n_batches = 4  # TODO: read all files in folders
+        if 'novo' in dataset_name:
+            vel = ['vx', 'vy', 'vz', 'vrotx', 'vroty']
+            forces = ['fx', 'fy', 'fz', 'mx', 'my', 'mz']
+            all_data = []
+            max_seq_len = 0
+            for batch in range(n_batches):
+                for bolt in range(40):
+                    file = '~/kuka-ml-threading/dataset/dataset_new_iros21/new_dataset_with_linear_error/data_insertion/data_insertion_batch_' + \
+                           str(batch).zfill(4) + '_bolt_' + str(bolt).zfill(2)
 
-        X = []
-        y = []
+                    data = pd.read_csv(file + '.csv')
+                    data = self.remove_offset(data)
+                    # plt.plot(data[features])
+                    # plt.legend(features)
+                    max_seq_len = max(max_seq_len, len(data.values[:, 0]))
 
-        for dataset in names_X:
-            dataframe = pd.read_csv(''.join([self.path_dataset, dataset]), index_col=0)
-            dataframe = dataframe.iloc[:, dataframe.columns.str.contains(parameters)]
-            # X.append(np.array(dataframe))
-            X.append(dataframe)
+                    # plt.title('Batch #' + str(batch) + ', Bolt #' + str(bolt))
+                    # plt.show()
+                    data = self.generate_velocity(data)
+                    data.drop(columns=['Unnamed: 13'], inplace=True)
+                    # all_data.append(data[forces + vel].values)
+                    all_data.append(data[parameters.split('|')])
+            all_data = tf.keras.preprocessing.sequence.pad_sequences(all_data, maxlen=max_seq_len, padding='post',
+                                                                    dtype='float32')
+            labels = pd.read_csv(
+                '~/kuka-ml-threading/dataset/dataset_new_iros21/new_dataset_with_linear_error/data_labels/labels.csv').values
+            train, test, train_labels, test_labels = train_test_split(all_data, labels, test_size=0.33, random_state=42)
+            return train, test, train_labels, test_labels
+        else:
+            if dataset_name == 'original':
+                names_X = ['X_train.csv', 'X_test.csv']
+                names_y = ['y_train.csv', 'y_test.csv']
+            if dataset_name == 'nivelado':
+                names_X = ['X_train_labels_niveladas.csv','X_test.csv']
+                names_y = ['y_train_labels_niveladas.csv', 'y_test.csv']
+            if dataset_name == 'quadruplicado':
+                names_X = ['X_train_labels_niveladas_quadruplicado.csv', 'X_test.csv']
+                names_y = ['y_train_labels_niveladas_quadruplicado.csv', 'y_test.csv']
 
-        for dataset in names_y:
-            dataframe = pd.read_csv(''.join([self.path_dataset, dataset]), index_col=0)
-            # y.append(np.array(dataframe))
-            y.append(dataframe)
+            X = []
+            y = []
 
-        print('Shape X_train: ', np.shape(X[0]))
-        print('Shape X_test : ', np.shape(X[1]))
-        print('Shape y_train: ', np.shape(y[0]))
-        print('Shape y_test : ', np.shape(y[1]))
+            for dataset_i in names_X:
+                dataframe = pd.read_csv(''.join([self.path_dataset, dataset_i]), index_col=0)
+                dataframe = dataframe.iloc[:, dataframe.columns.str.contains(parameters)]
+                # X.append(np.array(dataframe))
+                X.append(dataframe)
 
-        y[0] = y[0] - 1
-        y[1] = y[1] - 1
+            for dataset_i in names_y:
+                dataframe = pd.read_csv(''.join([self.path_dataset, dataset_i]), index_col=0)
+                # y.append(np.array(dataframe))
+                y.append(dataframe)
 
-        # return X_train, X_test, y_train, y_test
-        return X[0], X[1], y[0], y[1]  # X_train, X_test, y_train, y_test
+            print('Shape X_train: ', np.shape(X[0]))
+            print('Shape X_test : ', np.shape(X[1]))
+            print('Shape y_train: ', np.shape(y[0]))
+            print('Shape y_test : ', np.shape(y[1]))
+
+            y[0] = y[0] - 1
+            y[1] = y[1] - 1
+
+            # return X_train, X_test, y_train, y_test
+            return X[0], X[1], y[0], y[1]  # X_train, X_test, y_train, y_test
+
+    def remove_offset(self, data):
+        features = ['fx', 'fy', 'fz', 'mx', 'my', 'mz']
+        for feature in features:
+            # feature = 'fy'
+            n = 50
+            mean = np.mean(data[feature][:n])
+            data[feature] = data[feature] - mean
+        return data
+
+    def generate_velocity(self, data, dt = 0.012):
+        pos = ['x', 'y', 'z', 'rotx', 'roty', 'rotz']
+        for feature in data[pos]:
+            data['v' + feature] = data[feature].diff() / dt
+            data['v' + feature][0] = 0.0
+        return data
 
     def reshape_lstm_process(self, X_reshape, parameters=6):
         X_reshape = np.array(X_reshape)
@@ -102,26 +149,46 @@ class DatasetManip():
 
         return X
 
-    def data_normalization(self, X_train, X_test):
+    def data_normalization(self, X_train, X_test, dataset_name='original'):
         # X_train = X_train / 30
         # X_test = X_test / 30
         # X_train_vl = X_train_vl / 30
         # X_val = X_val / 30
 
-        X_train = self.force_moment_normalization(X_train)
-        X_test = self.force_moment_normalization(X_test)
+        X_train = self.force_moment_normalization(X_train, dataset_name=dataset_name)
+        X_test = self.force_moment_normalization(X_test, dataset_name=dataset_name)
 
-        print("X_train.shape = ", X_train.shape)
-        print("X_test.shape = ", X_test.shape)
+        print("X_train.shape = ", np.asarray(X_train).shape)
+        print("X_test.shape = ", np.asarray(X_test).shape)
         return X_train, X_test
 
-    def force_moment_normalization(self, df):
-        df.iloc[:, df.columns.str.contains('fx|fy|fz')] = df.iloc[:,
-                                                          df.columns.str.contains('fx|fy|fz')].apply(lambda x: x / 30,
-                                                                                                    axis=0)
-        df.iloc[:, df.columns.str.contains('mx|my|mz')] = df.iloc[:,
-                                                          df.columns.str.contains('mx|my|mz')].apply(lambda x: x / 3,
-                                                                                                    axis=0)
+    def force_moment_normalization(self, df, dataset_name='original'):
+        if 'novo' in dataset_name:
+            from sklearn.preprocessing import MinMaxScaler
+            all_min = []
+            all_max = []
+            scaler = MinMaxScaler()
+            for data_i in df:
+                s = scaler.fit(data_i)
+                all_min.append(s.data_min_)
+                all_max.append(s.data_max_)
+
+            all_min = np.min(all_min, axis=0)
+            all_max = np.max(all_max, axis=0)
+            s.data_min_ = all_min
+            s.data_max_ = all_max
+
+            for i, _ in enumerate(df):
+                df[i] = (df[i] - all_min) / (all_max - all_min + np.ones(len(all_max)) * 1e-7)
+        else:
+            df.iloc[:, df.columns.str.contains('fx|fy|fz')] = df.iloc[:,
+                                                              df.columns.str.contains('fx|fy|fz')].apply(
+                lambda x: x / 30,
+                axis=0)
+            df.iloc[:, df.columns.str.contains('mx|my|mz')] = df.iloc[:,
+                                                              df.columns.str.contains('mx|my|mz')].apply(
+                lambda x: x / 3,
+                axis=0)
         return df
 
     def create_validation_set(self, parameters='fx|fy|fz|mx|my|mz'):

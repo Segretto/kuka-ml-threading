@@ -15,7 +15,7 @@ BATCH_SIZE = 128
 BATCHSIZE_RECURRENT = int(BATCH_SIZE / 4)
 EPOCHS = 100
 OUTPUT_SHAPE = 3
-INPUT_SHAPE = 1556
+# INPUT_SHAPE = 1556
 INPUT_SHAPE_CNN_RNN = None
 FEATURES = 6
 MAX_DROPOUT = 0.6
@@ -194,6 +194,7 @@ class ModelsBuild:
 
     def objective_mlp(self, trial):
         model = tf.keras.models.Sequential()
+        INPUT_SHAPE = self.dataset.X_train.shape[1]
         model.add(tf.keras.layers.InputLayer(input_shape=[INPUT_SHAPE*FEATURES]))
         n_hidden = trial.suggest_int('n_hidden', 1, 5)
         for layer in range(n_hidden):
@@ -349,18 +350,21 @@ class ModelsBuild:
 
 
     def metrics_report(self, model):
-        if self.label == 'lstm' or self.label == 'cnn' or self.label == 'gru':
-            X_test = self.dataset.reshape_lstm_process(self.dataset.X_test)
+        if not (self.label == 'lstm' or self.label == 'cnn' or self.label == 'gru' or self.label == 'bidirec_lstm'\
+                or self.label == 'wavenet'):
+            # X_test = self.dataset.reshape_lstm_process(self.dataset.X_test)
+            X_test = self.dataset.X_test.reshape((self.dataset.X_test.shape[0],
+                                          self.dataset.X_test.shape[1] * self.dataset.X_test.shape[2]))
         else:
             X_test = self.dataset.X_test
 
         if self.label == 'rf' or self.label == 'svm':
-            y_pred = np.argmax(model.predict(X_test.values).reshape(X_test.shape[0], 1), axis=1)
+            y_pred = np.argmax(model.predict(X_test).reshape(X_test.shape[0], 1), axis=1)
         else:
             y_pred = np.argmax(model.predict(X_test), axis=1)
 
         # return recall_score(y_true=self.dataset.y_test, y_pred=y_pred, average='macro')
-        return classification_report(y_true=self.dataset.y_test.values, y_pred=y_pred,
+        return classification_report(y_true=self.dataset.y_test, y_pred=y_pred,
                                      output_dict=True, target_names=['mounted', 'not mounted', 'jammed'])
 
     def get_score(self, model):
@@ -413,25 +417,36 @@ class ModelsBuild:
 
         split_iter = 0
 
-        if self.label == 'lstm' or self.label == 'cnn' or self.label == 'gru' or self.label == 'bidirec_lstm'\
-                or self.label == 'wavenet':
-            X_train = self.dataset.reshape_lstm_process(self.dataset.X_train)
+        if not (self.label == 'lstm' or self.label == 'cnn' or self.label == 'gru' or self.label == 'bidirec_lstm'\
+                or self.label == 'wavenet'):
+            X_train = self.dataset.X_train.reshape((self.dataset.X_train.shape[0],
+                                                    self.dataset.X_train.shape[1]*self.dataset.X_train.shape[2]))
+            # X_train = self.dataset.reshape_lstm_process(self.dataset.X_train)
             # X_test = self.dataset.reshape_lstm_process(self.dataset.X_train)
         else:
-            X_train = self.dataset.X_train.values
+            try:
+                X_train = self.dataset.X_train.values
+            except AttributeError:
+                X_train = self.dataset.X_train
 
         split = StratifiedShuffleSplit(n_splits=N_SPLITS, test_size=TEST_SPLIT_SIZE)
+        # AQUI
         for train, val in split.split(X_train, self.dataset.y_train):
             print("Training ", self.label, " in dataset ", self.dataset_name, " for the ", split_iter, " split.")
-            X_train_vl = X_train[train].copy()
-            X_val = X_train[val].copy()
+            X_train_vl = np.asarray(X_train)[train].copy()
+            X_val = np.asarray(X_train)[val].copy()
 
-            y_train_vl = self.dataset.y_train.iloc[train].copy()
-            y_val = self.dataset.y_train.iloc[val].copy()
+            # TODO: remove all try except
+            try:
+                y_train_vl = self.dataset.y_train.iloc[train].copy()
+                y_val = self.dataset.y_train.iloc[val].copy()
+            except AttributeError:
+                y_train_vl = self.dataset.y_train[train].copy()
+                y_val = self.dataset.y_train[val].copy()
 
             if self.label == 'svm' or self.label == 'rf':
                 # TODO: do these guys use X_val?
-                model.fit(X_train_vl, y_train_vl.values.reshape((len(y_train_vl, ))))
+                model.fit(X_train_vl, y_train_vl.reshape((len(y_train_vl, ))))
             else:
 
                 # model.fit(
@@ -446,8 +461,8 @@ class ModelsBuild:
                 # )
 
                 model.fit(
-                    X_train_vl, y_train_vl.values,
-                    validation_data=(X_val, y_val.values),
+                    X_train_vl, y_train_vl,
+                    validation_data=(X_val, y_val),
                     shuffle=False,
                     batch_size=BATCH_SIZE,
                     epochs=EPOCHS,
