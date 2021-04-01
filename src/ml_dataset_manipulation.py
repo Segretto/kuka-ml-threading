@@ -3,6 +3,7 @@ import numpy as np
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
 import os
+from pyts.approximation import PiecewiseAggregateApproximation
 
 class DatasetManip():
     def __init__(self, label='mlp', dataset='original', load_models=True):
@@ -39,14 +40,17 @@ class DatasetManip():
         if 'novo' in dataset_name:
             all_data = []
             max_seq_len = 0
+            paa = PiecewiseAggregateApproximation(window_size=10)
             for file in all_files:
                 data = pd.read_csv(file)
                 data = self.remove_offset(data)
+                data.drop(columns=['Unnamed: 13'], inplace=True)
+                data = self.generate_velocity(data)
+
+                data_aux = paa.transform(X=data.values.T)
+                data = pd.DataFrame(data_aux.T, columns=[data.columns])
 
                 max_seq_len = max(max_seq_len, len(data.values[:, 0]))
-
-                data = self.generate_velocity(data)
-                data.drop(columns=['Unnamed: 13'], inplace=True)
                 # all_data.append(data[forces + vel].values)
                 all_data.append(data[parameters.split('|')])
 
