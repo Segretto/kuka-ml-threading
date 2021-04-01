@@ -69,14 +69,13 @@ class ModelsBuild:
         model = tf.keras.models.Sequential()
         # input layer
         n_hidden = trial.suggest_int('n_hidden', 0, 5)
+        model.add(tf.keras.layers.Masking(mask_value=0, input_shape=(INPUT_SHAPE_CNN_RNN, FEATURES)))
         if n_hidden == 0:
             model.add(tf.keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 9),
-                                        input_shape=(INPUT_SHAPE_CNN_RNN, FEATURES),
                                         return_sequences=False,
                                         dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT)))
         else:
             model.add(tf.keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 8),
-                                        input_shape=(INPUT_SHAPE_CNN_RNN, FEATURES),
                                         return_sequences=True,
                                         dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT),
                                         recurrent_dropout=trial.suggest_uniform('dropout_rec_input', 0, MAX_DROPOUT)))
@@ -115,15 +114,14 @@ class ModelsBuild:
         model = tf.keras.models.Sequential()
         # input layer
         n_hidden = trial.suggest_int('n_hidden', 0, 5)
+        model.add(tf.keras.layers.Masking(mask_value=0, input_shape=(INPUT_SHAPE_CNN_RNN, FEATURES)))
         if n_hidden == 0:
             model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 9),
-                                                    input_shape=(INPUT_SHAPE_CNN_RNN, FEATURES),
                                                     return_sequences=False,
                                                     dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT)),
                                                  merge_mode=trial.suggest_categorical('merge_mode', ['sum', 'mul', 'concat', 'ave', None])))
         else:
             model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 8),
-                                                    input_shape=(INPUT_SHAPE_CNN_RNN, FEATURES),
                                                     return_sequences=True,
                                                     dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT),
                                                     recurrent_dropout=trial.suggest_uniform('dropout_rec_input', 0, MAX_DROPOUT)),
@@ -157,15 +155,14 @@ class ModelsBuild:
         # return
         model = tf.keras.models.Sequential()
         n_hidden = trial.suggest_int('n_hidden', 0, 5)
+        model.add(tf.keras.layers.Masking(mask_value=0, input_shape=(INPUT_SHAPE_CNN_RNN, FEATURES)))
         # input layer
         if n_hidden == 0:
             model.add(tf.keras.layers.GRU(units=trial.suggest_int('n_input', 1, 9),
-                                       input_shape=(INPUT_SHAPE_CNN_RNN, FEATURES),
                                        return_sequences=False,
                                        dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT)))
         else:
             model.add(tf.keras.layers.GRU(units=trial.suggest_int('n_input', 1, 9),
-                                       input_shape=(INPUT_SHAPE_CNN_RNN, FEATURES),
                                        return_sequences=True,
                                        dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT),
                                        recurrent_dropout=trial.suggest_uniform('dropout_rec_input', 0, MAX_DROPOUT)))
@@ -242,8 +239,8 @@ class ModelsBuild:
         model = tf.keras.models.Sequential()
 
         n_layers_cnn = trial.suggest_int('n_hidden_cnn', 1, 5)
-
-        model.add(tf.keras.layers.InputLayer(input_shape=[INPUT_SHAPE_CNN_RNN, FEATURES]))
+        model.add(tf.keras.layers.Masking(mask_value=0, input_shape=(INPUT_SHAPE_CNN_RNN, FEATURES)))
+        # model.add(tf.keras.layers.InputLayer(input_shape=[INPUT_SHAPE_CNN_RNN, FEATURES]))
 
         for layer in range(n_layers_cnn):
             model.add(tf.keras.layers.Conv1D(filters=trial.suggest_categorical("filters_"+str(layer), [32, 64]),
@@ -306,7 +303,8 @@ class ModelsBuild:
         n_outputs_conv = trial.suggest_categorical("n_outputs", [32, 64, 128])  # 256 in the paper
         kernel = trial.suggest_categorical("kernel", [1, 3, 5])
 
-        inputs = tf.keras.layers.Input(shape=[INPUT_SHAPE_CNN_RNN, FEATURES])
+        # inputs = tf.keras.layers.Input(shape=[INPUT_SHAPE_CNN_RNN, FEATURES])
+        inputs = tf.keras.layers.Masking(mask_value=0, input_shape=(INPUT_SHAPE_CNN_RNN, FEATURES))
         z = tf.keras.layers.Conv1D(n_filters, kernel_size=2, padding="causal")(inputs)
         skip_to_last = []
         for dilation_rate in [2 ** i for i in range(n_layers_per_block)] * n_blocks:
@@ -365,7 +363,7 @@ class ModelsBuild:
 
         # return recall_score(y_true=self.dataset.y_test, y_pred=y_pred, average='macro')
         return classification_report(y_true=self.dataset.y_test, y_pred=y_pred,
-                                     output_dict=True, target_names=['mounted', 'not mounted', 'jammed'])
+                                     output_dict=True, target_names=['mounted', 'not mounted'])#, 'jammed'])
 
     def get_score(self, model):
         report = self.metrics_report(model)
@@ -417,12 +415,14 @@ class ModelsBuild:
 
         split_iter = 0
 
-        if not (self.label == 'lstm' or self.label == 'cnn' or self.label == 'gru' or self.label == 'bidirec_lstm'\
-                or self.label == 'wavenet'):
+        if 'novo' in self.dataset_name and not (self.label == 'lstm' or self.label == 'cnn' or self.label == 'gru' or
+                                                self.label == 'bidirec_lstm' or self.label == 'wavenet'):
             X_train = self.dataset.X_train.reshape((self.dataset.X_train.shape[0],
                                                     self.dataset.X_train.shape[1]*self.dataset.X_train.shape[2]))
-            # X_train = self.dataset.reshape_lstm_process(self.dataset.X_train)
             # X_test = self.dataset.reshape_lstm_process(self.dataset.X_train)
+        elif 'novo' not in self.dataset_name and (self.label == 'lstm' or self.label == 'cnn' or self.label == 'gru' or
+                                                self.label == 'bidirec_lstm' or self.label == 'wavenet'):
+            X_train = self.dataset.reshape_lstm_process(self.dataset.X_train)
         else:
             try:
                 X_train = self.dataset.X_train.values
