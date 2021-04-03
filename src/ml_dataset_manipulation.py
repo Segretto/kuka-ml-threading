@@ -13,6 +13,11 @@ class DatasetManip():
         if load_models:
             X_train, X_test, self.y_train, self.y_test = self.load_data(dataset_name=dataset)
             self.X_train, self.X_test = self.data_normalization(X_train, X_test, dataset_name=dataset)
+            if 'novo' not in dataset:
+                self.X_train = self.X_train.values
+                self.X_test = self.X_test.values
+                self.y_train = self.y_train.values
+                self.y_test = self.y_test.values
 
         print('Loading data done')
 
@@ -37,10 +42,12 @@ class DatasetManip():
             for file in os.listdir(dir_ + '/data_insertion/'):
                 all_files.append(dir_ + '/data_insertion/' + file)
 
+        paa = PiecewiseAggregateApproximation(window_size=10)
+
+        max_seq_len = 0
+
         if 'novo' in dataset_name:
             all_data = []
-            max_seq_len = 0
-            paa = PiecewiseAggregateApproximation(window_size=10)
             for file in all_files:
                 data = pd.read_csv(file)
                 data = self.remove_offset(data)
@@ -88,6 +95,12 @@ class DatasetManip():
             for dataset_i in names_X:
                 dataframe = pd.read_csv(''.join([self.path_dataset, dataset_i]), index_col=0)
                 dataframe = dataframe.iloc[:, dataframe.columns.str.contains(parameters)]
+
+                # @TODO: do paa here
+                # data_aux = paa.transform(X=dataframe.values.T)
+                # dataframe = pd.DataFrame(data_aux.T, columns=[dataframe.columns])
+                #
+                # max_seq_len = max(max_seq_len, len(dataframe.values[:, 0]))
                 # X.append(np.array(dataframe))
                 X.append(dataframe)
 
@@ -95,6 +108,11 @@ class DatasetManip():
                 dataframe = pd.read_csv(''.join([self.path_dataset, dataset_i]), index_col=0)
                 # y.append(np.array(dataframe))
                 y.append(dataframe)
+
+            # X[0] = tf.keras.preprocessing.sequence.pad_sequences(X[0], maxlen=max_seq_len, padding='post',
+            #                                               dtype='float32')
+            # X[1] = tf.keras.preprocessing.sequence.pad_sequences(X[1], maxlen=max_seq_len, padding='post',
+            #                                                      dtype='float32')
 
             print('Shape X_train: ', np.shape(X[0]))
             print('Shape X_test : ', np.shape(X[1]))
@@ -104,13 +122,11 @@ class DatasetManip():
             y[0] = y[0] - 1
             y[1] = y[1] - 1
 
-            # return X_train, X_test, y_train, y_test
             return X[0], X[1], y[0], y[1]  # X_train, X_test, y_train, y_test
 
     def remove_offset(self, data):
         features = ['fx', 'fy', 'fz', 'mx', 'my', 'mz']
         for feature in features:
-            # feature = 'fy'
             n = 50
             mean = np.mean(data[feature][:n])
             data[feature] = data[feature] - mean
@@ -125,8 +141,6 @@ class DatasetManip():
 
     def reshape_lstm_process(self, X_reshape, parameters=6):
         X_reshape = np.array(X_reshape)
-        # X_reshape = np.array(X_train)[:,:-1]
-        # number_of_features = parameters.count('|') + 1
         number_of_features = parameters
 
         shape_input = int(np.shape(X_reshape)[1] / number_of_features)
@@ -167,10 +181,6 @@ class DatasetManip():
         return X
 
     def data_normalization(self, X_train, X_test, dataset_name='original'):
-        # X_train = X_train / 30
-        # X_test = X_test / 30
-        # X_train_vl = X_train_vl / 30
-        # X_val = X_val / 30
 
         X_train = self.force_moment_normalization(X_train, dataset_name=dataset_name)
         X_test = self.force_moment_normalization(X_test, dataset_name=dataset_name)

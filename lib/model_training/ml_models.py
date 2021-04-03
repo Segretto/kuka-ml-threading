@@ -15,7 +15,7 @@ BATCH_SIZE = 128
 BATCHSIZE_RECURRENT = int(BATCH_SIZE / 4)
 EPOCHS = 100
 OUTPUT_SHAPE = 3
-# INPUT_SHAPE = 1556
+INPUT_SHAPE = 1556
 INPUT_SHAPE_CNN_RNN = None
 FEATURES = 6
 MAX_DROPOUT = 0.6
@@ -139,7 +139,7 @@ class ModelsBuild:
                                                 dropout=trial.suggest_uniform('dropout_' + str(n_hidden + 1), 0, MAX_DROPOUT)),
                                                          merge_mode=trial.suggest_categorical('merge_mode_' + str(layer + 1), ['sum', 'mul', 'concat', 'ave', None])))
 
-        # TODO: change optimizer and add batchNorm in layers. It is taking too long to train
+        # TODO: change optimizer and add batchNorm in layers
         # output layer
         model.add(tf.keras.layers.Dense(OUTPUT_SHAPE, activation='softmax'))
         optimizer = tf.keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
@@ -151,8 +151,6 @@ class ModelsBuild:
         return score
 
     def objective_gru(self, trial):
-        # print("NOT WORKING. Problems with shapes...")
-        # return
         model = tf.keras.models.Sequential()
         n_hidden = trial.suggest_int('n_hidden', 0, 5)
         model.add(tf.keras.layers.Masking(mask_value=0, input_shape=(INPUT_SHAPE_CNN_RNN, FEATURES)))
@@ -178,7 +176,7 @@ class ModelsBuild:
                                            return_sequences=False,
                                            dropout=trial.suggest_uniform('dropout_' + str(n_hidden), 0, MAX_DROPOUT)))
 
-        # TODO: change optimizer and add batchNorm in layers. It is taking too long to train
+        # TODO: change optimizer and add batchNorm in layers
         # output layer
         model.add(tf.keras.layers.Dense(OUTPUT_SHAPE, activation='softmax'))
         optimizer = tf.keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
@@ -191,7 +189,10 @@ class ModelsBuild:
 
     def objective_mlp(self, trial):
         model = tf.keras.models.Sequential()
-        INPUT_SHAPE = self.dataset.X_train.shape[1]
+        if 'novo' in self.dataset_name:
+            INPUT_SHAPE = self.dataset.X_train.shape[1]
+        else:
+            INPUT_SHAPE = 1556
         model.add(tf.keras.layers.InputLayer(input_shape=[INPUT_SHAPE*FEATURES]))
         n_hidden = trial.suggest_int('n_hidden', 1, 5)
         for layer in range(n_hidden):
@@ -226,10 +227,10 @@ class ModelsBuild:
         return score
 
     def objective_rf(self, trial):
-        model = RF(n_estimators=int(trial.suggest_loguniform('rf_n_estimators', 1, 100)),
-                   max_depth=int(trial.suggest_loguniform('rf_max_depth', 2, 32)),
-                   max_leaf_nodes=trial.suggest_int('rf_max_leaf', 2, 40),
-                   min_samples_split=trial.suggest_int('rf_min_samples_split', 2, 10))
+        model = RF(n_estimators=int(trial.suggest_int('rf_n_estimators', 1, 100+1)),
+                   max_depth=int(trial.suggest_int('rf_max_depth', 2, 32+1)),
+                   max_leaf_nodes=trial.suggest_int('rf_max_leaf', 2, 40+1),
+                   min_samples_split=trial.suggest_int('rf_min_samples_split', 2, 10+1))
         model = self._model_fit(model)
         score = self.get_score(model)
         self._save_model(trial, model)
@@ -348,13 +349,15 @@ class ModelsBuild:
 
 
     def metrics_report(self, model):
-        if not (self.label == 'lstm' or self.label == 'cnn' or self.label == 'gru' or self.label == 'bidirec_lstm'\
-                or self.label == 'wavenet'):
-            # X_test = self.dataset.reshape_lstm_process(self.dataset.X_test)
+        if 'novo' in self.dataset_name and (self.label == 'rf' or self.label == 'svm' or self.label == 'mlp'):
             X_test = self.dataset.X_test.reshape((self.dataset.X_test.shape[0],
                                           self.dataset.X_test.shape[1] * self.dataset.X_test.shape[2]))
+        elif 'novo' not in self.dataset_name and not (self.label == 'rf' or self.label == 'svm' or self.label == 'mlp'):
+            X_test = self.dataset.reshape_lstm_process(self.dataset.X_test)
         else:
             X_test = self.dataset.X_test
+
+
 
         if self.label == 'rf' or self.label == 'svm':
             y_pred = np.argmax(model.predict(X_test).reshape(X_test.shape[0], 1), axis=1)
@@ -362,8 +365,13 @@ class ModelsBuild:
             y_pred = np.argmax(model.predict(X_test), axis=1)
 
         # return recall_score(y_true=self.dataset.y_test, y_pred=y_pred, average='macro')
-        return classification_report(y_true=self.dataset.y_test, y_pred=y_pred,
-                                     output_dict=True, target_names=['mounted', 'not mounted'])#, 'jammed'])
+        # TODO: this problem occurs due to the lack of class jammed. WIll gather more data and remove this
+        try:
+            return classification_report(y_true=self.dataset.y_test, y_pred=y_pred,
+                                     output_dict=True, target_names=['mounted', 'not mounted', 'jammed'])
+        except ValueError:
+            return classification_report(y_true=self.dataset.y_test, y_pred=y_pred,
+                                     output_dict=True, target_names=['mounted', 'not mounted'])  # , 'jammed'])
 
     def get_score(self, model):
         report = self.metrics_report(model)
@@ -390,7 +398,7 @@ class ModelsBuild:
         # 2 move it to the "best" folder
         move(old_path, new_path)
 
-        # 2 delete all files from "temp" folder
+        # 3 delete all files from "temp" folder
         folder_list = os.listdir(self.path_to_temp_trained_models)
         for file in folder_list:
             os.remove(self.path_to_temp_trained_models + file)
@@ -415,19 +423,13 @@ class ModelsBuild:
 
         split_iter = 0
 
-        if 'novo' in self.dataset_name and not (self.label == 'lstm' or self.label == 'cnn' or self.label == 'gru' or
-                                                self.label == 'bidirec_lstm' or self.label == 'wavenet'):
+        if 'novo' in self.dataset_name and (self.label == 'rf' or self.label == 'svm' or self.label == 'mlp'):
             X_train = self.dataset.X_train.reshape((self.dataset.X_train.shape[0],
                                                     self.dataset.X_train.shape[1]*self.dataset.X_train.shape[2]))
-            # X_test = self.dataset.reshape_lstm_process(self.dataset.X_train)
-        elif 'novo' not in self.dataset_name and (self.label == 'lstm' or self.label == 'cnn' or self.label == 'gru' or
-                                                self.label == 'bidirec_lstm' or self.label == 'wavenet'):
+        elif 'novo' not in self.dataset_name and not (self.label == 'rf' or self.label == 'svm' or self.label == 'mlp'):
             X_train = self.dataset.reshape_lstm_process(self.dataset.X_train)
         else:
-            try:
-                X_train = self.dataset.X_train.values
-            except AttributeError:
-                X_train = self.dataset.X_train
+            X_train = self.dataset.X_train
 
         split = StratifiedShuffleSplit(n_splits=N_SPLITS, test_size=TEST_SPLIT_SIZE)
         # AQUI
