@@ -48,21 +48,24 @@ class ModelsBuild:
 
     def objective(self, trial, label=None):
         if label == 'lstm':
-            score = self.objective_lstm(trial)
+            model = self.objective_lstm(trial)
         if label == 'bidirec_lstm':
-            score = self.objective_bidirectional_lstm(trial)
+            model = self.objective_bidirectional_lstm(trial)
         if label == 'gru':
-            score = self.objective_gru(trial)
+            model = self.objective_gru(trial)
         if label == 'mlp':
-            score = self.objective_mlp(trial)
+            model = self.objective_mlp(trial)
         if label == 'svm':
-            score = self.objective_svm(trial)
+            model = self.objective_svm(trial)
         if label == 'cnn':
-            score = self.objective_cnn(trial)
+            model = self.objective_cnn(trial)
         if label == 'wavenet':
-            score = self.objective_wavenet(trial)
+            model = self.objective_wavenet(trial)
         if label == 'rf':
-            score = self.objective_rf(trial)
+            model = self.objective_rf(trial)
+        model = self._model_fit(model)
+        score = self.get_score(model)
+        self._save_model(trial, model)
         return score
 
     def objective_lstm(self, trial):
@@ -105,10 +108,7 @@ class ModelsBuild:
         #     epochs=EPOCHS,
         #     verbose=False,
         # )
-        model = self._model_fit(model)
-        score = self.get_score(model)
-        self._save_model(trial, model)
-        return score
+        return model
 
     def objective_bidirectional_lstm(self, trial):
         model = tf.keras.models.Sequential()
@@ -145,10 +145,7 @@ class ModelsBuild:
         optimizer = tf.keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
         model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
-        model = self._model_fit(model)
-        score = self.get_score(model)
-        self._save_model(trial, model)
-        return score
+        return model
 
     def objective_gru(self, trial):
         model = tf.keras.models.Sequential()
@@ -182,10 +179,7 @@ class ModelsBuild:
         optimizer = tf.keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
         model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
-        model = self._model_fit(model)
-        score = self.get_score(model)
-        self._save_model(trial, model)
-        return score
+        return model
 
     def objective_mlp(self, trial):
         model = tf.keras.models.Sequential()
@@ -210,31 +204,21 @@ class ModelsBuild:
 
         # optimizing over different metric than accuracy
         # ps: take a look at score function to check for multi-objective optimization
-        score = self.get_score(model)
-
-        self._save_model(trial, model)
-
-        return score
+        return model
 
     def objective_svm(self, trial):
         model = SVC(C=trial.suggest_loguniform('svc_c', 1e-10, 1e10),
                     kernel=trial.suggest_categorical("kernel", ["rbf", "sigmoid"]),
                     probability=True, gamma='auto',
                     class_weight=trial.suggest_categorical("class_weight", ['balanced', None]))
-        model = self._model_fit(model)
-        score = self.get_score(model)
-        self._save_model(trial, model)
-        return score
+        return model
 
     def objective_rf(self, trial):
         model = RF(n_estimators=int(trial.suggest_int('rf_n_estimators', 1, 100+1)),
                    max_depth=int(trial.suggest_int('rf_max_depth', 2, 32+1)),
                    max_leaf_nodes=trial.suggest_int('rf_max_leaf', 2, 40+1),
                    min_samples_split=trial.suggest_int('rf_min_samples_split', 2, 10+1))
-        model = self._model_fit(model)
-        score = self.get_score(model)
-        self._save_model(trial, model)
-        return score
+        return model
 
     def objective_cnn(self, trial):
         model = tf.keras.models.Sequential()
@@ -269,10 +253,7 @@ class ModelsBuild:
         optimizer = tf.keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
         model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
-        model = self._model_fit(model)
-        score = self.get_score(model)
-        self._save_model(trial, model)
-        return score
+        return model
 
     def objective_wavenet(self, trial):
 
@@ -342,10 +323,7 @@ class ModelsBuild:
         optimizer = tf.keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
         model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
-        model = self._model_fit(model)
-        score = self.get_score(model)
-        self._save_model(trial, model)
-        return score
+        return model
 
 
     def metrics_report(self, model):
@@ -432,7 +410,12 @@ class ModelsBuild:
             X_train = self.dataset.X_train
 
         split = StratifiedShuffleSplit(n_splits=N_SPLITS, test_size=TEST_SPLIT_SIZE)
+        scores = []
         # AQUI
+        # @TODO: should we change to StratifiedKFold? https://stackoverflow.com/questions/45969390/difference-between-stratifiedkfold-and-stratifiedshufflesplit-in-sklearn
+        # @TODO: also, should we save scores and get the average? https://stackoverflow.com/questions/63224426/how-can-i-cross-validate-by-pytorch-and-optuna
+        # @TODO: eu acho que estamos usando o shuffle errado... Tem que tirar as métricas para cada split e daí tirar a média delas
+        # @TODO: multiprocessing https://johaupt.github.io/python/parallel%20processing/cross-validation/multiprocessing_cross_validation.html
         for train, val in split.split(X_train, self.dataset.y_train):
             print("Training ", self.label, " in dataset ", self.dataset_name, " for the ", split_iter, " split.")
             X_train_vl = np.asarray(X_train)[train].copy()
@@ -469,6 +452,7 @@ class ModelsBuild:
                     batch_size=BATCH_SIZE,
                     epochs=EPOCHS,
                     verbose=False)
+
             split_iter += 1
         return model
 
