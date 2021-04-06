@@ -96,11 +96,22 @@ class DatasetManip():
                 dataframe = pd.read_csv(''.join([self.path_dataset, dataset_i]), index_col=0)
                 dataframe = dataframe.iloc[:, dataframe.columns.str.contains(parameters)]
 
-                # @TODO: do paa here
-                # data_aux = paa.transform(X=dataframe.values.T)
-                # dataframe = pd.DataFrame(data_aux.T, columns=[dataframe.columns])
-                #
-                # max_seq_len = max(max_seq_len, len(dataframe.values[:, 0]))
+                # @DONE: paa here
+                X_new = self.reshape_lstm_process(dataframe.values)
+                data_aux = []
+                for experiment in X_new:
+                    aux = paa.transform(X=experiment.T)
+                    data_aux.append(aux.T)
+                data_aux = np.array(data_aux)
+                columns = ['fx_'+str(i)  for i in range(data_aux[0].shape[0])] +\
+                          ['fy_'+str(i)  for i in range(data_aux[0].shape[0])] +\
+                          ['fz_'+str(i)  for i in range(data_aux[0].shape[0])] +\
+                          ['mx_'+str(i)  for i in range(data_aux[0].shape[0])] +\
+                          ['my_'+str(i)  for i in range(data_aux[0].shape[0])] +\
+                          ['mz_'+str(i)  for i in range(data_aux[0].shape[0])]
+                dataframe = pd.DataFrame(data_aux.reshape(data_aux.shape[0], data_aux.shape[1]*data_aux.shape[2]),
+                                         columns=columns)
+
                 # X.append(np.array(dataframe))
                 X.append(dataframe)
 
