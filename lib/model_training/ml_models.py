@@ -3,8 +3,7 @@ from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier as RF
 import os
 from joblib import dump
-from keras.callbacks import Callback
-from sklearn.metrics import f1_score, precision_score, recall_score, classification_report
+from sklearn.metrics import f1_score, precision_score, recall_score, classification_report, confusion_matrix
 from sklearn.model_selection import StratifiedShuffleSplit
 import numpy as np
 from src.ml_dataset_manipulation import DatasetManip
@@ -32,6 +31,7 @@ class ModelsBuild:
         self.path_to_models_meta_data = 'output/models_meta_data/'
         self.path_to_temp_trained_models = 'output/models_trained/temp/'
         self.path_to_best_trained_models = 'output/models_trained/best/'
+        self.objective_iterator = 0
 
         # dir creation for logging
         if not os.path.isdir('output'):
@@ -47,6 +47,13 @@ class ModelsBuild:
 
 
     def objective(self, trial, label=None):
+        print("Training ", self.label, " in dataset ", self.dataset_name)
+        # model = self.get_model(trial, self.label)
+        score_mean, score_std = self._model_train(trial, self.label)
+        # self._save_model(trial, model)
+        return score_mean
+
+    def get_model(self, trial, label):
         if label == 'lstm':
             model = self.objective_lstm(trial)
         if label == 'bidirec_lstm':
@@ -63,10 +70,7 @@ class ModelsBuild:
             model = self.objective_wavenet(trial)
         if label == 'rf':
             model = self.objective_rf(trial)
-        model = self._model_fit(model)
-        score = self.get_score(model)
-        self._save_model(trial, model)
-        return score
+        return model
 
     def objective_lstm(self, trial):
         model = tf.keras.models.Sequential()
@@ -198,7 +202,7 @@ class ModelsBuild:
         model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
         # TODO: implementar esses kfolds em cada modelo de NN
-        model = self._model_fit(model)
+        # model = self._model_fit(model)
 
         # TODO: implement cross-validation
 
@@ -325,7 +329,6 @@ class ModelsBuild:
 
         return model
 
-
     def metrics_report(self, model):
         if 'novo' in self.dataset_name and (self.label == 'rf' or self.label == 'svm' or self.label == 'mlp'):
             X_test = self.dataset.X_test.reshape((self.dataset.X_test.shape[0],
@@ -334,8 +337,6 @@ class ModelsBuild:
             X_test = self.dataset.reshape_lstm_process(self.dataset.X_test)
         else:
             X_test = self.dataset.X_test
-
-
 
         if self.label == 'rf' or self.label == 'svm':
             y_pred = np.argmax(model.predict(X_test).reshape(X_test.shape[0], 1), axis=1)
@@ -346,10 +347,10 @@ class ModelsBuild:
         # TODO: this problem occurs due to the lack of class jammed. WIll gather more data and remove this
         try:
             return classification_report(y_true=self.dataset.y_test, y_pred=y_pred,
-                                     output_dict=True, target_names=['mounted', 'not mounted', 'jammed'])
+                                     output_dict=True, target_names=['mounted', 'not mounted', 'jammed'], zero_division=0)
         except ValueError:
             return classification_report(y_true=self.dataset.y_test, y_pred=y_pred,
-                                     output_dict=True, target_names=['mounted', 'not mounted'])  # , 'jammed'])
+                                     output_dict=True, target_names=['mounted', 'not mounted'], zero_division=0)  # , 'jammed'])
 
     def get_score(self, model):
         report = self.metrics_report(model)
@@ -397,65 +398,65 @@ class ModelsBuild:
             model_path += '.h5'
             tf.keras.models.save_model(model, model_path)
 
-    def _model_fit(self, model):
 
-        split_iter = 0
-
-        if 'novo' in self.dataset_name and (self.label == 'rf' or self.label == 'svm' or self.label == 'mlp'):
+    def _reshape_X_for_train(self, label):
+        if 'novo' in self.dataset_name and (label == 'rf' or label == 'svm' or label == 'mlp'):
             X_train = self.dataset.X_train.reshape((self.dataset.X_train.shape[0],
                                                     self.dataset.X_train.shape[1]*self.dataset.X_train.shape[2]))
-        elif 'novo' not in self.dataset_name and not (self.label == 'rf' or self.label == 'svm' or self.label == 'mlp'):
+        elif 'novo' not in self.dataset_name and not (label == 'rf' or label == 'svm' or label == 'mlp'):
             X_train = self.dataset.reshape_lstm_process(self.dataset.X_train)
         else:
             X_train = self.dataset.X_train
+        return X_train, self.dataset.y_train
+
+
+    def _model_train(self, trial, label):
+        X_train, y_train = self._reshape_X_for_train(label)
 
         split = StratifiedShuffleSplit(n_splits=N_SPLITS, test_size=TEST_SPLIT_SIZE)
         scores = []
-        # AQUI
+
         # @TODO: should we change to StratifiedKFold? https://stackoverflow.com/questions/45969390/difference-between-stratifiedkfold-and-stratifiedshufflesplit-in-sklearn
-        # @TODO: also, should we save scores and get the average? https://stackoverflow.com/questions/63224426/how-can-i-cross-validate-by-pytorch-and-optuna
-        # @TODO: eu acho que estamos usando o shuffle errado... Tem que tirar as métricas para cada split e daí tirar a média delas
+        # @DONE: also, should we save scores and get the average? https://stackoverflow.com/questions/63224426/how-can-i-cross-validate-by-pytorch-and-optuna
+        # @DONE: eu acho que estamos usando o shuffle errado... Tem que tirar as métricas para cada split e daí tirar a média delas
         # @TODO: multiprocessing https://johaupt.github.io/python/parallel%20processing/cross-validation/multiprocessing_cross_validation.html
         for train, val in split.split(X_train, self.dataset.y_train):
-            print("Training ", self.label, " in dataset ", self.dataset_name, " for the ", split_iter, " split.")
-            X_train_vl = np.asarray(X_train)[train].copy()
-            X_val = np.asarray(X_train)[val].copy()
+            # each training must have a new model
+            model = self.get_model(trial, label)
+            model = self._model_fit(X_train, self.dataset.y_train, train, val, model)
+            score = self.get_score(model)
+            scores.append(score)
+            del model
 
-            # TODO: remove all try except
-            try:
-                y_train_vl = self.dataset.y_train.iloc[train].copy()
-                y_val = self.dataset.y_train.iloc[val].copy()
-            except AttributeError:
-                y_train_vl = self.dataset.y_train[train].copy()
-                y_val = self.dataset.y_train[val].copy()
+        score_mean = np.mean(scores)
+        score_std = np.std(scores)
+        return score_mean, score_std
 
-            if self.label == 'svm' or self.label == 'rf':
-                # TODO: do these guys use X_val?
-                model.fit(X_train_vl, y_train_vl.reshape((len(y_train_vl, ))))
-            else:
 
-                # model.fit(
-                #     self.dataset.X_train,
-                #     self.dataset.y_train.reshape((len(self.dataset.y_train),)),
-                #     validation_data=(
-                #     self.dataset.X_train_vl, self.dataset.y_train_vl.reshape((len(self.dataset.y_train_vl),))),
-                #     shuffle=False,
-                #     batch_size=BATCHSIZE_RECURRENT,
-                #     epochs=EPOCHS,
-                #     verbose=False,
-                # )
+    def _model_fit(self, X_train, y_train, train, val, model):
+        X_train_vl = np.asarray(X_train)[train].copy()
+        X_val = np.asarray(X_train)[val].copy()
 
-                model.fit(
-                    X_train_vl, y_train_vl,
-                    validation_data=(X_val, y_val),
-                    shuffle=False,
-                    batch_size=BATCH_SIZE,
-                    epochs=EPOCHS,
-                    verbose=False)
+        # TODO: remove all try except
+        try:
+            y_train_vl = y_train.iloc[train].copy()
+            y_val = y_train.iloc[val].copy()
+        except AttributeError:
+            y_train_vl = y_train[train].copy()
+            y_val = y_train[val].copy()
 
-            split_iter += 1
+        if self.label == 'svm' or self.label == 'rf':
+            # TODO: do these guys use X_val?
+            model.fit(X_train_vl, y_train_vl.reshape((len(y_train_vl, ))))
+        else:
+            model.fit(
+                X_train_vl, y_train_vl,
+                validation_data=(X_val, y_val),
+                shuffle=False,
+                batch_size=BATCH_SIZE,
+                epochs=EPOCHS,
+                verbose=False)
         return model
-
 
 # class Metrics(Callback):
 #     def on_train_begin(self, logs={}):
