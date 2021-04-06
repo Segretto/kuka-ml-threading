@@ -1,27 +1,28 @@
 from lib.model_training.ml_models import ModelsBuild
+from src.ml_dataset_manipulation import DatasetManip
 import optuna
 
 # THE USER SHOULD MODIFY THESE ONES
-labels = ['svm', 'rf', 'mlp', 'cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
-# labels = ['cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
+models_names = ['svm', 'rf', 'mlp', 'cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
+# models_names = ['cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
 datasets = ['original', 'nivelado', 'quadruplicado']
 # datasets = ['original_novo']
-# metrics = ['recall', 'precision', 'multi']
 
 N_TRIALS = 10
 TIMEOUT = None
 n_jobs = -1
 METRICS = 'mounted'  # or 'jammed' or 'multi' for both
 
-for dataset in datasets:
-    for label in labels:
-        print("\n\n------------- Starting training for " + label + " in dataset " + dataset + " -------------")
+for dataset_name in datasets:
+    dataset_handler = DatasetManip(dataset=dataset_name)
+    for model_name in models_names:
+        print("\n\n------------- Starting training for " + model_name + " in dataset " + dataset_name + " -------------")
 
         # TODO: load all data only once
-        # TODO: check new dataset
-        models_build = ModelsBuild(label, dataset, metrics=METRICS)
 
-        study_name = dataset + '_' + label
+        models_build = ModelsBuild(model_name, dataset_name, metrics=METRICS, dataset=dataset_handler)
+
+        study_name = dataset_name + '_' + model_name
         # TODO: put metrics in the file name
         if METRICS is not 'multi':
             study = optuna.create_study(study_name=study_name, direction="maximize")
@@ -30,8 +31,8 @@ for dataset in datasets:
 
         # TODO: create new models
         # craft the objective here
-        study.optimize(lambda trial: models_build.objective(trial, label=label), timeout=TIMEOUT, n_trials=N_TRIALS,
-                       n_jobs=n_jobs)
+        study.optimize(lambda trial: models_build.objective(trial, label=model_name), timeout=TIMEOUT,
+                       n_trials=N_TRIALS, n_jobs=n_jobs)
 
         print("Number of finished trials: {}".format(len(study.trials)))
         print("Best trial:")
@@ -41,8 +42,8 @@ for dataset in datasets:
         for key, value in best_trial.params.items():
             print("    {}: {}".format(key, value))
 
-        models_build.save_best_model(study, dataset, label)
-        models_build.save_meta_data(study, dataset, label)
+        # models_build.save_best_model(study, dataset, label)
+        models_build.save_meta_data(study, dataset_name, model_name)
 
         # TODO: get more insight on visualization for single objective
         # optuna.visualization.plot_pareto_front(study)
