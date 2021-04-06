@@ -1,0 +1,3 @@
+[submodule "data_augmentation/RGAN"]
+	path = data_augmentation/RGAN
+	url = https://github.com/glahr/RGAN.git
