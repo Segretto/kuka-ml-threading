@@ -6,7 +6,7 @@ from joblib import dump
 from sklearn.metrics import f1_score, precision_score, recall_score, classification_report, confusion_matrix
 from sklearn.model_selection import StratifiedShuffleSplit
 import numpy as np
-from src.ml_dataset_manipulation import DatasetManip
+# from src.ml_dataset_manipulation import DatasetManip
 from shutil import move
 
 
@@ -14,7 +14,7 @@ BATCH_SIZE = 128
 BATCHSIZE_RECURRENT = int(BATCH_SIZE / 4)
 EPOCHS = 100
 OUTPUT_SHAPE = 3
-INPUT_SHAPE = 1556
+INPUT_SHAPE = 156
 INPUT_SHAPE_CNN_RNN = None
 FEATURES = 6
 MAX_DROPOUT = 0.6
@@ -23,11 +23,11 @@ TEST_SPLIT_SIZE = 0.2
 
 
 class ModelsBuild:
-    def __init__(self, label='mlp', dataset='original', metrics='recall'):
+    def __init__(self, label='mlp', dataset_name='original', metrics='recall', dataset=None):
         self.label = label
-        self.dataset_name = dataset
-        self.dataset = DatasetManip(label, dataset)
+        self.dataset_name = dataset_name
         self.metrics = metrics
+        self.dataset = dataset
         self.path_to_models_meta_data = 'output/models_meta_data/'
         self.path_to_temp_trained_models = 'output/models_trained/temp/'
         self.path_to_best_trained_models = 'output/models_trained/best/'
@@ -44,7 +44,6 @@ class ModelsBuild:
             os.mkdir(self.path_to_best_trained_models)
         if not os.path.isdir(self.path_to_models_meta_data):
             os.mkdir(self.path_to_models_meta_data)
-
 
     def objective(self, trial, label=None):
         print("Training ", self.label, " in dataset ", self.dataset_name)
@@ -190,7 +189,7 @@ class ModelsBuild:
         if 'novo' in self.dataset_name:
             INPUT_SHAPE = self.dataset.X_train.shape[1]
         else:
-            INPUT_SHAPE = 1556
+            INPUT_SHAPE = 156
         model.add(tf.keras.layers.InputLayer(input_shape=[INPUT_SHAPE*FEATURES]))
         n_hidden = trial.suggest_int('n_hidden', 1, 5)
         for layer in range(n_hidden):
@@ -398,7 +397,6 @@ class ModelsBuild:
             model_path += '.h5'
             tf.keras.models.save_model(model, model_path)
 
-
     def _reshape_X_for_train(self, label):
         if 'novo' in self.dataset_name and (label == 'rf' or label == 'svm' or label == 'mlp'):
             X_train = self.dataset.X_train.reshape((self.dataset.X_train.shape[0],
@@ -457,24 +455,6 @@ class ModelsBuild:
                 epochs=EPOCHS,
                 verbose=False)
         return model
-
-# class Metrics(Callback):
-#     def on_train_begin(self, logs={}):
-#         self.val_f1s = []
-#         self.val_recalls = []
-#         self.val_precisions = []
-#
-#     def on_epoch_end(self, epoch, logs={}):
-#         val_predict = (np.asarray(self.model.predict(self.model.validation_data[0]))).round()
-#         val_targ = self.model.validation_data[1]
-#         _val_f1 = f1_score(val_targ, val_predict)
-#         _val_recall = recall_score(val_targ, val_predict)
-#         _val_precision = precision_score(val_targ, val_predict)
-#         self.val_f1s.append(_val_f1)
-#         self.val_recalls.append(_val_recall)
-#         self.val_precisions.append(_val_precision)
-#         print(" - val_f1: % f - val_precision: % f - val_recall % f" %(_val_f1, _val_precision, _val_recall))
-#         return
 
 
 if __name__ == '__main__':
