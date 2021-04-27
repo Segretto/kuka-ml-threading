@@ -3,9 +3,9 @@ from src.ml_dataset_manipulation import DatasetManip
 import optuna
 
 # THE USER SHOULD MODIFY THESE ONES
-models_names = ['svm', 'rf', 'mlp', 'cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
-# models_names = ['cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
-datasets = ['original', 'nivelado', 'quadruplicado']
+# models_names = ['svm', 'rf', 'mlp', 'cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
+models_names = ['rf', 'mlp', 'cnn', 'gru', 'lstm', 'wavenet', 'svm']
+datasets = ['nivelado'] #, 'nivelado', 'quadruplicado']
 # datasets = ['original_novo']
 
 N_TRIALS = 10
@@ -44,6 +44,7 @@ for dataset_name in datasets:
 
         # models_build.save_best_model(study, dataset, label)
         models_build.save_meta_data(study, dataset_name, model_name)
+        #models_build.tf.keras.backend.clear_session()
 
         # TODO: get more insight on visualization for single objective
         # optuna.visualization.plot_pareto_front(study)

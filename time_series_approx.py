@@ -13,7 +13,7 @@ data = pd.read_csv(file + '.csv')
 
 wrench = ['fx', 'fy', 'fz', 'mx', 'my', 'mz']
 
-window = 10
+window = 15
 
 paa = PiecewiseAggregateApproximation(window_size=window)
 

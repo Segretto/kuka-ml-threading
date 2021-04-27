@@ -8,7 +8,7 @@ from sklearn.model_selection import StratifiedShuffleSplit
 import numpy as np
 # from src.ml_dataset_manipulation import DatasetManip
 from shutil import move
-
+import gc
 
 BATCH_SIZE = 128
 BATCHSIZE_RECURRENT = int(BATCH_SIZE / 4)
@@ -69,6 +69,7 @@ class ModelsBuild:
             model = self.objective_wavenet(trial)
         if label == 'rf':
             model = self.objective_rf(trial)
+        gc.collect()
         return model
 
     def objective_lstm(self, trial):
@@ -128,19 +129,19 @@ class ModelsBuild:
                                                     return_sequences=True,
                                                     dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT),
                                                     recurrent_dropout=trial.suggest_uniform('dropout_rec_input', 0, MAX_DROPOUT)),
-                                                 merge_mode=trial.suggest_categorical('merge_mode_' + str(0), ['sum', 'mul', 'concat', 'ave', None])))
+                                                    merge_mode=trial.suggest_categorical('merge_mode_' + str(0), ['sum', 'mul', 'concat', 'ave', None])))
             if n_hidden >= 1:
                 for layer in range(n_hidden-1):
                     model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units=trial.suggest_int('n_hidden_' + str(layer + 1), 1, 9),
                                                 return_sequences=True,
                                                 dropout=trial.suggest_uniform('dropout_' + str(layer + 1), 0, MAX_DROPOUT),
                                                 recurrent_dropout=trial.suggest_uniform('dropout_rec_' + str(layer + 1), 0, MAX_DROPOUT)),
-                                                         merge_mode=trial.suggest_categorical('merge_mode_' + str(layer + 1), ['sum', 'mul', 'concat', 'ave', None])))
+                                                merge_mode=trial.suggest_categorical('merge_mode_' + str(layer + 1), ['sum', 'mul', 'concat', 'ave', None])))
                 else:
                     model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units=trial.suggest_int('n_hidden_' + str(n_hidden + 1), 1, 9),
                                                 return_sequences=False,
                                                 dropout=trial.suggest_uniform('dropout_' + str(n_hidden + 1), 0, MAX_DROPOUT)),
-                                                         merge_mode=trial.suggest_categorical('merge_mode_' + str(layer + 1), ['sum', 'mul', 'concat', 'ave', None])))
+                                                merge_mode=trial.suggest_categorical('merge_mode_' + str(layer + 1), ['sum', 'mul', 'concat', 'ave', None])))
 
         # TODO: change optimizer and add batchNorm in layers
         # output layer
@@ -288,8 +289,10 @@ class ModelsBuild:
         n_outputs_conv = trial.suggest_categorical("n_outputs", [32, 64, 128])  # 256 in the paper
         kernel = trial.suggest_categorical("kernel", [1, 3, 5])
 
-        # inputs = tf.keras.layers.Input(shape=[INPUT_SHAPE_CNN_RNN, FEATURES])
-        inputs = tf.keras.layers.Masking(mask_value=0, input_shape=(INPUT_SHAPE_CNN_RNN, FEATURES))
+        INPUT_SHAPE_CNN_RNN = 156
+
+        inputs = tf.keras.layers.Input(shape=[INPUT_SHAPE_CNN_RNN, FEATURES])
+        # inputs_ = tf.keras.layers.Masking(mask_value=0)
         z = tf.keras.layers.Conv1D(n_filters, kernel_size=2, padding="causal")(inputs)
         skip_to_last = []
         for dilation_rate in [2 ** i for i in range(n_layers_per_block)] * n_blocks:
@@ -418,6 +421,8 @@ class ModelsBuild:
         # @DONE: also, should we save scores and get the average? https://stackoverflow.com/questions/63224426/how-can-i-cross-validate-by-pytorch-and-optuna
         # @DONE: eu acho que estamos usando o shuffle errado... Tem que tirar as métricas para cada split e daí tirar a média delas
         # @TODO: multiprocessing https://johaupt.github.io/python/parallel%20processing/cross-validation/multiprocessing_cross_validation.html
+
+        # TODO: THIS GUY IS COMPLETELY WRONG: I SHOULD FIT ONLY IN SECTION OF X_TRAIN
         for train, val in split.split(X_train, self.dataset.y_train):
             # each training must have a new model
             model = self.get_model(trial, label)
