@@ -4,15 +4,19 @@ import tensorflow as tf
 from sklearn.model_selection import train_test_split
 import os
 from pyts.approximation import PiecewiseAggregateApproximation
+from sklearn.preprocessing import OneHotEncoder
 
 class DatasetManip():
-    def __init__(self, label='mlp', dataset='original', load_models=True):
+    def __init__(self, label='mlp', dataset='original', load_models=True, parameters='fx|fy|fz|mx|my|mz',
+                 apply_normalization=True):
         self.label = label
         print('Loading data')
         self.path_dataset, self.path_model, self.path_meta_data, self.path_model_meta_data = self.load_paths()
+        self.scaler = None
         if load_models:
-            X_train, X_test, self.y_train, self.y_test = self.load_data(dataset_name=dataset)
-            self.X_train, self.X_test = self.data_normalization(X_train, X_test, dataset_name=dataset)
+            self.X_train, self.X_test, self.y_train, self.y_test = self.load_data(parameters=parameters, dataset_name=dataset)
+            if apply_normalization:
+                self.X_train, self.X_test = self.data_normalization(self.X_train, self.X_test, dataset_name=dataset)
             if 'novo' not in dataset:
                 self.X_train = self.X_train.values
                 self.X_test = self.X_test.values
@@ -32,15 +36,18 @@ class DatasetManip():
 
     def load_data(self, parameters='fx|fy|fz|mx|my|mz', dataset_name='original'):
         print("Loading data with all components")
-        dir_abs = os.path.abspath('.')
+        # dir_abs = os.path.abspath('.')
+        dir_abs = '/home/glahr/kuka-ml-threading'
         dir_new_dataset = dir_abs + '/dataset/dataset_new_iros21/'
-        # here we get all folders. We will hhave also with angular error and angular/linear error
+        # here we get all folders. We will have also with angular error and angular/linear error
         dir_all_trials = [dir_new_dataset + dir_ for dir_ in os.listdir(dir_new_dataset)]
 
-        all_files = []
+        all_files_insertion = []
         for dir_ in dir_all_trials:
+            # for file in os.listdir(dir_ + '/data_insertion/'):
+            #     all_files_insertion.append(dir_ + '/data_insertion/' + file)
             for file in os.listdir(dir_ + '/data_insertion/'):
-                all_files.append(dir_ + '/data_insertion/' + file)
+                all_files_insertion.append(dir_ + '/data_insertion/' + file)
 
         paa = PiecewiseAggregateApproximation(window_size=10)
 
@@ -48,9 +55,17 @@ class DatasetManip():
 
         if 'novo' in dataset_name:
             all_data = []
-            for file in all_files:
+            for file in all_files_insertion:
+                # data_in = pd.read_csv(file)
                 data = pd.read_csv(file)
-                data = self.remove_offset(data)
+                # last_16_char = file[-16:-4]
+
+
+
+                # data = pd.concat([data_in, data_bs, data_th])
+
+
+                # data = self.remove_offset(data)
                 data.drop(columns=['Unnamed: 13'], inplace=True)
                 data = self.generate_velocity(data)
 
@@ -76,7 +91,7 @@ class DatasetManip():
             labels = np.delete(labels, idx)
             all_data = np.delete(all_data, idx, axis=0)
 
-            train, test, train_labels, test_labels = train_test_split(all_data, labels, test_size=0.33, random_state=42)
+            train, test, train_labels, test_labels = train_test_split(all_data, labels, test_size=0.15, random_state=42)
             return train, test, train_labels, test_labels
         else:
             if dataset_name == 'original':
@@ -218,6 +233,7 @@ class DatasetManip():
 
             for i, _ in enumerate(df):
                 df[i] = (df[i] - all_min) / (all_max - all_min + np.ones(len(all_max)) * 1e-7)
+            self.scaler = scaler
         else:
             df.iloc[:, df.columns.str.contains('fx|fy|fz')] = df.iloc[:,
                                                               df.columns.str.contains('fx|fy|fz')].apply(
