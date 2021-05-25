@@ -10,7 +10,7 @@ import numpy as np
 from shutil import move
 import gc
 
-BATCH_SIZE = 128
+BATCH_SIZE = 64
 BATCHSIZE_RECURRENT = int(BATCH_SIZE / 4)
 EPOCHS = 100
 OUTPUT_SHAPE = 3
@@ -192,11 +192,13 @@ class ModelsBuild:
         else:
             INPUT_SHAPE = 156
         model.add(tf.keras.layers.InputLayer(input_shape=[INPUT_SHAPE*FEATURES]))
+
         n_hidden = trial.suggest_int('n_hidden', 1, 5)
         for layer in range(n_hidden):
             n_neurons = trial.suggest_int('n_neurons_' + str(layer), 1, 128)
             model.add(tf.keras.layers.Dense(n_neurons, activation='relu'))
             model.add(tf.keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer), 0, MAX_DROPOUT)))
+
         model.add(tf.keras.layers.Dense(OUTPUT_SHAPE, activation="softmax"))
         optimizer = tf.keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
         model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
@@ -431,6 +433,7 @@ class ModelsBuild:
             scores.append(score)
             del model
 
+        trial.set_user_attr('classification_reports', scores)
         score_mean = np.mean(scores)
         score_std = np.std(scores)
         return score_mean, score_std
