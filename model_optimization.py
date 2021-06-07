@@ -4,11 +4,12 @@ import optuna
 
 # THE USER SHOULD MODIFY THESE ONES
 # models_names = ['svm', 'rf', 'mlp', 'cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
-models_names = ['rf', 'mlp', 'cnn', 'gru', 'lstm', 'wavenet', 'svm']
-datasets = ['nivelado'] #, 'nivelado', 'quadruplicado']
-# datasets = ['original_novo']
+models_names = ['rf', 'mlp', 'cnn']
+# models_names = ['wavenet', 'gru', 'lstm']
+#datasets = ['nivelado'] #, 'nivelado', 'quadruplicado']
+datasets = ['original', 'nivelado', 'original_novo']
 
-N_TRIALS = 10
+N_TRIALS = 2
 TIMEOUT = None
 n_jobs = -1
 METRICS = 'mounted'  # or 'jammed' or 'multi' for both

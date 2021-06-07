@@ -17,7 +17,7 @@ OUTPUT_SHAPE = 3
 INPUT_SHAPE = 156
 INPUT_SHAPE_CNN_RNN = None
 FEATURES = 6
-MAX_DROPOUT = 0.6
+MAX_DROPOUT = 0.5
 N_SPLITS = 10
 TEST_SPLIT_SIZE = 0.2
 
@@ -229,7 +229,7 @@ class ModelsBuild:
     def objective_cnn(self, trial):
         model = tf.keras.models.Sequential()
 
-        n_layers_cnn = trial.suggest_int('n_hidden_cnn', 1, 5)
+        n_layers_cnn = trial.suggest_int('n_hidden_cnn', 1, 6)
         model.add(tf.keras.layers.Masking(mask_value=0, input_shape=(INPUT_SHAPE_CNN_RNN, FEATURES)))
         # model.add(tf.keras.layers.InputLayer(input_shape=[INPUT_SHAPE_CNN_RNN, FEATURES]))
 
@@ -291,7 +291,7 @@ class ModelsBuild:
         n_outputs_conv = trial.suggest_categorical("n_outputs", [32, 64, 128])  # 256 in the paper
         kernel = trial.suggest_categorical("kernel", [1, 3, 5])
 
-        INPUT_SHAPE_CNN_RNN = 156
+        INPUT_SHAPE_CNN_RNN = self.dataset.X_train.shape[1]
 
         inputs = tf.keras.layers.Input(shape=[INPUT_SHAPE_CNN_RNN, FEATURES])
         # inputs_ = tf.keras.layers.Masking(mask_value=0)
