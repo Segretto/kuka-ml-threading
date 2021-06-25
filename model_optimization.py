@@ -4,12 +4,12 @@ import optuna
 
 # THE USER SHOULD MODIFY THESE ONES
 # models_names = ['svm', 'rf', 'mlp', 'cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
-models_names = ['rf', 'mlp', 'cnn']
+models_names = ['lstm', 'rf', 'mlp', 'cnn']
 # models_names = ['wavenet', 'gru', 'lstm']
 #datasets = ['nivelado'] #, 'nivelado', 'quadruplicado']
-datasets = ['original', 'nivelado', 'original_novo']
+datasets = ['original', 'nivelado']#, 'original_novo']
 
-N_TRIALS = 50
+N_TRIALS = 10
 TIMEOUT = None
 n_jobs = -1
 METRICS = 'mounted'  # or 'jammed' or 'multi' for both
@@ -33,7 +33,7 @@ for dataset_name in datasets:
         # TODO: create new models
         # craft the objective here
         study.optimize(lambda trial: models_build.objective(trial, label=model_name), timeout=TIMEOUT,
-                       n_trials=N_TRIALS, n_jobs=n_jobs)
+                       n_trials=N_TRIALS, n_jobs=n_jobs, gc_after_trial=True)
 
         print("Number of finished trials: {}".format(len(study.trials)))
         print("Best trial:")

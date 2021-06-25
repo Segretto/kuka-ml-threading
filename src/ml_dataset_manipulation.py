@@ -4,7 +4,7 @@ import tensorflow as tf
 from sklearn.model_selection import train_test_split
 import os
 from pyts.approximation import PiecewiseAggregateApproximation
-from sklearn.preprocessing import OneHotEncoder
+
 
 class DatasetManip():
     def __init__(self, label='mlp', dataset='original', load_models=True, parameters='fx|fy|fz|mx|my|mz',
