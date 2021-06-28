@@ -10,6 +10,7 @@ import numpy as np
 from shutil import move
 import gc
 import pickle
+from time import time
 
 BATCH_SIZE = 64
 BATCHSIZE_RECURRENT = int(BATCH_SIZE / 4)
@@ -82,22 +83,22 @@ class ModelsBuild:
         if n_hidden == 0:
             model.add(tf.keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 9),
                                         return_sequences=False,
-                                        dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT), name='lstm_'+str(np.random.rand())))
+                                        dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT), name='lstm_'+str(time())))
         else:
             model.add(tf.keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 8),
                                         return_sequences=True,
                                         dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT),
-                                        recurrent_dropout=trial.suggest_uniform('dropout_rec_input', 0, MAX_DROPOUT), name='lstm_'+str(np.random.rand())))
+                                        recurrent_dropout=trial.suggest_uniform('dropout_rec_input', 0, MAX_DROPOUT), name='lstm_'+str(time())))
             if n_hidden >= 1:
                 for layer in range(n_hidden-1):
                     model.add(tf.keras.layers.LSTM(units=trial.suggest_int('n_hidden_' + str(layer + 1), 1, 9),
                                                 return_sequences=True,
                                                 dropout=trial.suggest_uniform('dropout_' + str(layer + 1), 0, MAX_DROPOUT),
-                                                recurrent_dropout=trial.suggest_uniform('dropout_rec_' + str(layer + 1), 0, MAX_DROPOUT), name='lstm_'+str(np.random.rand())))
+                                                recurrent_dropout=trial.suggest_uniform('dropout_rec_' + str(layer + 1), 0, MAX_DROPOUT), name='lstm_'+str(time())))
                 else:
                     model.add(tf.keras.layers.LSTM(units=trial.suggest_int('n_hidden_' + str(n_hidden + 1), 1, 9),
                                                 return_sequences=False,
-                                                dropout=trial.suggest_uniform('dropout_' + str(n_hidden + 1), 0, MAX_DROPOUT), name='lstm_'+str(np.random.rand())))
+                                                dropout=trial.suggest_uniform('dropout_' + str(n_hidden + 1), 0, MAX_DROPOUT), name='lstm_'+str(time())))
 
         # TODO: change optimizer and add batchNorm in layers. It is taking too long to train
         # output layer
@@ -126,14 +127,14 @@ class ModelsBuild:
                                                     return_sequences=False,
                                                     dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT)),
                                                     merge_mode=trial.suggest_categorical('merge_mode', ['sum', 'mul', 'concat', 'ave', None]),
-                                                    name='bilstm_'+str(np.random.rand())))
+                                                    name='bilstm_'+str(time())))
         else:
             model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 8),
                                                     return_sequences=True,
                                                     dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT),
                                                     recurrent_dropout=trial.suggest_uniform('dropout_rec_input', 0, MAX_DROPOUT)),
                                                     merge_mode=trial.suggest_categorical('merge_mode_' + str(0), ['sum', 'mul', 'concat', 'ave', None]),
-                                                    name='bilstm_'+str(np.random.rand())))
+                                                    name='bilstm_'+str(time())))
             if n_hidden >= 1:
                 for layer in range(n_hidden-1):
                     model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units=trial.suggest_int('n_hidden_' + str(layer + 1), 1, 9),
@@ -141,13 +142,13 @@ class ModelsBuild:
                                                             dropout=trial.suggest_uniform('dropout_' + str(layer + 1), 0, MAX_DROPOUT),
                                                             recurrent_dropout=trial.suggest_uniform('dropout_rec_' + str(layer + 1), 0, MAX_DROPOUT)),
                                                             merge_mode=trial.suggest_categorical('merge_mode_' + str(layer + 1), ['sum', 'mul', 'concat', 'ave', None]),
-                                                            name='bilstm_'+str(np.random.rand())))
+                                                            name='bilstm_'+str(time())))
                 else:
                     model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units=trial.suggest_int('n_hidden_' + str(n_hidden + 1), 1, 9),
                                                             return_sequences=False,
                                                             dropout=trial.suggest_uniform('dropout_' + str(n_hidden + 1), 0, MAX_DROPOUT)),
                                                             merge_mode=trial.suggest_categorical('merge_mode_' + str(layer + 1), ['sum', 'mul', 'concat', 'ave', None]),
-                                                            name='bilstm_'+str(np.random.rand())))
+                                                            name='bilstm_'+str(time())))
 
         # TODO: change optimizer and add batchNorm in layers
         # output layer
@@ -164,24 +165,27 @@ class ModelsBuild:
         # input layer
         if n_hidden == 0:
             model.add(tf.keras.layers.GRU(units=trial.suggest_int('n_input', 1, 9),
-                                       return_sequences=False,
-                                       dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT)), name='gru_'+str(np.random.rand()))
+                                            return_sequences=False,
+                                            dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT),
+                                            name='gru_'+str(time())))
         else:
             model.add(tf.keras.layers.GRU(units=trial.suggest_int('n_input', 1, 9),
                                        return_sequences=True,
                                        dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT),
-                                       recurrent_dropout=trial.suggest_uniform('dropout_rec_input', 0, MAX_DROPOUT)), name='gru_'+str(np.random.rand()))
+                                       recurrent_dropout=trial.suggest_uniform('dropout_rec_input', 0, MAX_DROPOUT),
+                                       name='gru_'+str(time())))
             if n_hidden >= 1:
                 for layer in range(n_hidden-1):
                     model.add(tf.keras.layers.GRU(units=trial.suggest_int('n_hidden_' + str(layer), 1, 9),
                                                return_sequences=True,
                                                dropout=trial.suggest_uniform('dropout_' + str(layer), 0, MAX_DROPOUT),
                                                recurrent_dropout=trial.suggest_uniform('dropout_rec_' + str(layer), 0,
-                                                                                        MAX_DROPOUT)), name='gru_'+str(np.random.rand()))
+                                                                                        MAX_DROPOUT), name='gru_'+str(time())))
                 else:
                     model.add(tf.keras.layers.GRU(units=trial.suggest_int('n_hidden_' + str(n_hidden), 1, 8),
                                            return_sequences=False,
-                                           dropout=trial.suggest_uniform('dropout_' + str(n_hidden), 0, MAX_DROPOUT)), name='gru_'+str(np.random.rand()))
+                                           dropout=trial.suggest_uniform('dropout_' + str(n_hidden), 0, MAX_DROPOUT),
+                                           name='gru_'+str(time())))
 
         # TODO: change optimizer and add batchNorm in layers
         # output layer
@@ -202,10 +206,10 @@ class ModelsBuild:
         n_hidden = trial.suggest_int('n_hidden', 1, 5)
         for layer in range(n_hidden):
             n_neurons = trial.suggest_int('n_neurons_' + str(layer), 1, 128)
-            model.add(tf.keras.layers.Dense(n_neurons, activation='relu', name='dense_'+str(np.random.rand())))
-            model.add(tf.keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer), 0, MAX_DROPOUT), name='dropout_'+str(np.random.rand())))
+            model.add(tf.keras.layers.Dense(n_neurons, activation='relu', name='dense_'+str(time())))
+            model.add(tf.keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer), 0, MAX_DROPOUT), name='dropout_'+str(time())))
 
-        model.add(tf.keras.layers.Dense(OUTPUT_SHAPE, activation="softmax", name='dense_'+str(np.random.rand())))
+        model.add(tf.keras.layers.Dense(OUTPUT_SHAPE, activation="softmax", name='dense_'+str(time())))
         optimizer = tf.keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
         model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
@@ -243,8 +247,8 @@ class ModelsBuild:
             model.add(tf.keras.layers.Conv1D(filters=trial.suggest_categorical("filters_"+str(layer), [32, 64]),
                                           kernel_size=trial.suggest_categorical("kernel_"+str(layer), [1, 3, 5]),
                                           padding='same',
-                                          activation='relu', name='conv1d_'+str(np.random.rand())))
-            model.add(tf.keras.layers.MaxPooling1D(pool_size=trial.suggest_categorical("pool_size_"+str(layer), [1, 2]), name='maxpool1d_'+str(np.random.rand())))
+                                          activation='relu', name='conv1d_'+str(time())))
+            model.add(tf.keras.layers.MaxPooling1D(pool_size=trial.suggest_categorical("pool_size_"+str(layer), [1, 2]), name='maxpool1d_'+str(time())))
 
         model.add(tf.keras.layers.GlobalMaxPooling1D())
 
@@ -253,14 +257,14 @@ class ModelsBuild:
         n_layers_dense = trial.suggest_int('n_hidden', 1, 4)
         for layer in range(n_layers_dense):
             model.add(tf.keras.layers.Dense(trial.suggest_int('n_neurons_dense' + str(layer), 1, 129),
-                                         activation='relu', name='dense_'+str(np.random.rand())))
+                                         activation='relu', name='dense_'+str(time())))
             # TODO: add dropout and regularizer?
             # model.add(tf.keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer), 0, MAX_DROPOUT)))
             # model.add(tf.keras.layers.Dense(units=n_neurons,
             #                              kernel_regularizer=tf.keras.regularizers.l2(0.01),
             #                              activation='relu'))
 
-        model.add(tf.keras.layers.Dense(units=OUTPUT_SHAPE, activation='softmax', name='dense_'+str(np.random.rand())))
+        model.add(tf.keras.layers.Dense(units=OUTPUT_SHAPE, activation='softmax', name='dense_'+str(time())))
 
         optimizer = tf.keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
         model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
@@ -286,9 +290,9 @@ class ModelsBuild:
 
         def wavenet_residual_block(inputs, n_filters, dilation_rate):
             z = tf.keras.layers.Conv1D(2 * n_filters, kernel_size=2, padding="causal",
-                                    dilation_rate=dilation_rate, name='conv1d_'+str(np.random.rand()))(inputs)
+                                    dilation_rate=dilation_rate, name='conv1d_'+str(time()))(inputs)
             z = GatedActivationUnit()(z)
-            z = tf.keras.layers.Conv1D(n_filters, kernel_size=1, name='conv1d_'+str(np.random.rand()))(z)
+            z = tf.keras.layers.Conv1D(n_filters, kernel_size=1, name='conv1d_'+str(time()))(z)
             return tf.keras.layers.Add()([z, inputs]), z
 
         n_layers_per_block = trial.suggest_int("n_layers_per_block", 3, 11)  # 10 in the paper
@@ -297,25 +301,28 @@ class ModelsBuild:
         n_outputs_conv = trial.suggest_categorical("n_outputs", [32, 64, 128])  # 256 in the paper
         kernel = trial.suggest_categorical("kernel", [1, 3, 5])
 
-        INPUT_SHAPE_CNN_RNN = self.dataset.X_train.shape[1]
+        if 'novo' in self.dataset_name:
+            INPUT_SHAPE_CNN_RNN = self.dataset.X_train.shape[1]
+        else:
+            INPUT_SHAPE_CNN_RNN = 156
 
         inputs = tf.keras.layers.Input(shape=[INPUT_SHAPE_CNN_RNN, FEATURES])
         # inputs_ = tf.keras.layers.Masking(mask_value=0)
-        z = tf.keras.layers.Conv1D(n_filters, kernel_size=2, padding="causal", name='conv1d_'+str(np.random.rand()))(inputs)
+        z = tf.keras.layers.Conv1D(n_filters, kernel_size=2, padding="causal", name='conv1d_'+str(time()))(inputs)
         skip_to_last = []
         for dilation_rate in [2 ** i for i in range(n_layers_per_block)] * n_blocks:
             z, skip = wavenet_residual_block(z, n_filters, dilation_rate)
             skip_to_last.append(skip)
         z = tf.keras.activations.relu(tf.keras.layers.Add()(skip_to_last))
-        z = tf.keras.layers.Conv1D(n_filters, kernel_size=kernel, activation="relu", name='conv1d_'+str(np.random.rand()))(z)
-        z = tf.keras.layers.Conv1D(n_outputs_conv, kernel_size=kernel, activation="relu", name='conv1d_'+str(np.random.rand()))(z)
+        z = tf.keras.layers.Conv1D(n_filters, kernel_size=kernel, activation="relu", name='conv1d_'+str(time()))(z)
+        z = tf.keras.layers.Conv1D(n_outputs_conv, kernel_size=kernel, activation="relu", name='conv1d_'+str(time()))(z)
 
         z = tf.keras.layers.Flatten()(z)
         n_layers_dense = trial.suggest_int('n_hidden', 1, 4)
         for layer in range(n_layers_dense):
             z = tf.keras.layers.Dense(trial.suggest_int('n_neurons_dense' + str(layer), 1, 129),
-                                            activation='relu', name='dense_'+str(np.random.rand()))(z)
-        Y_outputs = tf.keras.layers.Dense(units=OUTPUT_SHAPE, activation='softmax', name='dense_'+str(np.random.rand()))(z)
+                                            activation='relu', name='dense_'+str(time()))(z)
+        Y_outputs = tf.keras.layers.Dense(units=OUTPUT_SHAPE, activation='softmax', name='dense_'+str(time()))(z)
 
         model = tf.keras.models.Model(inputs=[inputs], outputs=[Y_outputs])
 
