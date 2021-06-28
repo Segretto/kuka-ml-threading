@@ -4,12 +4,12 @@ import optuna
 
 # THE USER SHOULD MODIFY THESE ONES
 # models_names = ['svm', 'rf', 'mlp', 'cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
-models_names = ['rf', 'mlp', 'cnn']
+models_names = ['rf', 'mlp', 'cnn', 'gru', 'lstm', 'wavenet']
 # models_names = ['wavenet', 'gru', 'lstm']
 #datasets = ['nivelado'] #, 'nivelado', 'quadruplicado']
-datasets = ['original', 'nivelado', 'original_novo']
+datasets = ['original', 'nivelado', 'quadruplicado'] #, 'original_novo']
 
-N_TRIALS = 2
+N_TRIALS = 50
 TIMEOUT = None
 n_jobs = -1
 METRICS = 'mounted'  # or 'jammed' or 'multi' for both
@@ -45,6 +45,7 @@ for dataset_name in datasets:
 
         # models_build.save_best_model(study, dataset, label)
         models_build.save_meta_data(study, dataset_name, model_name)
+        models_build.save_study(study, dataset_name, model_name)
         #models_build.tf.keras.backend.clear_session()
 
         # TODO: get more insight on visualization for single objective

@@ -9,6 +9,7 @@ import numpy as np
 # from src.ml_dataset_manipulation import DatasetManip
 from shutil import move
 import gc
+import pickle
 
 BATCH_SIZE = 64
 BATCHSIZE_RECURRENT = int(BATCH_SIZE / 4)
@@ -124,25 +125,29 @@ class ModelsBuild:
             model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 9),
                                                     return_sequences=False,
                                                     dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT)),
-                                                 merge_mode=trial.suggest_categorical('merge_mode', ['sum', 'mul', 'concat', 'ave', None]), name='bilstm_'+str(np.random.rand())))
+                                                    merge_mode=trial.suggest_categorical('merge_mode', ['sum', 'mul', 'concat', 'ave', None]),
+                                                    name='bilstm_'+str(np.random.rand())))
         else:
             model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 8),
                                                     return_sequences=True,
                                                     dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT),
                                                     recurrent_dropout=trial.suggest_uniform('dropout_rec_input', 0, MAX_DROPOUT)),
-                                                    merge_mode=trial.suggest_categorical('merge_mode_' + str(0), ['sum', 'mul', 'concat', 'ave', None]), name='bilstm_'+str(np.random.rand())))
+                                                    merge_mode=trial.suggest_categorical('merge_mode_' + str(0), ['sum', 'mul', 'concat', 'ave', None]),
+                                                    name='bilstm_'+str(np.random.rand())))
             if n_hidden >= 1:
                 for layer in range(n_hidden-1):
                     model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units=trial.suggest_int('n_hidden_' + str(layer + 1), 1, 9),
-                                                return_sequences=True,
-                                                dropout=trial.suggest_uniform('dropout_' + str(layer + 1), 0, MAX_DROPOUT),
-                                                recurrent_dropout=trial.suggest_uniform('dropout_rec_' + str(layer + 1), 0, MAX_DROPOUT)),
-                                                merge_mode=trial.suggest_categorical('merge_mode_' + str(layer + 1), ['sum', 'mul', 'concat', 'ave', None]), name='bilstm_'+str(np.random.rand())))
+                                                            return_sequences=True,
+                                                            dropout=trial.suggest_uniform('dropout_' + str(layer + 1), 0, MAX_DROPOUT),
+                                                            recurrent_dropout=trial.suggest_uniform('dropout_rec_' + str(layer + 1), 0, MAX_DROPOUT)),
+                                                            merge_mode=trial.suggest_categorical('merge_mode_' + str(layer + 1), ['sum', 'mul', 'concat', 'ave', None]),
+                                                            name='bilstm_'+str(np.random.rand())))
                 else:
                     model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units=trial.suggest_int('n_hidden_' + str(n_hidden + 1), 1, 9),
-                                                return_sequences=False,
-                                                dropout=trial.suggest_uniform('dropout_' + str(n_hidden + 1), 0, MAX_DROPOUT)),
-                                                merge_mode=trial.suggest_categorical('merge_mode_' + str(layer + 1), ['sum', 'mul', 'concat', 'ave', None]), name='bilstm_'+str(np.random.rand())))
+                                                            return_sequences=False,
+                                                            dropout=trial.suggest_uniform('dropout_' + str(n_hidden + 1), 0, MAX_DROPOUT)),
+                                                            merge_mode=trial.suggest_categorical('merge_mode_' + str(layer + 1), ['sum', 'mul', 'concat', 'ave', None]),
+                                                            name='bilstm_'+str(np.random.rand())))
 
         # TODO: change optimizer and add batchNorm in layers
         # output layer
@@ -390,6 +395,17 @@ class ModelsBuild:
     def save_meta_data(self, study, dataset=None, label=None):
         new_path = self.path_to_models_meta_data + 'best_' + label + '_' + dataset + '.json'
         study.trials_dataframe().iloc[study.best_trial.number].to_json(new_path)
+
+    def save_study(self, study, dataset=None, label=None):
+        pickle_path = self.path_to_models_meta_data + 'study_' + label + '_' + dataset + '.pkl'
+        with open(pickle_path, 'wb') as f:
+            pickle.dump(study, f)
+
+    def load_study(self, dataset=None, label=None):
+        pickle_path = self.path_to_models_meta_data + 'study_' + label + '_' + dataset + '.pkl'
+        with open(pickle_path, 'rb') as f:
+            study = pickle.load(f)
+        return study
 
     def _save_model(self, trial, model):
         model_path = self.path_to_temp_trained_models + \
