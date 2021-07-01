@@ -73,6 +73,10 @@ class ModelsBuild:
             model = self.objective_wavenet(trial)
         if label == 'rf':
             model = self.objective_rf(trial)
+        if label == 'transf':
+            model = self.objective_transformer(trial)
+        if label == 'vitransf':
+            model = self.objective_vitransformer(trial)
         return model
 
     def objective_lstm(self, trial):
@@ -103,7 +107,7 @@ class ModelsBuild:
         # TODO: change optimizer and add batchNorm in layers. It is taking too long to train
         # output layer
         model.add(tf.keras.layers.Dense(OUTPUT_SHAPE, activation='softmax'))
-        optimizer = tf.keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+        optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
         model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
         # model.fit(
@@ -153,7 +157,7 @@ class ModelsBuild:
         # TODO: change optimizer and add batchNorm in layers
         # output layer
         model.add(tf.keras.layers.Dense(OUTPUT_SHAPE, activation='softmax'))
-        optimizer = tf.keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+        optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
         model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
         return model
@@ -190,7 +194,7 @@ class ModelsBuild:
         # TODO: change optimizer and add batchNorm in layers
         # output layer
         model.add(tf.keras.layers.Dense(OUTPUT_SHAPE, activation='softmax'))
-        optimizer = tf.keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+        optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
         model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
         return model
@@ -205,12 +209,12 @@ class ModelsBuild:
 
         n_hidden = trial.suggest_int('n_hidden', 1, 5)
         for layer in range(n_hidden):
-            n_neurons = trial.suggest_int('n_neurons_' + str(layer), 1, 128)
+            n_neurons = trial.suggest_int('n_neurons_' + str(layer), 1, 2048)
             model.add(tf.keras.layers.Dense(n_neurons, activation='relu', name='dense_'+str(time())))
             model.add(tf.keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer), 0, MAX_DROPOUT), name='dropout_'+str(time())))
 
         model.add(tf.keras.layers.Dense(OUTPUT_SHAPE, activation="softmax", name='dense_'+str(time())))
-        optimizer = tf.keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+        optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
         model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
         # TODO: implementar esses kfolds em cada modelo de NN
@@ -239,7 +243,7 @@ class ModelsBuild:
     def objective_cnn(self, trial):
         model = tf.keras.models.Sequential()
 
-        n_layers_cnn = trial.suggest_int('n_hidden_cnn', 1, 6)
+        n_layers_cnn = trial.suggest_int('n_hidden_cnn', 1, 7)
         model.add(tf.keras.layers.Masking(mask_value=0, input_shape=(INPUT_SHAPE_CNN_RNN, FEATURES)))
         # model.add(tf.keras.layers.InputLayer(input_shape=[INPUT_SHAPE_CNN_RNN, FEATURES]))
 
@@ -254,19 +258,19 @@ class ModelsBuild:
 
         model.add(tf.keras.layers.Flatten())
 
-        n_layers_dense = trial.suggest_int('n_hidden', 1, 4)
+        n_layers_dense = trial.suggest_int('n_hidden', 1, 6)
         for layer in range(n_layers_dense):
-            model.add(tf.keras.layers.Dense(trial.suggest_int('n_neurons_dense' + str(layer), 1, 129),
+            model.add(tf.keras.layers.Dense(trial.suggest_int('n_neurons_dense' + str(layer), 1, 2048),
                                          activation='relu', name='dense_'+str(time())))
-            # TODO: add dropout and regularizer?
-            # model.add(tf.keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer), 0, MAX_DROPOUT)))
+            # TODO: add regularizer?
+            model.add(tf.keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer), 0, MAX_DROPOUT)))
             # model.add(tf.keras.layers.Dense(units=n_neurons,
             #                              kernel_regularizer=tf.keras.regularizers.l2(0.01),
             #                              activation='relu'))
 
         model.add(tf.keras.layers.Dense(units=OUTPUT_SHAPE, activation='softmax', name='dense_'+str(time())))
 
-        optimizer = tf.keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+        optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
         model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
         return model
@@ -320,7 +324,7 @@ class ModelsBuild:
         z = tf.keras.layers.Flatten()(z)
         n_layers_dense = trial.suggest_int('n_hidden', 1, 4)
         for layer in range(n_layers_dense):
-            z = tf.keras.layers.Dense(trial.suggest_int('n_neurons_dense' + str(layer), 1, 129),
+            z = tf.keras.layers.Dense(trial.suggest_int('n_neurons_dense' + str(layer), 1, 2048),
                                             activation='relu', name='dense_'+str(time()))(z)
         Y_outputs = tf.keras.layers.Dense(units=OUTPUT_SHAPE, activation='softmax', name='dense_'+str(time()))(z)
 
@@ -341,17 +345,227 @@ class ModelsBuild:
         #                                     activation='relu'))
         # model.add(tf.keras.layers.Dense(units=OUTPUT_SHAPE, activation='softmax'))
 
-        optimizer = tf.keras.optimizers.Adam(lr=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+        optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
         model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
         return model
+
+    def objective_transformer(self, trial):
+        class TransformerBlock(tf.keras.layers.Layer):
+            def __init__(self, embed_dim, num_heads, ff_dim):
+                super(TransformerBlock, self).__init__()
+                self.att = tf.keras.layers.MultiHeadAttention(num_heads=num_heads, key_dim=embed_dim,
+                                                              name='attention_' + str(time()))
+                self.ffn = tf.keras.Sequential(
+                    [tf.keras.layers.Dense(ff_dim, activation="relu", name='dense1_' + str(time())),
+                     tf.keras.layers.Dense(embed_dim, name='dense2_' + str(time()))]
+                )
+                self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=trial.suggest_uniform('layerNorm_transf1', 1e-7, 1e-5), name='norm1_' + str(time()))
+                self.layernorm2 = tf.keras.layers.LayerNormalization(epsilon=trial.suggest_uniform('layerNorm_transf2', 1e-7, 1e-5), name='norm2_' + str(time()))
+                self.dropout1 = tf.keras.layers.Dropout(trial.suggest_uniform('dropout1_transf_layer', 0, MAX_DROPOUT), name='drop1_' + str(time()))
+                self.dropout2 = tf.keras.layers.Dropout(trial.suggest_uniform('dropout2_transf_layer', 0, MAX_DROPOUT), name='drop2_' + str(time()))
+
+            def call(self, inputs, training):
+                attn_output = self.att(inputs, inputs)
+                attn_output = self.dropout1(attn_output, training=training)
+                out1 = self.layernorm1(inputs + attn_output)
+                ffn_output = self.ffn(out1)
+                ffn_output = self.dropout2(ffn_output, training=training)
+                return self.layernorm2(out1 + ffn_output)
+
+        class TokenAndPositionEmbedding(tf.keras.layers.Layer):
+            def __init__(self, maxlen, embed_dim):
+                super(TokenAndPositionEmbedding, self).__init__()
+                # token_emb
+                self.conv1 = tf.keras.layers.Conv2D(8, (1, 2), activation="relu", padding="same", name='conv2d_' + str(time()))
+                self.norm1 = tf.keras.layers.BatchNormalization(name='batchnorm_' + str(time()))
+                self.pool1 = tf.keras.layers.MaxPooling2D((1, 2), name='maxpool2d_' + str(time()))
+                self.conv2 = tf.keras.layers.Conv2D(embed_dim, (1, 2), activation="relu", padding="same", name='conv2d_' + str(time()))
+                self.norm2 = tf.keras.layers.BatchNormalization(name='batchnorm_' + str(time()))
+                self.pool2 = tf.keras.layers.MaxPooling2D((1, 2), name='maxpool2d_' + str(time()))
+                # self.conv3 = tf.keras.layers.Conv2D(32, (1,2), activation="relu", padding="same")
+                # self.norm3 = tf.keras.layers.BatchNormalization()
+                # self.pool3 = tf.keras.layers.MaxPooling2D((1,2))
+                self.reshape = tf.keras.layers.Reshape((maxlen, embed_dim), name='reshape_' + str(time()))
+                # pos_emb
+                self.pos_emb = tf.keras.layers.Embedding(input_dim=maxlen, output_dim=embed_dim, name='embedding_' + str(time()))
+
+            def call(self, x):
+                positions = tf.range(start=0, limit=maxlen, delta=1)
+                positions = self.pos_emb(positions)
+                x = self.conv1(x)
+                x = self.norm1(x)
+                x = self.pool1(x)
+                x = self.conv2(x)
+                x = self.norm2(x)
+                x = self.pool2(x)
+                # x = self.conv3(x)
+                # x = self.norm3(x)
+                # x = self.pool3(x)
+                x = self.reshape(x)
+                return x + positions
+
+        n_channels = self.dataset.X_train.shape[1]
+        n_timesteps = self.dataset.X_train.shape[2]
+        n_transformer_layers = trial.suggest_int('transformer_layers', 1, 8)
+        maxlen = 39 * 6  # Only consider 3 input time points
+        embed_dim = trial.suggest_categorical('embed_dim', [2**n for n in range(3, 5)])  # 16  # Embedding size for each token
+        num_heads = 8  # Number of attention heads
+        ff_dim = trial.suggest_categorical('ff_dim', [2**n for n in range(4, 8)])  # Hidden layer size in feed forward network inside transformer
+
+        inputs = tf.keras.layers.Input(shape=(n_channels, n_timesteps, 1))
+        embedding_layer = TokenAndPositionEmbedding(maxlen, embed_dim)
+        x = embedding_layer(inputs)
+        for layer in range(n_transformer_layers):
+            transformer_block = TransformerBlock(embed_dim, num_heads, ff_dim)
+            x = transformer_block(x)
+        x = tf.keras.layers.GlobalAveragePooling1D(name='globalpool_' + str(time()))(x)
+        x = tf.keras.layers.Dropout(0.5, name='drop1_end_' + str(time()))(x)
+        x = tf.keras.layers.Dense(64, activation="relu")(x)
+        x = tf.keras.layers.Dropout(0.5, name='drop2_end_' + str(time()))(x)
+        outputs = tf.keras.layers.Dense(3, activation="softmax")(x)
+
+        model = tf.keras.Model(inputs=inputs, outputs=outputs)
+
+        opt = tf.keras.optimizers.Adam(learning_rate=0.001)
+
+        model.compile(loss='sparse_categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
+        return model
+
+    def objective_vitransformer(self, trial):
+        n_channels = self.dataset.X_train.shape[1]
+        n_timesteps = self.dataset.X_train.shape[2]
+        n_samples = self.dataset.X_train.shape[0]
+        input_shape = (n_channels, n_timesteps, 1)
+        patch_size = trial.suggest_int('patch_size', 1, 3)  # 2  # OPTUNA 1, 2, 3
+        image_size = 6
+        num_patches = (image_size // patch_size) ** 2
+        projection_dim = 64
+        num_heads = trial.suggest_categorical('num_heads', [2, 4, 6])  # 4  # OPTUNA 2, 4 ou 6?
+        transformer_units = [projection_dim * 2, projection_dim]  # Size of the transformer layers
+        transformer_layers = trial.suggest_int('transformer_layers', 4, 8)  # OPTUNA 4 a 8
+
+        token_emb = tf.keras.Sequential(
+            [
+                tf.keras.layers.Conv2D(16, (1, 3), activation="relu", padding="same", strides=1,
+                                       input_shape=[n_channels, n_timesteps, 1], name='conv2d_' + str(time())),
+                tf.keras.layers.BatchNormalization(name='batchNorm_' + str(time())),
+                tf.keras.layers.MaxPooling2D(pool_size=(1, 2), name='maxpool2d_' + str(time())),
+
+                tf.keras.layers.Conv2D(32, (1, 2), activation="relu", padding="valid", name='conv2d_' + str(time())),
+                tf.keras.layers.BatchNormalization(name='batchNorm_' + str(time())),
+                tf.keras.layers.MaxPooling2D(pool_size=(1, 2), name='maxpool2d_' + str(time())),
+
+                tf.keras.layers.Conv2D(64, (1, 2), activation="relu", padding="valid", name='conv2d_' + str(time())),
+                tf.keras.layers.BatchNormalization(name='batchNorm_' + str(time())),
+                tf.keras.layers.MaxPooling2D(pool_size=(1, 2), name='maxpool2d_' + str(time())),
+
+                tf.keras.layers.Conv2D(64, (1, 2), activation="relu", padding="same", name='conv2d_' + str(time())),
+                tf.keras.layers.BatchNormalization(name='batchNorm_' + str(time())),
+                tf.keras.layers.MaxPooling2D(pool_size=(1, 3), name='maxpool2d_' + str(time())),
+
+                tf.keras.layers.Conv2D(64, (2, 2), activation="relu", padding="same", name='conv2d_' + str(time())),
+                tf.keras.layers.BatchNormalization(name='batchNorm_' + str(time())),
+            ],
+            name="token_emb",
+        )
+
+        def mlp(x, location='', n_hidden = None):
+            if n_hidden is None: # last layer
+                n_hidden = trial.suggest_int('n_hidden', 1, 4)
+                for layer in range(n_hidden):
+                    n_neurons = trial.suggest_categorical('n_neurons_' + str(layer) + '_' + location, [2**n for n in range(5, 13)])
+                    x = tf.keras.layers.Dense(n_neurons, activation='gelu', name='dense_' + str(time()))(x)
+                    x = tf.keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer) + '_' + location, 0, MAX_DROPOUT),
+                                                name='dropout_' + str(time()))(x)
+            else:  # transformer layer
+                for layer, units in enumerate(n_hidden):
+                    x = tf.keras.layers.Dense(units, activation=tf.nn.gelu, name='dense_' + str(time()))(x)
+                    x = tf.keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer) + '_' + location, 0, MAX_DROPOUT),
+                                                name='dropout_' + str(time()))(x)
+
+            return x
+
+        class Patches(tf.keras.layers.Layer):
+            def __init__(self, patch_size):
+                super(Patches, self).__init__()
+                self.patch_size = patch_size
+
+            def call(self, images):
+                batch_size = tf.shape(images)[0]
+                patches = tf.image.extract_patches(
+                    images=images,
+                    sizes=[1, self.patch_size, self.patch_size, 1],
+                    strides=[1, self.patch_size, self.patch_size, 1],
+                    rates=[1, 1, 1, 1],
+                    padding="VALID",
+                )
+                patch_dims = patches.shape[-1]
+                patches = tf.reshape(patches, [batch_size, -1, patch_dims])
+                return patches
+
+        class PatchEncoder(tf.keras.layers.Layer):
+            def __init__(self, num_patches, projection_dim):
+                super(PatchEncoder, self).__init__()
+                self.num_patches = num_patches
+                self.projection = tf.keras.layers.Dense(units=projection_dim)
+                self.position_embedding = tf.keras.layers.Embedding(input_dim=num_patches, output_dim=projection_dim)
+
+            def call(self, patch):
+                positions = tf.range(start=0, limit=self.num_patches, delta=1)
+                encoded = self.projection(patch) + self.position_embedding(positions)
+                return encoded
+
+        inputs = tf.keras.layers.Input(shape=input_shape)
+        # Token embedding.
+        tokenemb = token_emb(inputs)
+        # Create patches.
+        patches = Patches(patch_size)(tokenemb)
+        # Encode patches.
+        encoded_patches = PatchEncoder(num_patches, projection_dim)(patches)
+
+        # Create multiple layers of the Transformer block.
+        for i in range(transformer_layers):
+            # Layer normalization 1.
+            x1 = tf.keras.layers.LayerNormalization(epsilon=trial.suggest_uniform('layerNorm_transf_before_layer_' + str(i), 1e-7, 1e-5),
+                                                    name='layerNorm_' + str(time()))(encoded_patches)
+            # Create a multi-head attention layer.
+            attention_output = tf.keras.layers.MultiHeadAttention(num_heads=num_heads, key_dim=projection_dim,
+                                                                  dropout=trial.suggest_uniform('dropout_transf_layer_' + str(i), 0, MAX_DROPOUT),
+                                                                  name='attention_' + str(time()))(x1, x1)
+            # Skip connection 1.
+            x2 = tf.keras.layers.Add()([attention_output, encoded_patches])
+            # Layer normalization 2.
+            x3 = tf.keras.layers.LayerNormalization(epsilon=trial.suggest_uniform('layerNorm_transf_after_layer_' + str(i), 1e-7, 1e-5),
+                                                    name='layerNorm_' + str(time()))(x2)
+            # MLP.
+            x3 = mlp(x3, location='transf_layer' + str(i), n_hidden=transformer_units)
+            # Skip connection 2.
+            encoded_patches = tf.keras.layers.Add()([x3, x2])
+
+        # Create a [batch_size, projection_dim] tensor.
+        representation = tf.keras.layers.LayerNormalization(epsilon=trial.suggest_uniform('layerNorm_flatten', 1e-7, 1e-5),
+                                                            name='layerNorm_' + str(time()))(encoded_patches)
+        representation = tf.keras.layers.Flatten()(representation)
+        representation = tf.keras.layers.Dropout(trial.suggest_uniform('dropout_representation', 0, MAX_DROPOUT),
+                                                name='dropout_' + str(time()))(representation)
+        # Add MLP.
+        features = mlp(representation, location='end')
+        # Classify outputs.
+        logits = tf.keras.layers.Dense(3, activation="softmax", name='dense_' + str(time()))(features)
+        # Create the Keras model.
+        model = tf.keras.Model(inputs=inputs, outputs=logits)
+        opt = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+        model.compile(loss='sparse_categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
+        return model
+
 
     def metrics_report(self, model):
         if 'novo' in self.dataset_name and (self.label == 'rf' or self.label == 'svm' or self.label == 'mlp'):
             X_test = self.dataset.X_test.reshape((self.dataset.X_test.shape[0],
                                           self.dataset.X_test.shape[1] * self.dataset.X_test.shape[2]))
-        elif 'novo' not in self.dataset_name and not (self.label == 'rf' or self.label == 'svm' or self.label == 'mlp'):
-            X_test = self.dataset.reshape_lstm_process(self.dataset.X_test)
+        # elif 'novo' not in self.dataset_name and not (self.label == 'rf' or self.label == 'svm' or self.label == 'mlp'):
+        #     X_test = self.dataset.reshape_lstm_process(self.dataset.X_test)
         else:
             X_test = self.dataset.X_test
 
@@ -430,8 +644,8 @@ class ModelsBuild:
         if 'novo' in self.dataset_name and (label == 'rf' or label == 'svm' or label == 'mlp'):
             X_train = self.dataset.X_train.reshape((self.dataset.X_train.shape[0],
                                                     self.dataset.X_train.shape[1]*self.dataset.X_train.shape[2]))
-        elif 'novo' not in self.dataset_name and not (label == 'rf' or label == 'svm' or label == 'mlp'):
-            X_train = self.dataset.reshape_lstm_process(self.dataset.X_train)
+        # elif 'novo' not in self.dataset_name and not (label == 'rf' or label == 'svm' or label == 'mlp'):
+        #     X_train = self.dataset.reshape_lstm_process(self.dataset.X_train)
         else:
             X_train = self.dataset.X_train
         return X_train, self.dataset.y_train
@@ -444,16 +658,13 @@ class ModelsBuild:
         scores = []
 
         # @TODO: should we change to StratifiedKFold? https://stackoverflow.com/questions/45969390/difference-between-stratifiedkfold-and-stratifiedshufflesplit-in-sklearn
-        # @DONE: also, should we save scores and get the average? https://stackoverflow.com/questions/63224426/how-can-i-cross-validate-by-pytorch-and-optuna
-        # @DONE: eu acho que estamos usando o shuffle errado... Tem que tirar as métricas para cada split e daí tirar a média delas
-        # @TODO: multiprocessing https://johaupt.github.io/python/parallel%20processing/cross-validation/multiprocessing_cross_validation.html
 
         # TODO: THIS GUY IS COMPLETELY WRONG: I SHOULD FIT ONLY IN SECTION OF X_TRAIN
         for train, val in split.split(X_train, self.dataset.y_train):
             # each training must have a new model
             model = self.get_model(trial, label)
             model = self._model_fit(X_train, self.dataset.y_train, train, val, model)
-            score = self.get_score(model)
+            score = self.get_score(model) # TODO: THIS IS URGENT --> I DONT NORMALIZE BEFORE TESTING --> I did, but needs checking
             scores.append(score)
             del model
 

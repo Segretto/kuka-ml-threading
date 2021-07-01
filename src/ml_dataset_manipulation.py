@@ -17,13 +17,18 @@ class DatasetManip():
             self.X_train, self.X_test, self.y_train, self.y_test = self.load_data(parameters=parameters,
                                                                                   dataset_name=dataset,
                                                                                   phases_to_load=phases_to_load)
+            if 'transf' in label:
+                self.X_train, self.X_test = self.reshape_for_lstm(self.X_train, self.X_test, 6)  # eu sei que não precisa passar por argumento #semtempoirmão
+                self.X_train = np.transpose(self.X_train, (0, 2, 1))
+                self.X_test = np.transpose(self.X_test, (0, 2, 1))
+
             if apply_normalization:
                 self.X_train, self.X_test = self.data_normalization(self.X_train, self.X_test, dataset_name=dataset)
-            if 'novo' not in dataset:
-                self.X_train = self.X_train.values
-                self.X_test = self.X_test.values
-                self.y_train = self.y_train.values
-                self.y_test = self.y_test.values
+            # if 'novo' not in dataset:
+            #     self.X_train = self.X_train.values
+            #     self.X_test = self.X_test.values
+            #     self.y_train = self.y_train.values
+            #     self.y_test = self.y_test.values
 
         print('Loading data done')
 
@@ -131,7 +136,8 @@ class DatasetManip():
             y = []
 
             for dataset_i in names_X:
-                dataframe = pd.read_csv(''.join([self.path_dataset, dataset_i]), index_col=0)
+                # dataframe = pd.read_csv(dir_abs.join([self.path_dataset, dataset_i]), index_col=0)
+                dataframe = pd.read_csv(dir_abs + '/' + self.path_dataset + dataset_i, index_col=0)
                 dataframe = dataframe.iloc[:, dataframe.columns.str.contains(parameters)]
 
                 # @DONE: paa here
@@ -147,6 +153,7 @@ class DatasetManip():
                           ['mx_'+str(i)  for i in range(data_aux[0].shape[0])] +\
                           ['my_'+str(i)  for i in range(data_aux[0].shape[0])] +\
                           ['mz_'+str(i)  for i in range(data_aux[0].shape[0])]
+
                 dataframe = pd.DataFrame(data_aux.reshape(data_aux.shape[0], data_aux.shape[1]*data_aux.shape[2]),
                                          columns=columns)
 
@@ -154,7 +161,8 @@ class DatasetManip():
                 X.append(dataframe)
 
             for dataset_i in names_y:
-                dataframe = pd.read_csv(''.join([self.path_dataset, dataset_i]), index_col=0)
+                # dataframe = pd.read_csv(''.join([self.path_dataset, dataset_i]), index_col=0)
+                dataframe = pd.read_csv(dir_abs + '/' + self.path_dataset + dataset_i, index_col=0)
                 # y.append(np.array(dataframe))
                 y.append(dataframe)
 
@@ -182,6 +190,7 @@ class DatasetManip():
         return data
 
     def generate_velocity(self, data, dt = 0.012):
+        pos = ['x', 'y', 'z', 'rotx', 'roty', 'rotz']
         pos = ['x', 'y', 'z', 'rotx', 'roty', 'rotz']
         for feature in data[pos]:
             data['v' + feature] = data[feature].diff() / dt
@@ -215,31 +224,30 @@ class DatasetManip():
 
         return X_new
 
-    def reshape_for_lstm(self, X_train, X_test, X_train_vl, X_val, features):
+    def reshape_for_lstm(self, X_train, X_test, features):
 
         X = []
 
-        for dataset in [X_train, X_test, X_train_vl, X_val]:
+        for dataset in [X_train, X_test]:
             X.append(self.reshape_lstm_process(dataset, features))
 
         print("\n\n\nX_train.shape = ", X[0].shape)
         print("X_test.shape = ", X[1].shape)
-        print("X_train_vl.shape = ", X[2].shape)
-        print("X_val.shape = ", X[3].shape)
 
         return X
 
     def data_normalization(self, X_train, X_test, dataset_name='original'):
 
         X_train = self.force_moment_normalization(X_train, dataset_name=dataset_name)
-        X_test = self.force_moment_normalization(X_test, dataset_name=dataset_name)
+        X_test = self.force_moment_normalization(X_test, dataset_name=dataset_name, data='test')
 
         print("X_train.shape = ", np.asarray(X_train).shape)
         print("X_test.shape = ", np.asarray(X_test).shape)
         return X_train, X_test
 
-    def force_moment_normalization(self, df, dataset_name='original'):
-        if 'novo' in dataset_name:
+    def force_moment_normalization(self, df, dataset_name='original', data='train'):
+        # if 'novo' in dataset_name:
+        if 'test' not in data:
             from sklearn.preprocessing import MinMaxScaler
             all_min = []
             all_max = []
@@ -258,49 +266,20 @@ class DatasetManip():
                 df[i] = (df[i] - all_min) / (all_max - all_min + np.ones(len(all_max)) * 1e-7)
             self.scaler = s
         else:
-            df.iloc[:, df.columns.str.contains('fx|fy|fz')] = df.iloc[:,
-                                                              df.columns.str.contains('fx|fy|fz')].apply(
-                lambda x: x / 30,
-                axis=0)
-            df.iloc[:, df.columns.str.contains('mx|my|mz')] = df.iloc[:,
-                                                              df.columns.str.contains('mx|my|mz')].apply(
-                lambda x: x / 3,
-                axis=0)
+            all_min = self.scaler.data_min_
+            all_max = self.scaler.data_max_
+            for i, _ in enumerate(df):
+                df[i] = (df[i] - all_min) / (all_max - all_min + np.ones(len(all_max)) * 1e-7)
+        # else:
+        #     df.iloc[:, df.columns.str.contains('fx|fy|fz')] = df.iloc[:,
+        #                                                       df.columns.str.contains('fx|fy|fz')].apply(
+        #         lambda x: x / 30,
+        #         axis=0)
+        #     df.iloc[:, df.columns.str.contains('mx|my|mz')] = df.iloc[:,
+        #                                                       df.columns.str.contains('mx|my|mz')].apply(
+        #         lambda x: x / 3,
+        #         axis=0)
         return df
-
-    def create_validation_set(self, parameters='fx|fy|fz|mx|my|mz'):
-        from sklearn.model_selection import StratifiedShuffleSplit
-
-        split = StratifiedShuffleSplit(n_splits=1, test_size=0.2)  # , random_state=27)
-        for train, val in split.split(self.X_train, self.X_train['labels']):
-            X_train_vl = self.X_train.iloc[train].copy()
-            X_val = self.X_train.iloc[val].copy()
-
-        y_train_vl = X_train_vl['labels'].copy()
-        y_val = X_val['labels'].copy()
-
-        X_train_vl = X_train_vl.iloc[:, ~X_train_vl.columns.str.contains('labels')]
-        X_val = X_val.iloc[:, ~X_val.columns.str.contains('labels')]
-        # X_train = X_train.iloc[:, ~X_train.columns.str.contains('labels')]
-        X_train = self.X_train.drop(['labels'], axis=1)
-
-        y_train_vl = np.array(y_train_vl) - 1
-        y_val = np.array(y_val) - 1
-        y_test = np.array(self.y_test) - 1
-        y_train = np.array(self.y_train) - 1
-
-        print("X_train_vl.shape = ", X_train_vl.shape)
-        print("X_val.shape = ", X_val.shape)
-
-        print("y_train_vl.shape = ", y_train_vl.shape)
-        print("y_val.shape = ", y_val.shape)
-
-        if self.label == 'lstm' or self.label == 'cnn' or self.label == 'gru':
-            # Reshaping data for LSTM and CNN
-            print("Reshaping for LSTM/CNN")
-            X_train, X_test, X_train_vl, X_val = self.reshape_for_lstm(X_train, self.X_test, X_train_vl, X_val, parameters)
-
-        return X_train, X_train_vl, X_val, X_test, y_train, y_train_vl, y_val, y_test
 
     def load_and_pre_process_data(self, label, parameters, dataset):
         path_dataset, path_model, path_meta_data, path_model_meta_data = self.load_paths()

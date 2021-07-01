@@ -4,10 +4,11 @@ import optuna
 
 # THE USER SHOULD MODIFY THESE ONES
 # models_names = ['svm', 'rf', 'mlp', 'cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
-models_names = ['rf', 'mlp', 'cnn', 'gru', 'lstm', 'wavenet']
+# models_names = ['cnn', 'rf']
+models_names = ['transf']
 # models_names = ['wavenet', 'gru', 'lstm']
 #datasets = ['nivelado'] #, 'nivelado', 'quadruplicado']
-datasets = ['original', 'nivelado', 'quadruplicado'] #, 'original_novo']
+datasets = ['original'] #, 'nivelado', 'quadruplicado'] #, 'original_novo']
 
 N_TRIALS = 50
 TIMEOUT = None
@@ -15,11 +16,9 @@ n_jobs = -1
 METRICS = 'mounted'  # or 'jammed' or 'multi' for both
 
 for dataset_name in datasets:
-    dataset_handler = DatasetManip(dataset=dataset_name)
     for model_name in models_names:
+        dataset_handler = DatasetManip(dataset=dataset_name, label=model_name)
         print("\n\n------------- Starting training for " + model_name + " in dataset " + dataset_name + " -------------")
-
-        # TODO: load all data only once
 
         models_build = ModelsBuild(model_name, dataset_name, metrics=METRICS, dataset=dataset_handler)
 
