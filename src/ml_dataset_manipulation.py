@@ -17,8 +17,9 @@ class DatasetManip():
             self.X_train, self.X_test, self.y_train, self.y_test = self.load_data(parameters=parameters,
                                                                                   dataset_name=dataset,
                                                                                   phases_to_load=phases_to_load)
+
+            # self.X_train, self.X_test = self.reshape_for_lstm(self.X_train, self.X_test, 6)  # eu sei que não precisa passar por argumento #semtempoirmão
             if 'transf' in label:
-                self.X_train, self.X_test = self.reshape_for_lstm(self.X_train, self.X_test, 6)  # eu sei que não precisa passar por argumento #semtempoirmão
                 self.X_train = np.transpose(self.X_train, (0, 2, 1))
                 self.X_test = np.transpose(self.X_test, (0, 2, 1))
 
@@ -142,29 +143,18 @@ class DatasetManip():
 
                 # @DONE: paa here
                 X_new = self.reshape_lstm_process(dataframe.values)
-                data_aux = []
+                data = []
                 for experiment in X_new:
                     aux = paa.transform(X=experiment.T)
-                    data_aux.append(aux.T)
-                data_aux = np.array(data_aux)
-                columns = ['fx_'+str(i)  for i in range(data_aux[0].shape[0])] +\
-                          ['fy_'+str(i)  for i in range(data_aux[0].shape[0])] +\
-                          ['fz_'+str(i)  for i in range(data_aux[0].shape[0])] +\
-                          ['mx_'+str(i)  for i in range(data_aux[0].shape[0])] +\
-                          ['my_'+str(i)  for i in range(data_aux[0].shape[0])] +\
-                          ['mz_'+str(i)  for i in range(data_aux[0].shape[0])]
-
-                dataframe = pd.DataFrame(data_aux.reshape(data_aux.shape[0], data_aux.shape[1]*data_aux.shape[2]),
-                                         columns=columns)
-
-                # X.append(np.array(dataframe))
-                X.append(dataframe)
+                    data.append(aux.T)
+                data = np.array(data)
+                X.append(data)
 
             for dataset_i in names_y:
                 # dataframe = pd.read_csv(''.join([self.path_dataset, dataset_i]), index_col=0)
                 dataframe = pd.read_csv(dir_abs + '/' + self.path_dataset + dataset_i, index_col=0)
                 # y.append(np.array(dataframe))
-                y.append(dataframe)
+                y.append(dataframe.values)
 
             # X[0] = tf.keras.preprocessing.sequence.pad_sequences(X[0], maxlen=max_seq_len, padding='post',
             #                                               dtype='float32')
@@ -245,14 +235,14 @@ class DatasetManip():
         print("X_test.shape = ", np.asarray(X_test).shape)
         return X_train, X_test
 
-    def force_moment_normalization(self, df, dataset_name='original', data='train'):
+    def force_moment_normalization(self, X, dataset_name='original', data='train'):
         # if 'novo' in dataset_name:
         if 'test' not in data:
             from sklearn.preprocessing import MinMaxScaler
             all_min = []
             all_max = []
             scaler = MinMaxScaler((-1,1))
-            for data_i in df:
+            for data_i in X:
                 s = scaler.fit(data_i)
                 all_min.append(s.data_min_)
                 all_max.append(s.data_max_)
@@ -262,24 +252,13 @@ class DatasetManip():
             s.data_min_ = all_min
             s.data_max_ = all_max
 
-            for i, _ in enumerate(df):
-                df[i] = (df[i] - all_min) / (all_max - all_min + np.ones(len(all_max)) * 1e-7)
+            for i, _ in enumerate(X):
+                X[i] = (X[i] - all_min) / (all_max - all_min + np.ones(len(all_max)) * 1e-7)
             self.scaler = s
         else:
-            all_min = self.scaler.data_min_
-            all_max = self.scaler.data_max_
-            for i, _ in enumerate(df):
-                df[i] = (df[i] - all_min) / (all_max - all_min + np.ones(len(all_max)) * 1e-7)
-        # else:
-        #     df.iloc[:, df.columns.str.contains('fx|fy|fz')] = df.iloc[:,
-        #                                                       df.columns.str.contains('fx|fy|fz')].apply(
-        #         lambda x: x / 30,
-        #         axis=0)
-        #     df.iloc[:, df.columns.str.contains('mx|my|mz')] = df.iloc[:,
-        #                                                       df.columns.str.contains('mx|my|mz')].apply(
-        #         lambda x: x / 3,
-        #         axis=0)
-        return df
+            for i, _ in enumerate(X):
+                X[i] = (X[i] - self.scaler.data_min_) / (self.scaler.data_max_ - self.scaler.data_min_ + np.ones(len(self.scaler.data_max_)) * 1e-7)
+        return X
 
     def load_and_pre_process_data(self, label, parameters, dataset):
         path_dataset, path_model, path_meta_data, path_model_meta_data = self.load_paths()
