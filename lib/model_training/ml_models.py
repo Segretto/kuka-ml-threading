@@ -561,21 +561,19 @@ class ModelsBuild:
 
 
     def metrics_report(self, model):
-        if 'novo' in self.dataset_name and (self.label == 'rf' or self.label == 'svm' or self.label == 'mlp'):
+        if self.label == 'rf' or self.label == 'svm' or self.label == 'mlp':
             X_test = self.dataset.X_test.reshape((self.dataset.X_test.shape[0],
                                           self.dataset.X_test.shape[1] * self.dataset.X_test.shape[2]))
-        # elif 'novo' not in self.dataset_name and not (self.label == 'rf' or self.label == 'svm' or self.label == 'mlp'):
-        #     X_test = self.dataset.reshape_lstm_process(self.dataset.X_test)
         else:
             X_test = self.dataset.X_test
 
         if self.label == 'rf' or self.label == 'svm':
             y_pred = np.argmax(model.predict(X_test).reshape(X_test.shape[0], 1), axis=1)
         else:
-            y_pred = np.argmax(model.predict(X_test), axis=1)
+            y_pred = np.argmax(model(X_test), axis=1)
 
         # return recall_score(y_true=self.dataset.y_test, y_pred=y_pred, average='macro')
-        # TODO: this problem occurs due to the lack of class jammed. WIll gather more data and remove this
+        # TODO: this problem occurs due to the lack of class jammed. I'll gather more data and remove this
         try:
             return classification_report(y_true=self.dataset.y_test, y_pred=y_pred,
                                      output_dict=True, target_names=['mounted', 'not mounted', 'jammed'], zero_division=0)
@@ -641,11 +639,9 @@ class ModelsBuild:
             tf.keras.models.save_model(model, model_path)
 
     def _reshape_X_for_train(self, label):
-        if 'novo' in self.dataset_name and (label == 'rf' or label == 'svm' or label == 'mlp'):
+        if label == 'rf' or label == 'svm' or label == 'mlp':
             X_train = self.dataset.X_train.reshape((self.dataset.X_train.shape[0],
                                                     self.dataset.X_train.shape[1]*self.dataset.X_train.shape[2]))
-        # elif 'novo' not in self.dataset_name and not (label == 'rf' or label == 'svm' or label == 'mlp'):
-        #     X_train = self.dataset.reshape_lstm_process(self.dataset.X_train)
         else:
             X_train = self.dataset.X_train
         return X_train, self.dataset.y_train
@@ -678,13 +674,8 @@ class ModelsBuild:
         X_train_vl = np.asarray(X_train)[train].copy()
         X_val = np.asarray(X_train)[val].copy()
 
-        # TODO: remove all try except
-        try:
-            y_train_vl = y_train.iloc[train].copy()
-            y_val = y_train.iloc[val].copy()
-        except AttributeError:
-            y_train_vl = y_train[train].copy()
-            y_val = y_train[val].copy()
+        y_train_vl = y_train[train].copy()
+        y_val = y_train[val].copy()
 
         if self.label == 'svm' or self.label == 'rf':
             # TODO: do these guys use X_val?

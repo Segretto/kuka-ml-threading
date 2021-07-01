@@ -5,7 +5,7 @@ import optuna
 # THE USER SHOULD MODIFY THESE ONES
 # models_names = ['svm', 'rf', 'mlp', 'cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
 # models_names = ['cnn', 'rf']
-models_names = ['transf']
+models_names = ['mlp']
 # models_names = ['wavenet', 'gru', 'lstm']
 #datasets = ['nivelado'] #, 'nivelado', 'quadruplicado']
 datasets = ['original'] #, 'nivelado', 'quadruplicado'] #, 'original_novo']
