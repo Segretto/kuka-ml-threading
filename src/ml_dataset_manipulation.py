@@ -46,7 +46,9 @@ class DatasetManip():
                   phases_to_load=['insertion', 'backspin', 'threading']):
         print("Loading data with all components")
         # dir_abs = os.path.abspath('.')
-        dir_abs = '/home/glahr/kuka-ml-threading'
+        # dir_abs = '/home/glahr/kuka-ml-threading'
+        dir_abs = os.getcwd()
+        # print("pwd aqui: ", os.getcwd())
         dir_new_dataset = dir_abs + '/dataset/dataset_new_iros21/'
         # here we get all folders. We will have also with angular error and angular/linear error
         dir_all_trials = [dir_new_dataset + dir_ for dir_ in os.listdir(dir_new_dataset)]

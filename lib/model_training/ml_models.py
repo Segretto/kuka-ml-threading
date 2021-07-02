@@ -615,8 +615,8 @@ class ModelsBuild:
         new_path = self.path_to_models_meta_data + 'best_' + label + '_' + dataset + '.json'
         study.trials_dataframe().iloc[study.best_trial.number].to_json(new_path)
 
-    def save_study(self, study, dataset=None, label=None):
-        pickle_path = self.path_to_models_meta_data + 'study_' + label + '_' + dataset + '.pkl'
+    def save_study(self, study, dataset=None, label=None, time_optimize=0):
+        pickle_path = self.path_to_models_meta_data + 'study_' + label + '_' + dataset + '_' + str(time_optimize) + '.pkl'
         with open(pickle_path, 'wb') as f:
             pickle.dump(study, f)
 
