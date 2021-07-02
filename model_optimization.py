@@ -1,6 +1,7 @@
 from lib.model_training.ml_models import ModelsBuild
 from src.ml_dataset_manipulation import DatasetManip
 import optuna
+from time import time
 
 # THE USER SHOULD MODIFY THESE ONES
 # models_names = ['svm', 'rf', 'mlp', 'cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
@@ -31,6 +32,7 @@ for dataset_name in datasets:
 
         # TODO: create new models
         # craft the objective here
+        time_optimize_start = time()
         study.optimize(lambda trial: models_build.objective(trial, label=model_name), timeout=TIMEOUT,
                        n_trials=N_TRIALS, n_jobs=n_jobs)
 
@@ -44,7 +46,7 @@ for dataset_name in datasets:
 
         # models_build.save_best_model(study, dataset, label)
         models_build.save_meta_data(study, dataset_name, model_name)
-        models_build.save_study(study, dataset_name, model_name)
+        models_build.save_study(study, dataset_name, model_name, time() - time_optimize_start)
         #models_build.tf.keras.backend.clear_session()
 
         # TODO: get more insight on visualization for single objective
