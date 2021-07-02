@@ -3,7 +3,8 @@ import numpy as np
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
 import os
-from pyts.approximation import PiecewiseAggregateApproximation
+# from pyts.approximation import PiecewiseAggregateApproximation
+from .paa import PiecewiseAggregateApproximation
 
 
 class DatasetManip():
