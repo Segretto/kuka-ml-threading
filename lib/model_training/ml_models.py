@@ -534,14 +534,14 @@ class ModelsBuild:
                                                                   dropout=trial.suggest_uniform('dropout_transf_layer_' + str(i), 0, MAX_DROPOUT),
                                                                   name='attention_' + str(time()))(x1, x1)
             # Skip connection 1.
-            x2 = tf.keras.layers.Add()([attention_output, encoded_patches])
+            x2 = tf.keras.layers.Add(name='add_layer1_' + str(time()))([attention_output, encoded_patches])
             # Layer normalization 2.
             x3 = tf.keras.layers.LayerNormalization(epsilon=trial.suggest_uniform('layerNorm_transf_after_layer_' + str(i), 1e-7, 1e-5),
                                                     name='layerNorm_' + str(time()))(x2)
             # MLP.
             x3 = mlp(x3, location='transf_layer' + str(i), n_hidden=transformer_units)
             # Skip connection 2.
-            encoded_patches = tf.keras.layers.Add()([x3, x2])
+            encoded_patches = tf.keras.layers.Add(name='add_layer2_' + str(time()))([x3, x2])
 
         # Create a [batch_size, projection_dim] tensor.
         representation = tf.keras.layers.LayerNormalization(epsilon=trial.suggest_uniform('layerNorm_flatten', 1e-7, 1e-5),
