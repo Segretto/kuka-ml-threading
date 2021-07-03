@@ -207,7 +207,7 @@ class ModelsBuild:
             INPUT_SHAPE = 156
         model.add(tf.keras.layers.InputLayer(input_shape=[INPUT_SHAPE*FEATURES]))
 
-        n_hidden = trial.suggest_int('n_hidden', 1, 5)
+        n_hidden = trial.suggest_int('n_hidden', 1, 10)
         for layer in range(n_hidden):
             n_neurons = trial.suggest_int('n_neurons_' + str(layer), 1, 2048)
             model.add(tf.keras.layers.Dense(n_neurons, activation='relu', name='dense_'+str(time())))
@@ -243,8 +243,8 @@ class ModelsBuild:
     def objective_cnn(self, trial):
         model = tf.keras.models.Sequential()
 
-        n_layers_cnn = trial.suggest_int('n_hidden_cnn', 1, 7)
-        model.add(tf.keras.layers.Masking(mask_value=0, input_shape=(INPUT_SHAPE_CNN_RNN, FEATURES)))
+        n_layers_cnn = trial.suggest_int('n_hidden_cnn', 1, 10)
+        model.add(tf.keras.layers.Masking(mask_value=0, input_shape=(INPUT_SHAPE_CNN_RNN, FEATURES), name='mask_' + str(time())))
         # model.add(tf.keras.layers.InputLayer(input_shape=[INPUT_SHAPE_CNN_RNN, FEATURES]))
 
         for layer in range(n_layers_cnn):
@@ -253,20 +253,18 @@ class ModelsBuild:
                                           padding='same',
                                           activation='relu', name='conv1d_'+str(time())))
             model.add(tf.keras.layers.MaxPooling1D(pool_size=trial.suggest_categorical("pool_size_"+str(layer), [1, 2]), name='maxpool1d_'+str(time())))
+            model.add(tf.keras.layers.BatchNormalization(name='batchnorm_' + str(time())))
 
-        model.add(tf.keras.layers.GlobalMaxPooling1D())
+        model.add(tf.keras.layers.GlobalMaxPooling1D(name='maxpool_' + str(time())))
 
-        model.add(tf.keras.layers.Flatten())
+        model.add(tf.keras.layers.Flatten(name='flatten_' + str(time())))
 
         n_layers_dense = trial.suggest_int('n_hidden', 1, 6)
         for layer in range(n_layers_dense):
             model.add(tf.keras.layers.Dense(trial.suggest_int('n_neurons_dense' + str(layer), 1, 2048),
-                                         activation='relu', name='dense_'+str(time())))
-            # TODO: add regularizer?
-            model.add(tf.keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer), 0, MAX_DROPOUT)))
-            # model.add(tf.keras.layers.Dense(units=n_neurons,
-            #                              kernel_regularizer=tf.keras.regularizers.l2(0.01),
-            #                              activation='relu'))
+                                         activation='relu', kernel_regularizer=tf.keras.regularizers.l2(l2=trial.suggest_uniform('regularizer_' + str(layer), 1e-3, 1e-1)), name='dense_'+str(time())))
+            model.add(tf.keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer), 0, MAX_DROPOUT), name='dropout_' + str(time())))
+            # model.add(tf.keras.regularizers.l2(l2=trial.suggest_uniform('regularizer_' + str(layer), 1e-3, 1e-1)))
 
         model.add(tf.keras.layers.Dense(units=OUTPUT_SHAPE, activation='softmax', name='dense_'+str(time())))
 
@@ -427,7 +425,7 @@ class ModelsBuild:
 
         model = tf.keras.Model(inputs=inputs, outputs=outputs)
 
-        opt = tf.keras.optimizers.Adam(learning_rate=0.001)
+        opt = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
 
         model.compile(loss='sparse_categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
         return model
@@ -653,14 +651,15 @@ class ModelsBuild:
         split = StratifiedShuffleSplit(n_splits=N_SPLITS, test_size=TEST_SPLIT_SIZE)
         scores = []
 
+        model_backup = self.get_model(trial, label)
+
         # @TODO: should we change to StratifiedKFold? https://stackoverflow.com/questions/45969390/difference-between-stratifiedkfold-and-stratifiedshufflesplit-in-sklearn
 
-        # TODO: THIS GUY IS COMPLETELY WRONG: I SHOULD FIT ONLY IN SECTION OF X_TRAIN
         for train, val in split.split(X_train, self.dataset.y_train):
             # each training must have a new model
-            model = self.get_model(trial, label)
+            model = tf.keras.models.clone_model(model_backup)
             model = self._model_fit(X_train, self.dataset.y_train, train, val, model)
-            score = self.get_score(model) # TODO: THIS IS URGENT --> I DONT NORMALIZE BEFORE TESTING --> I did, but needs checking
+            score = self.get_score(model)
             scores.append(score)
             del model
 
