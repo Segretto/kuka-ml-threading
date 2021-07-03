@@ -5,6 +5,7 @@ import os
 from joblib import dump
 from sklearn.metrics import f1_score, precision_score, recall_score, classification_report, confusion_matrix
 from sklearn.model_selection import StratifiedShuffleSplit
+from lib.model_training.ml_load_models import load_model_from_trial
 import numpy as np
 # from src.ml_dataset_manipulation import DatasetManip
 from shutil import move
@@ -216,14 +217,6 @@ class ModelsBuild:
         model.add(tf.keras.layers.Dense(OUTPUT_SHAPE, activation="softmax", name='dense_'+str(time())))
         optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
         model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
-
-        # TODO: implementar esses kfolds em cada modelo de NN
-        # model = self._model_fit(model)
-
-        # TODO: implement cross-validation
-
-        # optimizing over different metric than accuracy
-        # ps: take a look at score function to check for multi-objective optimization
         return model
 
     def objective_svm(self, trial):
@@ -408,8 +401,8 @@ class ModelsBuild:
         n_transformer_layers = trial.suggest_int('transformer_layers', 1, 8)
         maxlen = 39 * 6  # Only consider 3 input time points
         embed_dim = trial.suggest_categorical('embed_dim', [2**n for n in range(3, 5)])  # 16  # Embedding size for each token
-        num_heads = 8  # Number of attention heads
-        ff_dim = trial.suggest_categorical('ff_dim', [2**n for n in range(4, 8)])  # Hidden layer size in feed forward network inside transformer
+        num_heads = trial.suggest_categorical('num_heads', [2, 4, 6, 8])  # Number of attention heads
+        ff_dim = trial.suggest_categorical('ff_dim', [2**n for n in range(4, 9)])  # Hidden layer size in feed forward network inside transformer
 
         inputs = tf.keras.layers.Input(shape=(n_channels, n_timesteps, 1))
         embedding_layer = TokenAndPositionEmbedding(maxlen, embed_dim)
@@ -485,9 +478,10 @@ class ModelsBuild:
             return x
 
         class Patches(tf.keras.layers.Layer):
-            def __init__(self, patch_size):
+            def __init__(self, patch_size, trial):
                 super(Patches, self).__init__()
                 self.patch_size = patch_size
+                self.trial = trial
 
             def call(self, images):
                 batch_size = tf.shape(images)[0]
@@ -502,25 +496,36 @@ class ModelsBuild:
                 patches = tf.reshape(patches, [batch_size, -1, patch_dims])
                 return patches
 
+            def get_config(self):
+                config = super().get_config().copy()
+                config.update(self.trial.params)
+                return config
+
         class PatchEncoder(tf.keras.layers.Layer):
-            def __init__(self, num_patches, projection_dim):
+            def __init__(self, num_patches, projection_dim, trial):
                 super(PatchEncoder, self).__init__()
                 self.num_patches = num_patches
                 self.projection = tf.keras.layers.Dense(units=projection_dim)
                 self.position_embedding = tf.keras.layers.Embedding(input_dim=num_patches, output_dim=projection_dim)
+                self.trial = trial
 
             def call(self, patch):
                 positions = tf.range(start=0, limit=self.num_patches, delta=1)
                 encoded = self.projection(patch) + self.position_embedding(positions)
                 return encoded
 
+            def get_config(self):
+                config = super().get_config().copy()
+                config.update(self.trial.params)
+                return config
+
         inputs = tf.keras.layers.Input(shape=input_shape)
         # Token embedding.
         tokenemb = token_emb(inputs)
         # Create patches.
-        patches = Patches(patch_size)(tokenemb)
+        patches = Patches(patch_size, trial)(tokenemb)
         # Encode patches.
-        encoded_patches = PatchEncoder(num_patches, projection_dim)(patches)
+        encoded_patches = PatchEncoder(num_patches, projection_dim, trial)(patches)
 
         # Create multiple layers of the Transformer block.
         for i in range(transformer_layers):
@@ -651,15 +656,15 @@ class ModelsBuild:
         split = StratifiedShuffleSplit(n_splits=N_SPLITS, test_size=TEST_SPLIT_SIZE)
         scores = []
 
-        model_backup = self.get_model(trial, label)
+        self.get_model(trial, label)
+        n_channels = self.dataset.X_train.shape[1] if 'transf' in label else self.dataset.X_train.shape[2]
+        n_timesteps = self.dataset.X_train.shape[2] if 'transf' in label else self.dataset.X_train.shape[1]
 
         # @TODO: should we change to StratifiedKFold? https://stackoverflow.com/questions/45969390/difference-between-stratifiedkfold-and-stratifiedshufflesplit-in-sklearn
 
         for train, val in split.split(X_train, self.dataset.y_train):
             # each training must have a new model
-            model = tf.keras.models.clone_model(model_backup)
-            optimizer = tf.keras.optimizers.Adam(learning_rate=trial.params['lr'])
-            model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+            model = load_model_from_trial(label, trial.params, n_channels, n_timesteps)
             model = self._model_fit(X_train, self.dataset.y_train, train, val, model)
             score = self.get_score(model)
             scores.append(score)

@@ -13,7 +13,7 @@ datasets = ['original'] #, 'nivelado', 'quadruplicado'] #, 'original_novo']
 
 N_TRIALS = 100
 TIMEOUT = None
-n_jobs = -1
+n_jobs = 1
 METRICS = 'mounted'  # or 'jammed' or 'multi' for both
 
 for dataset_name in datasets:
