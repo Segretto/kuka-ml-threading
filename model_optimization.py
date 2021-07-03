@@ -11,7 +11,7 @@ models_names = ['mlp']
 #datasets = ['nivelado'] #, 'nivelado', 'quadruplicado']
 datasets = ['original'] #, 'nivelado', 'quadruplicado'] #, 'original_novo']
 
-N_TRIALS = 50
+N_TRIALS = 100
 TIMEOUT = None
 n_jobs = -1
 METRICS = 'mounted'  # or 'jammed' or 'multi' for both

@@ -658,6 +658,8 @@ class ModelsBuild:
         for train, val in split.split(X_train, self.dataset.y_train):
             # each training must have a new model
             model = tf.keras.models.clone_model(model_backup)
+            optimizer = tf.keras.optimizers.Adam(learning_rate=trial.params['lr'])
+            model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
             model = self._model_fit(X_train, self.dataset.y_train, train, val, model)
             score = self.get_score(model)
             scores.append(score)
