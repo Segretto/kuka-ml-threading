@@ -6,14 +6,14 @@ from time import time
 # THE USER SHOULD MODIFY THESE ONES
 # models_names = ['svm', 'rf', 'mlp', 'cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
 # models_names = ['cnn', 'rf']
-models_names = ['mlp']
+models_names = ['vitrasnf']
 # models_names = ['wavenet', 'gru', 'lstm']
 #datasets = ['nivelado'] #, 'nivelado', 'quadruplicado']
 datasets = ['original'] #, 'nivelado', 'quadruplicado'] #, 'original_novo']
 
 N_TRIALS = 100
 TIMEOUT = None
-n_jobs = 1
+n_jobs = -1
 METRICS = 'mounted'  # or 'jammed' or 'multi' for both
 
 for dataset_name in datasets:
@@ -33,6 +33,10 @@ for dataset_name in datasets:
         # TODO: create new models
         # craft the objective here
         time_optimize_start = time()
+        # import pickle
+        # with open('output/models_meta_data/study_mlp_original_1483.3885452747345.pkl', 'rb') as f:
+        #     study = pickle.load(f)
+
         study.optimize(lambda trial: models_build.objective(trial, label=model_name), timeout=TIMEOUT,
                        n_trials=N_TRIALS, n_jobs=n_jobs)
 
