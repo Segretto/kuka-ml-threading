@@ -93,13 +93,15 @@ class ModelsBuild:
             model.add(tf.keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 8),
                                         return_sequences=True,
                                         dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT),
-                                        recurrent_dropout=trial.suggest_uniform('dropout_rec_input', 0, MAX_DROPOUT), name='lstm_'+str(time())))
+                                        #recurrent_dropout=trial.suggest_uniform('dropout_rec_input', 0, MAX_DROPOUT),
+                                        name='lstm_'+str(time())))
             if n_hidden >= 1:
                 for layer in range(n_hidden-1):
                     model.add(tf.keras.layers.LSTM(units=trial.suggest_int('n_hidden_' + str(layer + 1), 1, 9),
                                                 return_sequences=True,
                                                 dropout=trial.suggest_uniform('dropout_' + str(layer + 1), 0, MAX_DROPOUT),
-                                                recurrent_dropout=trial.suggest_uniform('dropout_rec_' + str(layer + 1), 0, MAX_DROPOUT), name='lstm_'+str(time())))
+                                                #recurrent_dropout=trial.suggest_uniform('dropout_rec_' + str(layer + 1), 0, MAX_DROPOUT),
+                                                name='lstm_'+str(time())))
                 else:
                     model.add(tf.keras.layers.LSTM(units=trial.suggest_int('n_hidden_' + str(n_hidden + 1), 1, 9),
                                                 return_sequences=False,
@@ -111,15 +113,6 @@ class ModelsBuild:
         optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
         model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
-        # model.fit(
-        #     self.dataset.X_train,
-        #     self.dataset.y_train.reshape((len(self.dataset.y_train),)),
-        #     validation_data=(self.dataset.X_train_vl, self.dataset.y_train_vl.reshape((len(self.dataset.y_train_vl),))),
-        #     shuffle=False,
-        #     batch_size=BATCHSIZE_RECURRENT,
-        #     epochs=EPOCHS,
-        #     verbose=False,
-        # )
         return model
 
     def objective_bidirectional_lstm(self, trial):
@@ -177,15 +170,15 @@ class ModelsBuild:
             model.add(tf.keras.layers.GRU(units=trial.suggest_int('n_input', 1, 9),
                                        return_sequences=True,
                                        dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT),
-                                       recurrent_dropout=trial.suggest_uniform('dropout_rec_input', 0, MAX_DROPOUT),
+                                       #recurrent_dropout=trial.suggest_uniform('dropout_rec_input', 0, MAX_DROPOUT),
                                        name='gru_'+str(time())))
             if n_hidden >= 1:
                 for layer in range(n_hidden-1):
                     model.add(tf.keras.layers.GRU(units=trial.suggest_int('n_hidden_' + str(layer), 1, 9),
                                                return_sequences=True,
                                                dropout=trial.suggest_uniform('dropout_' + str(layer), 0, MAX_DROPOUT),
-                                               recurrent_dropout=trial.suggest_uniform('dropout_rec_' + str(layer), 0,
-                                                                                        MAX_DROPOUT), name='gru_'+str(time())))
+                                               #recurrent_dropout=trial.suggest_uniform('dropout_rec_' + str(layer), 0, MAX_DROPOUT),
+                                               name='gru_'+str(time())))
                 else:
                     model.add(tf.keras.layers.GRU(units=trial.suggest_int('n_hidden_' + str(n_hidden), 1, 8),
                                            return_sequences=False,
@@ -236,7 +229,7 @@ class ModelsBuild:
     def objective_cnn(self, trial):
         model = tf.keras.models.Sequential()
 
-        n_layers_cnn = trial.suggest_int('n_hidden_cnn', 1, 10)
+        n_layers_cnn = trial.suggest_int('n_hidden_cnn', 1, 8)
         model.add(tf.keras.layers.Masking(mask_value=0, input_shape=(INPUT_SHAPE_CNN_RNN, FEATURES), name='mask_' + str(time())))
         # model.add(tf.keras.layers.InputLayer(input_shape=[INPUT_SHAPE_CNN_RNN, FEATURES]))
 
@@ -276,6 +269,7 @@ class ModelsBuild:
                 super().__init__(**kwargs)
                 activation = "tanh"
                 self.activation = tf.keras.activations.get(activation)
+                self._name = 'gated_activation_unit_' + str(time()*np.random.rand())
 
             def call(self, inputs):
                 n_filters = inputs.shape[-1] // 2
@@ -288,7 +282,7 @@ class ModelsBuild:
                                     dilation_rate=dilation_rate, name='conv1d_'+str(time()))(inputs)
             z = GatedActivationUnit()(z)
             z = tf.keras.layers.Conv1D(n_filters, kernel_size=1, name='conv1d_'+str(time()))(z)
-            return tf.keras.layers.Add()([z, inputs]), z
+            return tf.keras.layers.Add(name='add' + str(time()))([z, inputs]), z
 
         n_layers_per_block = trial.suggest_int("n_layers_per_block", 3, 11)  # 10 in the paper
         n_blocks = trial.suggest_categorical("n_blocks", [1, 2, 3])  # 3 in the paper
@@ -312,7 +306,7 @@ class ModelsBuild:
         z = tf.keras.layers.Conv1D(n_filters, kernel_size=kernel, activation="relu", name='conv1d_'+str(time()))(z)
         z = tf.keras.layers.Conv1D(n_outputs_conv, kernel_size=kernel, activation="relu", name='conv1d_'+str(time()))(z)
 
-        z = tf.keras.layers.Flatten()(z)
+        z = tf.keras.layers.Flatten(name='flatten_' + str(time()))(z)
         n_layers_dense = trial.suggest_int('n_hidden', 1, 4)
         for layer in range(n_layers_dense):
             z = tf.keras.layers.Dense(trial.suggest_int('n_neurons_dense' + str(layer), 1, 2048),
