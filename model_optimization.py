@@ -2,11 +2,12 @@ from lib.model_training.ml_models import ModelsBuild
 from src.ml_dataset_manipulation import DatasetManip
 import optuna
 from time import time
+import pickle
 
 # THE USER SHOULD MODIFY THESE ONES
 # models_names = ['svm', 'rf', 'mlp', 'cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
 # models_names = ['cnn', 'rf']
-models_names = ['vitrasnf']
+models_names = ['vitransf']
 # models_names = ['wavenet', 'gru', 'lstm']
 #datasets = ['nivelado'] #, 'nivelado', 'quadruplicado']
 datasets = ['original'] #, 'nivelado', 'quadruplicado'] #, 'original_novo']
@@ -33,9 +34,11 @@ for dataset_name in datasets:
         # TODO: create new models
         # craft the objective here
         time_optimize_start = time()
-        # import pickle
-        # with open('output/models_meta_data/study_mlp_original_1483.3885452747345.pkl', 'rb') as f:
-        #     study = pickle.load(f)
+        old_time = 0
+
+        if old_time != 0:
+            with open('output/models_meta_data/study_'+model_name+'_'+dataset_name+'_'+str(old_time)+'.pkl', 'rb') as f:
+                study = pickle.load(f)
 
         study.optimize(lambda trial: models_build.objective(trial, label=model_name), timeout=TIMEOUT,
                        n_trials=N_TRIALS, n_jobs=n_jobs)
@@ -50,7 +53,7 @@ for dataset_name in datasets:
 
         # models_build.save_best_model(study, dataset, label)
         models_build.save_meta_data(study, dataset_name, model_name)
-        models_build.save_study(study, dataset_name, model_name, time() - time_optimize_start)
+        models_build.save_study(study, dataset_name, model_name, time() - time_optimize_start + old_time)
         #models_build.tf.keras.backend.clear_session()
 
         # TODO: get more insight on visualization for single objective
