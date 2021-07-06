@@ -16,6 +16,12 @@ def load_model_from_trial(label, params, n_channels, n_timesteps):
         model = load_model_mlp(params, n_channels, n_timesteps)
     if label == 'cnn':
         model = load_model_cnn(params, n_channels, n_timesteps)
+    if label == 'gru':
+        model = load_model_gru(params, n_channels, n_timesteps)
+    if label == 'wavenet':
+        model = load_model_wavenet(params, n_channels, n_timesteps)
+    if label == 'lstm':
+        model = load_model_lstm(params, n_channels, n_timesteps)
     return model
 
 def load_model_transf(params, n_channels, n_timesteps):
@@ -284,6 +290,127 @@ def load_model_cnn(params, n_channels, n_timesteps):
     model.add(tf.keras.layers.Dense(units=OUTPUT_SHAPE, activation='softmax', name='dense_' + str(time())))
 
     optimizer = tf.keras.optimizers.Adam(learning_rate=params['lr']) #trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+    model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+
+    return model
+
+def load_model_gru(params, n_channels, n_timesteps):
+    model = tf.keras.models.Sequential()
+    n_hidden = params['n_hidden']
+    model.add(tf.keras.layers.Masking(mask_value=0, input_shape=(n_timesteps, n_channels)))
+    # input layer
+    if n_hidden == 0:
+        model.add(tf.keras.layers.GRU(units=params['n_input'],
+                                        return_sequences=False,
+                                        dropout=params['dropout_input'],
+                                        name='gru_'+str(time())))
+    else:
+        model.add(tf.keras.layers.GRU(units=params['n_input'],
+                                   return_sequences=True,
+                                   dropout=params['dropout_input'],
+                                   name='gru_'+str(time())))
+        if n_hidden >= 1:
+            for layer in range(n_hidden-1):
+                model.add(tf.keras.layers.GRU(units=params['n_hidden_' + str(layer)],
+                                           return_sequences=True,
+                                           dropout=params['dropout_' + str(layer)],
+                                           name='gru_'+str(time())))
+            else:
+                model.add(tf.keras.layers.GRU(units=params['n_hidden_' + str(n_hidden)],
+                                       return_sequences=False,
+                                       dropout=params['dropout_' + str(n_hidden)],
+                                       name='gru_'+str(time())))
+
+    # TODO: change optimizer and add batchNorm in layers
+    # output layer
+    model.add(tf.keras.layers.Dense(OUTPUT_SHAPE, activation='softmax'))
+    optimizer = tf.keras.optimizers.Adam(learning_rate=params['lr'])
+    model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+
+    return model
+
+def load_model_wavenet(params, n_channels, n_timesteps):
+    class GatedActivationUnit(tf.keras.layers.Layer):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            activation = "tanh"
+            self.activation = tf.keras.activations.get(activation)
+
+        def call(self, inputs):
+            n_filters = inputs.shape[-1] // 2
+            linear_output = self.activation(inputs[..., :n_filters])
+            gate = tf.keras.activations.sigmoid(inputs[..., n_filters:])
+            return self.activation(linear_output) * gate
+
+    def wavenet_residual_block(inputs, n_filters, dilation_rate):
+        z = tf.keras.layers.Conv1D(2 * n_filters, kernel_size=2, padding="causal",
+                                   dilation_rate=dilation_rate, name='conv1d_' + str(time()))(inputs)
+        z = GatedActivationUnit(name='gau_' + str(time()))(z)
+        z = tf.keras.layers.Conv1D(n_filters, kernel_size=1, name='conv1d_' + str(time()))(z)
+        return tf.keras.layers.Add(name='add' + str(time()))([z, inputs]), z
+
+    n_layers_per_block = params['n_layers_per_block']
+    n_blocks = params['n_blocks']
+    n_filters = params['n_filters']
+    n_outputs_conv = params['n_outputs']
+    kernel = params['kernel']
+
+    inputs = tf.keras.layers.Input(shape=[n_timesteps, n_channels])
+    # inputs_ = tf.keras.layers.Masking(mask_value=0)
+    z = tf.keras.layers.Conv1D(n_filters, kernel_size=2, padding="causal", name='conv1d_' + str(time()))(inputs)
+    skip_to_last = []
+    for dilation_rate in [2 ** i for i in range(n_layers_per_block)] * n_blocks:
+        z, skip = wavenet_residual_block(z, n_filters, dilation_rate)
+        skip_to_last.append(skip)
+    z = tf.keras.activations.relu(tf.keras.layers.Add()(skip_to_last))
+    z = tf.keras.layers.Conv1D(n_filters, kernel_size=kernel, activation="relu", name='conv1d_' + str(time()))(z)
+    z = tf.keras.layers.Conv1D(n_outputs_conv, kernel_size=kernel, activation="relu", name='conv1d_' + str(time()))(z)
+
+    z = tf.keras.layers.Flatten(name='flatten_' + str(time()))(z)
+    n_layers_dense = params['n_hidden']
+    for layer in range(n_layers_dense):
+        z = tf.keras.layers.Dense(params['n_neurons_dense' + str(layer)],
+                                  activation='relu', name='dense_' + str(time()))(z)
+    Y_outputs = tf.keras.layers.Dense(units=OUTPUT_SHAPE, activation='softmax', name='dense_' + str(time()))(z)
+
+    model = tf.keras.models.Model(inputs=[inputs], outputs=[Y_outputs])
+
+    optimizer = tf.keras.optimizers.Adam(learning_rate=params['lr'])
+    model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+
+    return model
+
+def load_model_lstm(params, n_channels, n_timesteps):
+    model = tf.keras.models.Sequential()
+    # input layer
+    n_hidden = params['n_hidden']
+    model.add(tf.keras.layers.Masking(mask_value=0, input_shape=(n_timesteps, n_channels)))
+    if n_hidden == 0:
+        model.add(tf.keras.layers.LSTM(units=params['n_input'],
+                                       return_sequences=False,
+                                       dropout=params['dropout_input'],
+                                       name='lstm_' + str(time())))
+    else:
+        model.add(tf.keras.layers.LSTM(units=params['n_input'],
+                                       return_sequences=True,
+                                       dropout=params['dropout_input'],
+                                       name='lstm_' + str(time())))
+        if n_hidden >= 1:
+            for layer in range(n_hidden - 1):
+                model.add(tf.keras.layers.LSTM(units=params['n_hidden_' + str(layer + 1)],
+                                               return_sequences=True,
+                                               dropout=params['dropout_' + str(layer + 1)],
+                                               name='lstm_' + str(time())))
+            else:
+                model.add(tf.keras.layers.LSTM(units=params['n_hidden_' + str(n_hidden + 1)],
+                                               return_sequences=False,
+                                               dropout='dropout_' + str(n_hidden + 1),
+                                               name='lstm_' + str(time())))
+
+    # TODO: change optimizer and add batchNorm in layers. It is taking too long to train
+    # output layer
+    model.add(tf.keras.layers.Dense(OUTPUT_SHAPE, activation='softmax'))
+    optimizer = tf.keras.optimizers.Adam(learning_rate=params['lr'])
     model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
     return model
