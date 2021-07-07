@@ -404,7 +404,7 @@ def load_model_lstm(params, n_channels, n_timesteps):
             else:
                 model.add(tf.keras.layers.LSTM(units=params['n_hidden_' + str(n_hidden + 1)],
                                                return_sequences=False,
-                                               dropout='dropout_' + str(n_hidden + 1),
+                                               dropout=params['dropout_' + str(n_hidden + 1)],
                                                name='lstm_' + str(time())))
 
     # TODO: change optimizer and add batchNorm in layers. It is taking too long to train
