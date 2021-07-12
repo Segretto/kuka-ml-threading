@@ -53,7 +53,7 @@ class DatasetManip():
         dir_new_dataset = dir_abs + '/dataset/dataset_new_iros21/'
         # here we get all folders. We will have also with angular error and angular/linear error
         dir_all_trials = [dir_new_dataset + dir_ for dir_ in os.listdir(dir_new_dataset)]
-        paa = PiecewiseAggregateApproximation(window_size=10)
+        paa = PiecewiseAggregateApproximation(window_size=12)
 
         if 'novo' in dataset_name:
             all_data = []
@@ -95,11 +95,22 @@ class DatasetManip():
                     data_in = None if file_ins is None else pd.read_csv(file_ins)
                     data_bs = None if file_bs is None else pd.read_csv(file_bs)
                     data_th = None if file_th is None else pd.read_csv(file_th)
+
+                    offset = 0
+                    for i, _ in enumerate(data_th.values):
+                        if i>0 and np.sign(data_th['rotx'][i]) != np.sign(data_th['rotx'][i - 1]) and data_th['rotx'][i] > 100:
+                        # print(data_th['rotx'][i])
+                        # if i>0 and data_th['rotx'][i] > 150:
+                            offset = -360
+                        data_th.at[i, 'rotx'] = data_th['rotx'][i] + offset
+
                     data = pd.concat([data_in, data_bs, data_th])
+                    data.reset_index(inplace=True)  # reset indexes
+                    data['rotx'] = (data['rotx'] + 90)*np.pi/180  # changing from degrees to radian
 
                     # data = self.remove_offset(data)
                     data.drop(columns=['Unnamed: 13'], inplace=True)
-                    data = self.generate_velocity(data)
+                    # data = self.generate_velocity(data)
 
                     data_aux = paa.transform(X=data.values.T)
                     data = pd.DataFrame(data_aux.T, columns=[data.columns])
@@ -183,7 +194,6 @@ class DatasetManip():
         return data
 
     def generate_velocity(self, data, dt = 0.012):
-        pos = ['x', 'y', 'z', 'rotx', 'roty', 'rotz']
         pos = ['x', 'y', 'z', 'rotx', 'roty', 'rotz']
         for feature in data[pos]:
             data['v' + feature] = data[feature].diff() / dt
