@@ -7,7 +7,7 @@ import pickle
 # THE USER SHOULD MODIFY THESE ONES
 # models_names = ['svm', 'rf', 'mlp', 'cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
 # models_names = ['cnn', 'rf']
-models_names = ['vitransf']
+models_names = ['mlp']
 # models_names = ['wavenet', 'gru', 'lstm']
 #datasets = ['nivelado'] #, 'nivelado', 'quadruplicado']
 datasets = ['original'] #, 'nivelado', 'quadruplicado'] #, 'original_novo']
@@ -20,7 +20,7 @@ METRICS = 'mounted'  # or 'jammed' or 'multi' for both
 for dataset_name in datasets:
     for model_name in models_names:
         dataset_handler = DatasetManip(dataset=dataset_name, label=model_name)
-        print("\n\n------------- Starting training for " + model_name + " in dataset " + dataset_name + " -------------")
+        print("\n\n------------- Starting training for " + model_name + " in dataset " + dataset_name + " with rotz -------------")
 
         models_build = ModelsBuild(model_name, dataset_name, metrics=METRICS, dataset=dataset_handler)
 
@@ -37,7 +37,7 @@ for dataset_name in datasets:
         old_time = 0
 
         if old_time != 0:
-            with open('output/models_meta_data/study_'+model_name+'_'+dataset_name+'_'+str(old_time)+'.pkl', 'rb') as f:
+            with open('output/models_meta_data/study_'+model_name+'_'+dataset_name+'_'+str(old_time)+'_rotz.pkl', 'rb') as f:
                 study = pickle.load(f)
 
         study.optimize(lambda trial: models_build.objective(trial, label=model_name), timeout=TIMEOUT,
