@@ -8,7 +8,7 @@ from .paa import PiecewiseAggregateApproximation
 
 
 class DatasetManip():
-    def __init__(self, label='mlp', dataset='original', load_models=True, parameters='fx|fy|fz|mx|my|mz|rotz',
+    def __init__(self, label='mlp', dataset='original', load_models=True, parameters='fx|fy|fz|mx|my|mz|rotx',
                  apply_normalization=True, phases_to_load=['insertion', 'backspin', 'threading']):
         self.label = label
         print('Loading data')
@@ -42,6 +42,16 @@ class DatasetManip():
         path_meta_data = path_root + 'models/optimization/meta_data/'
         path_model_meta_data = path_root + 'models/optimization/models_meta_data/'
         return path_dataset, path_model, path_meta_data, path_model_meta_data
+
+    def my_padding(self, all_data, max_seq_len, parameters):
+        n_features = len(parameters.split('|'))
+        n_samples = len(all_data)
+        aux_all_data = np.zeros((n_samples, max_seq_len, n_features))
+        for i, sample in enumerate(all_data):
+            aux_sample = np.zeros((max_seq_len, n_features))
+            aux_sample[:sample.shape[0]] = sample
+            aux_all_data[i] = aux_sample
+        return aux_all_data
 
     def load_data(self, parameters, dataset_name='original',
                   phases_to_load=['insertion', 'backspin', 'threading']):
@@ -96,13 +106,15 @@ class DatasetManip():
                     data_bs = None if file_bs is None else pd.read_csv(file_bs)
                     data_th = None if file_th is None else pd.read_csv(file_th)
 
-                    offset = 0
-                    for i, _ in enumerate(data_th.values):
-                        if i>0 and np.sign(data_th['rotx'][i]) != np.sign(data_th['rotx'][i - 1]) and data_th['rotx'][i] > 100:
-                        # print(data_th['rotx'][i])
-                        # if i>0 and data_th['rotx'][i] > 150:
-                            offset = -360
-                        data_th.at[i, 'rotx'] = data_th['rotx'][i] + offset
+                    data_th['rotx'][data_th['rotx'].argmin() + 1:] = data_th['rotx'][data_th['rotx'].argmin() + 1:] - 360  # offset = 360: maps from 180 to -180
+                    # (data_th['rotx'].argmin() + 1, data_th['rotx'].count() - data_th['rotx'].argmin())
+                    # offset = 0
+                    # for i, _ in enumerate(data_th.values):
+                    #     if i>0 and np.sign(data_th['rotx'][i]) != np.sign(data_th['rotx'][i - 1]) and data_th['rotx'][i] > 100:
+                    #     # print(data_th['rotx'][i])
+                    #     # if i>0 and data_th['rotx'][i] > 150:
+                    #         offset = -360
+                    #     data_th.at[i, 'rotx'] = data_th['rotx'][i] + offset
 
                     data = pd.concat([data_in, data_bs, data_th])
                     data.reset_index(inplace=True)  # reset indexes
@@ -117,10 +129,11 @@ class DatasetManip():
 
                     max_seq_len = max(max_seq_len, len(data.values[:, 0]))
                     # all_data.append(data[forces + vel].values)
-                    all_data.append(data[parameters.split('|')])
+                    all_data.append(data[[parameters.split('|')]].values)
 
-            all_data = tf.keras.preprocessing.sequence.pad_sequences(all_data, maxlen=max_seq_len, padding='post',
-                                                                    dtype='float32')
+            # all_data = tf.keras.preprocessing.sequence.pad_sequences(all_data, maxlen=max_seq_len, padding='post',
+            #                                                         dtype='float32')
+            all_data = self.my_padding(all_data, max_seq_len, parameters)
 
             labels = None
             for dir_ in dir_all_trials:
@@ -130,9 +143,9 @@ class DatasetManip():
                     labels = np.vstack((labels, pd.read_csv(dir_ + '/data_labels/labels.csv').values))
 
             # TODO: REMOVE THIS AFTER MORE DATA (only 1 label with idx 1)
-            idx = np.where(labels == 1)[0]
-            labels = np.delete(labels, idx)
-            all_data = np.delete(all_data, idx, axis=0)
+            # idx = np.where(labels == 1)[0]
+            # labels = np.delete(labels, idx)
+            # all_data = np.delete(all_data, idx, axis=0)
 
             train, test, train_labels, test_labels = train_test_split(all_data, labels, test_size=0.15, random_state=42)
             return train, test, train_labels, test_labels

@@ -10,7 +10,7 @@ import pickle
 models_names = ['mlp']
 # models_names = ['wavenet', 'gru', 'lstm']
 #datasets = ['nivelado'] #, 'nivelado', 'quadruplicado']
-datasets = ['original'] #, 'nivelado', 'quadruplicado'] #, 'original_novo']
+datasets = ['original_novo'] #, 'nivelado', 'quadruplicado'] #, 'original_novo']
 
 N_TRIALS = 100
 TIMEOUT = None
