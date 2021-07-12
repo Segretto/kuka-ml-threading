@@ -8,7 +8,7 @@ from .paa import PiecewiseAggregateApproximation
 
 
 class DatasetManip():
-    def __init__(self, label='mlp', dataset='original', load_models=True, parameters='fx|fy|fz|mx|my|mz',
+    def __init__(self, label='mlp', dataset='original', load_models=True, parameters='fx|fy|fz|mx|my|mz|rotz',
                  apply_normalization=True, phases_to_load=['insertion', 'backspin', 'threading']):
         self.label = label
         print('Loading data')
@@ -43,7 +43,7 @@ class DatasetManip():
         path_model_meta_data = path_root + 'models/optimization/models_meta_data/'
         return path_dataset, path_model, path_meta_data, path_model_meta_data
 
-    def load_data(self, parameters='fx|fy|fz|mx|my|mz', dataset_name='original',
+    def load_data(self, parameters, dataset_name='original',
                   phases_to_load=['insertion', 'backspin', 'threading']):
         print("Loading data with all components")
         # dir_abs = os.path.abspath('.')
@@ -152,11 +152,11 @@ class DatasetManip():
 
             for dataset_i in names_X:
                 # dataframe = pd.read_csv(dir_abs.join([self.path_dataset, dataset_i]), index_col=0)
-                dataframe = pd.read_csv(dir_abs + '/' + self.path_dataset + dataset_i, index_col=0)
+                dataframe = pd.read_csv(dir_abs + '/' + self.path_dataset + dataset_i)
                 dataframe = dataframe.iloc[:, dataframe.columns.str.contains(parameters)]
 
                 # @DONE: paa here
-                X_new = self.reshape_lstm_process(dataframe.values)
+                X_new = self.reshape_lstm_process(dataframe.values, parameters=parameters)
                 data = []
                 for experiment in X_new:
                     aux = paa.transform(X=experiment.T)
@@ -166,7 +166,7 @@ class DatasetManip():
 
             for dataset_i in names_y:
                 # dataframe = pd.read_csv(''.join([self.path_dataset, dataset_i]), index_col=0)
-                dataframe = pd.read_csv(dir_abs + '/' + self.path_dataset + dataset_i, index_col=0)
+                dataframe = pd.read_csv(dir_abs + '/' + self.path_dataset + dataset_i)
                 # y.append(np.array(dataframe))
                 y.append(dataframe.values)
 
@@ -200,17 +200,19 @@ class DatasetManip():
             data['v' + feature][0] = 0.0
         return data
 
-    def reshape_lstm_process(self, X_reshape, parameters=6):
-        X_reshape = np.array(X_reshape)
-        number_of_features = parameters
+    def reshape_lstm_process(self, X_reshape, parameters):
+        if type(parameters) is str:
+            number_of_features = parameters.count('|') + 1
+        # X_reshape = np.array(X_reshape)
 
         shape_input = int(np.shape(X_reshape)[1] / number_of_features)
         X_new = np.array([])
+        # import sys
 
-        for example in X_reshape:
+        for j, example in enumerate(X_reshape):
             # split data for each component, i.e., [fx, fy, fz]
             X = np.split(example, number_of_features)
-            # reshapes each component for LSTM shape
+
             for i, x in enumerate(X):
                 X[i] = np.reshape(x, (shape_input, 1))
 
