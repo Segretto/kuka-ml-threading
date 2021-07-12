@@ -81,7 +81,7 @@ def load_model_transf(params, n_channels, n_timesteps):
             return x + positions
 
     n_transformer_layers = params['transformer_layers']
-    maxlen = 39 * 6
+    maxlen = 32 * 6
     embed_dim = params['embed_dim']
     num_heads = params['num_heads']
     ff_dim = params['ff_dim']
@@ -267,10 +267,10 @@ def load_model_cnn(params, n_channels, n_timesteps):
 
     for layer in range(n_layers_cnn):
         model.add(tf.keras.layers.Conv1D(filters=params["filters_" + str(layer)],
-                                         kernel_size=params["kernel_" + str(layer)],
+                                         kernel_size=int(params["kernel_" + str(layer)]),
                                          padding='same',
                                          activation='relu', name='conv1d_' + str(time())))
-        model.add(tf.keras.layers.MaxPooling1D(pool_size=params["pool_size_" + str(layer)],
+        model.add(tf.keras.layers.MaxPooling1D(pool_size=int(params["pool_size_" + str(layer)]),
                                                name='maxpool1d_' + str(time())))
         model.add(tf.keras.layers.BatchNormalization(name='batchnorm_' + str(time())))
 
@@ -402,7 +402,7 @@ def load_model_lstm(params, n_channels, n_timesteps):
                                                dropout=params['dropout_' + str(layer + 1)],
                                                name='lstm_' + str(time())))
             else:
-                model.add(tf.keras.layers.LSTM(units=params['n_hidden_' + str(n_hidden + 1)],
+                model.add(tf.keras.layers.LSTM(units=int(params['n_hidden_' + str(n_hidden + 1)]),
                                                return_sequences=False,
                                                dropout=params['dropout_' + str(n_hidden + 1)],
                                                name='lstm_' + str(time())))

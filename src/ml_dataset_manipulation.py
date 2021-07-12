@@ -150,6 +150,7 @@ class DatasetManip():
             train, test, train_labels, test_labels = train_test_split(all_data, labels, test_size=0.15, random_state=42)
             return train, test, train_labels, test_labels
         else:
+            parameters = 'fx|fy|fz|mx|my|mz'
             if dataset_name == 'original':
                 names_X = ['X_train.csv', 'X_test.csv']
                 names_y = ['y_train.csv', 'y_test.csv']
@@ -165,7 +166,7 @@ class DatasetManip():
 
             for dataset_i in names_X:
                 # dataframe = pd.read_csv(dir_abs.join([self.path_dataset, dataset_i]), index_col=0)
-                dataframe = pd.read_csv(dir_abs + '/' + self.path_dataset + dataset_i)
+                dataframe = pd.read_csv(dir_abs + '/' + self.path_dataset + dataset_i, index_col=0)
                 dataframe = dataframe.iloc[:, dataframe.columns.str.contains(parameters)]
 
                 # @DONE: paa here
@@ -179,7 +180,7 @@ class DatasetManip():
 
             for dataset_i in names_y:
                 # dataframe = pd.read_csv(''.join([self.path_dataset, dataset_i]), index_col=0)
-                dataframe = pd.read_csv(dir_abs + '/' + self.path_dataset + dataset_i)
+                dataframe = pd.read_csv(dir_abs + '/' + self.path_dataset + dataset_i, index_col=0)
                 # y.append(np.array(dataframe))
                 y.append(dataframe.values)
 
