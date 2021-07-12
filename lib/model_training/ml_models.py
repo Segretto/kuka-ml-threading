@@ -609,11 +609,11 @@ class ModelsBuild:
             os.remove(self.path_to_temp_trained_models + file)
 
     def save_meta_data(self, study, dataset=None, label=None):
-        new_path = self.path_to_models_meta_data + 'best_' + label + '_' + dataset + '.json'
+        new_path = self.path_to_models_meta_data + 'best_' + label + '_' + dataset + '_rotz.json'
         study.trials_dataframe().iloc[study.best_trial.number].to_json(new_path)
 
     def save_study(self, study, dataset=None, label=None, time_optimize=0):
-        pickle_path = self.path_to_models_meta_data + 'study_' + label + '_' + dataset + '_' + str(time_optimize) + '.pkl'
+        pickle_path = self.path_to_models_meta_data + 'study_' + label + '_' + dataset + '_' + str(time_optimize) + '_rotz.pkl'
         with open(pickle_path, 'wb') as f:
             pickle.dump(study, f)
 
