@@ -59,10 +59,15 @@ def load_model_transf(params, n_channels, n_timesteps):
                                                 name='conv2d_' + str(time()))
             self.norm1 = tf.keras.layers.BatchNormalization(name='batchnorm_' + str(time()))
             self.pool1 = tf.keras.layers.MaxPooling2D((1, 2), name='maxpool2d_' + str(time()))
-            self.conv2 = tf.keras.layers.Conv2D(embed_dim, (1, 2), activation="relu", padding="same",
+            self.conv2 = tf.keras.layers.Conv2D(16, (1, 2), activation="relu", padding="same",
                                                 name='conv2d_' + str(time()))
             self.norm2 = tf.keras.layers.BatchNormalization(name='batchnorm_' + str(time()))
             self.pool2 = tf.keras.layers.MaxPooling2D((1, 2), name='maxpool2d_' + str(time()))
+            # self.reshape = tf.keras.layers.Reshape((maxlen, embed_dim), name='reshape_' + str(time()))
+
+            self.conv3 = tf.keras.layers.Conv2D(embed_dim, (1,2), activation="relu", padding="same", name='convd3_'+str(time()))
+            self.norm3 = tf.keras.layers.BatchNormalization(name='batch3_'+str(time()))
+            self.pool3 = tf.keras.layers.MaxPooling2D((1, 2), name='maxpool2d_' + str(time()))
             self.reshape = tf.keras.layers.Reshape((maxlen, embed_dim), name='reshape_' + str(time()))
             # pos_emb
             self.pos_emb = tf.keras.layers.Embedding(input_dim=maxlen, output_dim=embed_dim,
@@ -77,11 +82,14 @@ def load_model_transf(params, n_channels, n_timesteps):
             x = self.conv2(x)
             x = self.norm2(x)
             x = self.pool2(x)
+            x = self.conv3(x)
+            x = self.norm3(x)
+            x = self.pool3(x)
             x = self.reshape(x)
             return x + positions
 
     n_transformer_layers = params['transformer_layers']
-    maxlen = 32 * 6
+    maxlen = 637
     embed_dim = params['embed_dim']
     num_heads = params['num_heads']
     ff_dim = params['ff_dim']

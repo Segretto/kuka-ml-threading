@@ -365,12 +365,13 @@ class ModelsBuild:
                 self.conv1 = tf.keras.layers.Conv2D(8, (1, 2), activation="relu", padding="same", name='conv2d_' + str(time()))
                 self.norm1 = tf.keras.layers.BatchNormalization(name='batchnorm_' + str(time()))
                 self.pool1 = tf.keras.layers.MaxPooling2D((1, 2), name='maxpool2d_' + str(time()))
-                self.conv2 = tf.keras.layers.Conv2D(embed_dim, (1, 2), activation="relu", padding="same", name='conv2d_' + str(time()))
+                self.conv2 = tf.keras.layers.Conv2D(16, (1, 2), activation="relu", padding="same", name='conv2d_' + str(time()))
                 self.norm2 = tf.keras.layers.BatchNormalization(name='batchnorm_' + str(time()))
                 self.pool2 = tf.keras.layers.MaxPooling2D((1, 2), name='maxpool2d_' + str(time()))
-                # self.conv3 = tf.keras.layers.Conv2D(32, (1,2), activation="relu", padding="same")
-                # self.norm3 = tf.keras.layers.BatchNormalization()
-                # self.pool3 = tf.keras.layers.MaxPooling2D((1,2))
+                self.conv3 = tf.keras.layers.Conv2D(embed_dim, (1, 2), activation="relu", padding="same",
+                                                    name='convd3_' + str(time()))
+                self.norm3 = tf.keras.layers.BatchNormalization(name='batch3_' + str(time()))
+                self.pool3 = tf.keras.layers.MaxPooling2D((1, 2), name='maxpool2d_' + str(time()))
                 self.reshape = tf.keras.layers.Reshape((maxlen, embed_dim), name='reshape_' + str(time()))
                 # pos_emb
                 self.pos_emb = tf.keras.layers.Embedding(input_dim=maxlen, output_dim=embed_dim, name='embedding_' + str(time()))
@@ -384,16 +385,16 @@ class ModelsBuild:
                 x = self.conv2(x)
                 x = self.norm2(x)
                 x = self.pool2(x)
-                # x = self.conv3(x)
-                # x = self.norm3(x)
-                # x = self.pool3(x)
+                x = self.conv3(x)
+                x = self.norm3(x)
+                x = self.pool3(x)
                 x = self.reshape(x)
                 return x + positions
 
         n_channels = self.dataset.X_train.shape[1]
         n_timesteps = self.dataset.X_train.shape[2]
         n_transformer_layers = trial.suggest_int('transformer_layers', 1, 8)
-        maxlen = 32 * 6  # Only consider 3 input time points
+        maxlen = 637 # Only consider 3 input time points
         embed_dim = trial.suggest_categorical('embed_dim', [2**n for n in range(3, 5)])  # 16  # Embedding size for each token
         num_heads = trial.suggest_categorical('num_heads', [2, 4, 6, 8])  # Number of attention heads
         ff_dim = trial.suggest_categorical('ff_dim', [2**n for n in range(4, 9)])  # Hidden layer size in feed forward network inside transformer
