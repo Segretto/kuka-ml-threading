@@ -59,7 +59,7 @@ def load_model_transf(params, n_channels, n_timesteps):
                                                 name='conv2d_' + str(time()))
             self.norm1 = tf.keras.layers.BatchNormalization(name='batchnorm_' + str(time()))
             self.pool1 = tf.keras.layers.MaxPooling2D((1, 2), name='maxpool2d_' + str(time()))
-            self.conv2 = tf.keras.layers.Conv2D(16, (1, 2), activation="relu", padding="same",
+            self.conv2 = tf.keras.layers.Conv2D(32, (1, 2), activation="relu", padding="same",
                                                 name='conv2d_' + str(time()))
             self.norm2 = tf.keras.layers.BatchNormalization(name='batchnorm_' + str(time()))
             self.pool2 = tf.keras.layers.MaxPooling2D((1, 2), name='maxpool2d_' + str(time()))
@@ -89,7 +89,7 @@ def load_model_transf(params, n_channels, n_timesteps):
             return x + positions
 
     n_transformer_layers = params['transformer_layers']
-    maxlen = 637
+    maxlen = 96
     embed_dim = params['embed_dim']
     num_heads = params['num_heads']
     ff_dim = params['ff_dim']

@@ -147,7 +147,7 @@ class DatasetManip():
             # labels = np.delete(labels, idx)
             # all_data = np.delete(all_data, idx, axis=0)
 
-            train, test, train_labels, test_labels = train_test_split(all_data, labels, test_size=0.15, random_state=42)
+            train, test, train_labels, test_labels = train_test_split(all_data, labels, test_size=0.20, random_state=42, stratify=labels)
             return train, test, train_labels, test_labels
         else:
             parameters = 'fx|fy|fz|mx|my|mz'

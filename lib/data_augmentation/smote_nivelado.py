@@ -96,10 +96,10 @@ for parm in parameters:
         
 #Passo X_train e y_train para dataframe e depois salvo como .csv utilizando o header criado  
 X_train_df = pd.DataFrame(X_aux,columns=header)
-X_train_df.to_csv(folder_save + 'X_train_labels_niveladas.csv')
+X_train_df.to_csv(folder_save + 'X_train_labels_niveladas_without_rotz.csv')
 y_header = ['label']
 y_train_df = pd.DataFrame(y_aux,columns=y_header)
-y_train_df.to_csv(folder_save + 'y_train_labels_niveladas.csv')
+y_train_df.to_csv(folder_save + 'y_train_labels_niveladas_without_rotz.csv')
 
 ################################DUPLICANDO################################################
 #Dicionário criado para passar de parâmetro para a função SMOTE

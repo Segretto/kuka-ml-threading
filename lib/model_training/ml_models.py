@@ -394,7 +394,7 @@ class ModelsBuild:
         n_channels = self.dataset.X_train.shape[1]
         n_timesteps = self.dataset.X_train.shape[2]
         n_transformer_layers = trial.suggest_int('transformer_layers', 1, 8)
-        maxlen = 637 # Only consider 3 input time points
+        maxlen = 96 # Only consider 3 input time points
         embed_dim = trial.suggest_categorical('embed_dim', [2**n for n in range(3, 5)])  # 16  # Embedding size for each token
         num_heads = trial.suggest_categorical('num_heads', [2, 4, 6, 8])  # Number of attention heads
         ff_dim = trial.suggest_categorical('ff_dim', [2**n for n in range(4, 9)])  # Hidden layer size in feed forward network inside transformer
@@ -575,12 +575,12 @@ class ModelsBuild:
         # try:
         if get_confusion_matrix is None:
             return classification_report(y_true=self.dataset.y_test, y_pred=y_pred,
-                                         output_dict=True, target_names=['mounted', 'not mounted', 'jammed'],
+                                         output_dict=True, target_names=['mounted', 'jammed', 'not mounted'],
                                          zero_division=0)
             # except ValueError:
         else:
             return classification_report(y_true=self.dataset.y_test, y_pred=y_pred,
-                                     output_dict=True, target_names=['mounted', 'not mounted', 'jammed'],
+                                     output_dict=True, target_names=['mounted', 'jammed', 'not mounted'],
                                      zero_division=0), confusion_matrix(self.dataset.y_test, y_pred)
         # except ValueError:
         # except ValueError:
