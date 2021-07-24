@@ -137,3 +137,5 @@ dataset/
 .idea/
 ./models/error_analysis/model/
 .output/
+
+ *.pkl
