@@ -48,7 +48,7 @@ class ModelsBuild:
         if not os.path.isdir(self.path_to_models_meta_data):
             os.mkdir(self.path_to_models_meta_data)
 
-    def objective(self, trial, label=None):
+    def objective(self, trial, label=None, experiment=None):
         tf.keras.backend.reset_uids()
         tf.keras.backend.clear_session()
         print("Training ", self.label, " in dataset ", self.dataset_name)
@@ -618,19 +618,9 @@ class ModelsBuild:
             os.remove(self.path_to_temp_trained_models + file)
 
     def save_meta_data(self, study, dataset=None, label=None):
+        # TODO: adjust here the name for generic name
         new_path = self.path_to_models_meta_data + 'best_' + label + '_' + dataset + '_rotz.json'
         study.trials_dataframe().iloc[study.best_trial.number].to_json(new_path)
-
-    def save_study(self, study, dataset=None, label=None, time_optimize=0):
-        pickle_path = self.path_to_models_meta_data + 'study_' + label + '_' + dataset + '_' + str(time_optimize) + '_rotz.pkl'
-        with open(pickle_path, 'wb') as f:
-            pickle.dump(study, f)
-
-    def load_study(self, dataset=None, label=None):
-        pickle_path = self.path_to_models_meta_data + 'study_' + label + '_' + dataset + '.pkl'
-        with open(pickle_path, 'rb') as f:
-            study = pickle.load(f)
-        return study
 
     def _save_model(self, trial, model):
         model_path = self.path_to_temp_trained_models + \
