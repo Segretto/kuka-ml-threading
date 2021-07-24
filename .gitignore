@@ -136,7 +136,6 @@ dataset/
 .DS_Store
 .idea/
 ./models/error_analysis/model/
-.output/
 
- output/models_meta_data/backup_with_rotz/*.pkl
- output/models_meta_data/backup_without_rotz/*.pkl
+./output/models_meta_data/backup_with_rotz/*.pkl
+./output/models_meta_data/backup_without_rotz/*.pkl
