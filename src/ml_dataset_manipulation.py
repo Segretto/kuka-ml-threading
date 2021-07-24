@@ -142,11 +142,6 @@ class DatasetManip():
                 else:
                     labels = np.vstack((labels, pd.read_csv(dir_ + '/data_labels/labels.csv').values))
 
-            # TODO: REMOVE THIS AFTER MORE DATA (only 1 label with idx 1)
-            # idx = np.where(labels == 1)[0]
-            # labels = np.delete(labels, idx)
-            # all_data = np.delete(all_data, idx, axis=0)
-
             train, test, train_labels, test_labels = train_test_split(all_data, labels, test_size=0.20, random_state=42, stratify=labels)
             return train, test, train_labels, test_labels
         else:

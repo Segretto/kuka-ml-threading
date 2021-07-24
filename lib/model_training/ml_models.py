@@ -617,11 +617,6 @@ class ModelsBuild:
         for file in folder_list:
             os.remove(self.path_to_temp_trained_models + file)
 
-    def save_meta_data(self, study, dataset=None, label=None):
-        # TODO: adjust here the name for generic name
-        new_path = self.path_to_models_meta_data + 'best_' + label + '_' + dataset + '_rotz.json'
-        study.trials_dataframe().iloc[study.best_trial.number].to_json(new_path)
-
     def _save_model(self, trial, model):
         model_path = self.path_to_temp_trained_models + \
                      str(trial.number) + '_temp_' + self.label + '_' + self.dataset_name
