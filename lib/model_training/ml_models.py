@@ -110,8 +110,9 @@ class ModelsBuild:
         # TODO: change optimizer and add batchNorm in layers. It is taking too long to train
         # output layer
         model.add(tf.keras.layers.Dense(OUTPUT_SHAPE, activation='softmax'))
-        optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
-        model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+        # optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+        # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+        model = self.add_optimizer(model, trial)
 
         return model
 
@@ -151,8 +152,9 @@ class ModelsBuild:
         # TODO: change optimizer and add batchNorm in layers
         # output layer
         model.add(tf.keras.layers.Dense(OUTPUT_SHAPE, activation='softmax'))
-        optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
-        model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+        # optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+        # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+        model = self.add_optimizer(model, trial)
 
         return model
 
@@ -188,8 +190,9 @@ class ModelsBuild:
         # TODO: change optimizer and add batchNorm in layers
         # output layer
         model.add(tf.keras.layers.Dense(OUTPUT_SHAPE, activation='softmax'))
-        optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
-        model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+        # optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+        # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+        model = self.add_optimizer(model, trial)
 
         return model
 
@@ -208,8 +211,9 @@ class ModelsBuild:
             model.add(tf.keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer), 0, MAX_DROPOUT), name='dropout_'+str(time())))
 
         model.add(tf.keras.layers.Dense(OUTPUT_SHAPE, activation="softmax", name='dense_'+str(time())))
-        optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
-        model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+        # optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+        # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+        model = self.add_optimizer(model, trial)
         return model
 
     def objective_svm(self, trial):
@@ -254,8 +258,9 @@ class ModelsBuild:
 
         model.add(tf.keras.layers.Dense(units=OUTPUT_SHAPE, activation='softmax', name='dense_'+str(time())))
 
-        optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
-        model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+        # optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+        # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+        model = self.add_optimizer(model, trial)
 
         return model
 
@@ -330,8 +335,9 @@ class ModelsBuild:
         #                                     activation='relu'))
         # model.add(tf.keras.layers.Dense(units=OUTPUT_SHAPE, activation='softmax'))
 
-        optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
-        model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+        # optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+        # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+        model = self.add_optimizer(model, trial)
 
         return model
 
@@ -413,9 +419,10 @@ class ModelsBuild:
 
         model = tf.keras.Model(inputs=inputs, outputs=outputs)
 
-        opt = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+        # optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+        # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+        model = self.add_optimizer(model, trial)
 
-        model.compile(loss='sparse_categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
         return model
 
     def objective_vitransformer(self, trial):
@@ -428,8 +435,23 @@ class ModelsBuild:
         num_patches = (image_size // patch_size) ** 2
         projection_dim = 64
         num_heads = trial.suggest_categorical('num_heads', [2, 4, 6])  # 4  # OPTUNA 2, 4 ou 6?
-        transformer_units = [projection_dim * 2, projection_dim]  # Size of the transformer layers
         transformer_layers = trial.suggest_int('transformer_layers', 4, 8)  # OPTUNA 4 a 8
+
+        mlp_layers_transformer_layer = trial.suggest_int('n_layers_mlp_transformer', 1, 4)
+        mlp_units_transformer_layer = [projection_dim]
+        for layer in range(mlp_layers_transformer_layer-1):
+            mlp_units_transformer_layer.append(mlp_units_transformer_layer[layer]*2)
+        mlp_units_transformer_layer.reverse()
+
+        mlp_layers_final_layer = trial.suggest_int('n_layers_mlp_final_layer', 1, 4)
+        mlp_units_final_layer = [trial.suggest_categorical('n_neurons_mlp_final_layer', [2 ** n for n in range(8, 11)])]
+        for layer in range(mlp_layers_final_layer - 1):
+            mlp_units_final_layer.append(mlp_units_final_layer[layer] * 2)
+
+        dropout_mlp = trial.suggest_uniform('dropout_mlp', 0, MAX_DROPOUT)
+
+        episilon_layer_norm = trial.suggest_uniform('episilon_layer_norm', 1e-7, 1e-5)
+        dropout_attention = trial.suggest_uniform('dropout_attention', 0, MAX_DROPOUT)
 
         token_emb = tf.keras.Sequential(
             [
@@ -456,20 +478,10 @@ class ModelsBuild:
             name="token_emb",
         )
 
-        def mlp(x, location='', n_hidden = None):
-            if n_hidden is None: # last layer
-                n_hidden = trial.suggest_int('n_hidden', 1, 4)
-                for layer in range(n_hidden):
-                    n_neurons = trial.suggest_categorical('n_neurons_' + str(layer) + '_' + location, [2**n for n in range(5, 13)])
-                    x = tf.keras.layers.Dense(n_neurons, activation='gelu', name='dense_' + str(time()))(x)
-                    x = tf.keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer) + '_' + location, 0, MAX_DROPOUT),
-                                                name='dropout_' + str(time()))(x)
-            else:  # transformer layer
-                for layer, units in enumerate(n_hidden):
-                    x = tf.keras.layers.Dense(units, activation=tf.nn.gelu, name='dense_' + str(time()))(x)
-                    x = tf.keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer) + '_' + location, 0, MAX_DROPOUT),
-                                                name='dropout_' + str(time()))(x)
-
+        def mlp(x, n_hidden=None):
+            for n_neurons in n_hidden:
+                x = tf.keras.layers.Dense(n_neurons, activation=tf.nn.gelu, name='dense_' + str(time()))(x)
+                x = tf.keras.layers.Dropout(dropout_mlp, name='dropout_' + str(time()))(x)
             return x
 
         class Patches(tf.keras.layers.Layer):
@@ -525,38 +537,42 @@ class ModelsBuild:
         # Create multiple layers of the Transformer block.
         for i in range(transformer_layers):
             # Layer normalization 1.
-            x1 = tf.keras.layers.LayerNormalization(epsilon=trial.suggest_uniform('layerNorm_transf_before_layer_' + str(i), 1e-7, 1e-5),
+            x1 = tf.keras.layers.LayerNormalization(epsilon=episilon_layer_norm,
                                                     name='layerNorm_' + str(time()))(encoded_patches)
             # Create a multi-head attention layer.
             attention_output = tf.keras.layers.MultiHeadAttention(num_heads=num_heads, key_dim=projection_dim,
-                                                                  dropout=trial.suggest_uniform('dropout_transf_layer_' + str(i), 0, MAX_DROPOUT),
+                                                                  dropout=dropout_attention,
                                                                   name='attention_' + str(time()))(x1, x1)
             # Skip connection 1.
             x2 = tf.keras.layers.Add(name='add_layer1_' + str(time()))([attention_output, encoded_patches])
             # Layer normalization 2.
-            x3 = tf.keras.layers.LayerNormalization(epsilon=trial.suggest_uniform('layerNorm_transf_after_layer_' + str(i), 1e-7, 1e-5),
+            x3 = tf.keras.layers.LayerNormalization(epsilon=episilon_layer_norm,
                                                     name='layerNorm_' + str(time()))(x2)
             # MLP.
-            x3 = mlp(x3, location='transf_layer' + str(i), n_hidden=transformer_units)
+            x3 = mlp(x3, n_hidden=mlp_units_transformer_layer)
             # Skip connection 2.
             encoded_patches = tf.keras.layers.Add(name='add_layer2_' + str(time()))([x3, x2])
 
         # Create a [batch_size, projection_dim] tensor.
-        representation = tf.keras.layers.LayerNormalization(epsilon=trial.suggest_uniform('layerNorm_flatten', 1e-7, 1e-5),
+        representation = tf.keras.layers.LayerNormalization(epsilon=episilon_layer_norm,
                                                             name='layerNorm_' + str(time()))(encoded_patches)
         representation = tf.keras.layers.Flatten()(representation)
-        representation = tf.keras.layers.Dropout(trial.suggest_uniform('dropout_representation', 0, MAX_DROPOUT),
-                                                name='dropout_' + str(time()))(representation)
+        representation = tf.keras.layers.Dropout(dropout_attention, name='dropout_representation' + str(time()))(representation)
         # Add MLP.
-        features = mlp(representation, location='end')
+        features = mlp(representation, n_hidden=mlp_units_final_layer)
         # Classify outputs.
-        logits = tf.keras.layers.Dense(3, activation="softmax", name='dense_' + str(time()))(features)
+        logits = tf.keras.layers.Dense(3, activation="softmax", name='dense_' + str(time()))(features)  # TODO: change output
         # Create the Keras model.
         model = tf.keras.Model(inputs=inputs, outputs=logits)
-        opt = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
-        model.compile(loss='sparse_categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
+        # optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+        # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+        model = self.add_optimizer(model, trial)
         return model
 
+    def add_optimizer(self, model, trial, loss_func='sparse_categorical_crossentropy', metrics=['accuracy']):
+        optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+        model.compile(loss=loss_func, optimizer=optimizer, metrics=metrics)
+        return model
 
     def metrics_report(self, model, get_confusion_matrix=None):
         if self.label == 'rf' or self.label == 'svm' or self.label == 'mlp':
