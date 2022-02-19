@@ -1,9 +1,0 @@
-[submodule "data_augmentation/RGAN"]
-	path = data_augmentation/RGAN
-	url = https://github.com/glahr/RGAN.git
-[submodule "data_augmentation/assembly_gan"]
-	path = data_augmentation/assembly_gan
-	url = https://github.com/glahr/assembly_gan.git
-[submodule "data_augmentation/IC_DetecaoMontagemAeronautica_MachineLearning"]
-	path = data_augmentation/IC_DetecaoMontagemAeronautica_MachineLearning
-	url = https://github.com/MatheusBorgesKamla/IC_DetecaoMontagemAeronautica_MachineLearning.git
