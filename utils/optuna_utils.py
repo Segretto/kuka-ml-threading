@@ -12,8 +12,8 @@ class OptunaCheckpointing:
         self.n_trials_to_checkpoint = n_trials_to_checkpoint
         if not os.path.isdir(self.experiment_folder):
             os.mkdir(self.experiment_folder)
-        self.pickle_path = self.experiment_folder + 'study_' + self.dataset_name + '_' + self.model_name + '.pkl'
-        self.hyperparam_path = self.experiment_folder + 'best_' + self.model_name + '_' + self.dataset_name + '.json'
+        self.pickle_path = self.experiment_folder + 'study_' + self.model_name + '.pkl'
+        self.hyperparam_path = self.experiment_folder + 'best_' + self.model_name + '.json'
 
     def __call__(self, study: optuna.Study, trial: optuna.trial) -> None:
         # Saving study and recording time
@@ -34,9 +34,9 @@ class OptunaCheckpointing:
             n_trials = n_trials - study.trials[-1].number
         else:
             print("Study does not exist: creating a new one.")
-            study_name = self.experiment_name + '_' + self.dataset_name + '_' + self.model_name
+            study_name = self.experiment_name + '_' + self.model_name
             # TODO: implement the multi better (list that iterates)
-            if metrics is not 'multi':
+            if metrics != 'multi':
                 study = optuna.create_study(study_name=study_name, direction="maximize")
             else:
                 study = optuna.create_study(study_name=study_name, directions=["maximize", "maximize"])

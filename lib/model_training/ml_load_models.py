@@ -123,6 +123,22 @@ def load_model_vitransf(params, n_channels, n_timesteps):
     transformer_units = [projection_dim * 2, projection_dim]
     transformer_layers = params['transformer_layers']
 
+    mlp_layers_transformer_layer = params['n_layers_mlp_transformer']
+    mlp_units_transformer_layer = [projection_dim]
+    for layer in range(mlp_layers_transformer_layer - 1):
+        mlp_units_transformer_layer.append(mlp_units_transformer_layer[layer] * 2)
+    mlp_units_transformer_layer.reverse()
+
+    mlp_layers_final_layer = params['n_layers_mlp_final_layer']
+    mlp_units_final_layer = [params['n_neurons_mlp_final_layer']]
+    for layer in range(mlp_layers_final_layer - 1):
+        mlp_units_final_layer.append(mlp_units_final_layer[layer] * 2)
+
+    dropout_mlp = params['dropout_mlp']
+
+    episilon_layer_norm = params['episilon_layer_norm']
+    dropout_attention = params['dropout_attention']
+
     token_emb = tf.keras.Sequential(
         [
             tf.keras.layers.Conv2D(16, (1, 3), activation="relu", padding="same", strides=1,
@@ -148,18 +164,10 @@ def load_model_vitransf(params, n_channels, n_timesteps):
         name="token_emb",
     )
 
-    def mlp(x, location='', n_hidden=None):
-        if n_hidden is None:
-            n_hidden = params['n_hidden']
-            for layer in range(n_hidden):
-                n_neurons = params['n_neurons_' + str(layer) + '_' + location]
-                x = tf.keras.layers.Dense(n_neurons, activation='gelu', name='dense_' + str(time()))(x)
-                x = tf.keras.layers.Dropout(params['dropout_' + str(layer) + '_' + location], name='dropout_' + str(time()))(x)
-        else:  # transformer layer
-            for layer, units in enumerate(n_hidden):
-                x = tf.keras.layers.Dense(units, activation=tf.nn.gelu, name='dense_' + str(time()))(x)
-                x = tf.keras.layers.Dropout(params['dropout_' + str(layer) + '_' + location], name='dropout_' + str(time()))(x)
-
+    def mlp(x, n_hidden=None):
+        for n_neurons in n_hidden:
+            x = tf.keras.layers.Dense(n_neurons, activation=tf.nn.gelu, name='dense_' + str(time()))(x)
+            x = tf.keras.layers.Dropout(dropout_mlp, name='dropout_' + str(time()))(x)
         return x
 
     class Patches(tf.keras.layers.Layer):
@@ -215,32 +223,28 @@ def load_model_vitransf(params, n_channels, n_timesteps):
     # Create multiple layers of the Transformer block.
     for i in range(transformer_layers):
         # Layer normalization 1.
-        x1 = tf.keras.layers.LayerNormalization(
-            epsilon= params['layerNorm_transf_before_layer_' + str(i)],  # trial.suggest_uniform('layerNorm_transf_before_layer_' + str(i), 1e-7, 1e-5),
-            name='layerNorm_' + str(time()))(encoded_patches)
+        x1 = tf.keras.layers.LayerNormalization(epsilon=episilon_layer_norm,
+                                                name='layerNorm_' + str(time()))(encoded_patches)
         # Create a multi-head attention layer.
         attention_output = tf.keras.layers.MultiHeadAttention(num_heads=num_heads, key_dim=projection_dim,
-                                                              dropout= params['dropout_transf_layer_' + str(i)], # trial.suggest_uniform('dropout_transf_layer_' + str(i), 0, MAX_DROPOUT),
+                                                              dropout=dropout_attention,
                                                               name='attention_' + str(time()))(x1, x1)
         # Skip connection 1.
         x2 = tf.keras.layers.Add(name='add_layer1_' + str(time()))([attention_output, encoded_patches])
         # Layer normalization 2.
-        x3 = tf.keras.layers.LayerNormalization(
-            epsilon= params['layerNorm_transf_after_layer_' + str(i)], # trial.suggest_uniform('layerNorm_transf_after_layer_' + str(i), 1e-7, 1e-5),
-            name='layerNorm_' + str(time()))(x2)
+        x3 = tf.keras.layers.LayerNormalization(epsilon=episilon_layer_norm, name='layerNorm_' + str(time()))(x2)
         # MLP.
-        x3 = mlp(x3, location='transf_layer' + str(i), n_hidden=transformer_units)
+        x3 = mlp(x3, n_hidden=mlp_units_transformer_layer)
         # Skip connection 2.
         encoded_patches = tf.keras.layers.Add(name='add_layer2_' + str(time()))([x3, x2])
 
     # Create a [batch_size, projection_dim] tensor.
-    representation = tf.keras.layers.LayerNormalization(epsilon=params['layerNorm_flatten'], #trial.suggest_uniform('layerNorm_flatten', 1e-7, 1e-5),
+    representation = tf.keras.layers.LayerNormalization(epsilon=episilon_layer_norm,
                                                         name='layerNorm_' + str(time()))(encoded_patches)
     representation = tf.keras.layers.Flatten()(representation)
-    representation = tf.keras.layers.Dropout(params['dropout_representation'], #trial.suggest_uniform('dropout_representation', 0, MAX_DROPOUT),
-                                             name='dropout_' + str(time()))(representation)
+    representation = tf.keras.layers.Dropout(dropout_attention, name='dropout_representation' + str(time()))(representation)
     # Add MLP.
-    features = mlp(representation, location='end')
+    features = mlp(representation, n_hidden=mlp_units_final_layer)
     # Classify outputs.
     logits = tf.keras.layers.Dense(3, activation="softmax", name='dense_' + str(time()))(features)
     # Create the Keras model.
