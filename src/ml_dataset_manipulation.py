@@ -1,3 +1,4 @@
+from this import d
 import pandas as pd
 import numpy as np
 import tensorflow as tf
@@ -6,18 +7,19 @@ import os
 # from pyts.approximation import PiecewiseAggregateApproximation
 from .paa import PiecewiseAggregateApproximation
 
+MOUNTED = 0
+JAMMED = 1
+NOT_MOUNTED = 2
 
 class DatasetManip():
-    def __init__(self, label='mlp', dataset='original', load_models=True, parameters='fx|fy|fz|mx|my|mz|rotx',
-                 apply_normalization=True, phases_to_load=['insertion', 'backspin', 'threading']):
+    def __init__(self, label='mlp', load_models=True, parameters=['fx','fy','fz','mx','my','mz'],
+                 apply_normalization=True, do_paa=True, do_padding=True):
         self.label = label
         print('Loading data')
         self.path_dataset, self.path_model, self.path_meta_data, self.path_model_meta_data = self.load_paths()
         self.scaler = None
         if load_models:
-            self.X_train, self.X_test, self.y_train, self.y_test = self.load_data(parameters=parameters,
-                                                                                  dataset_name=dataset,
-                                                                                  phases_to_load=phases_to_load)
+            self.X_train, self.X_test, self.y_train, self.y_test = self.load_data(do_paa=do_paa, do_padding=do_padding, parameters=parameters)
 
             # self.X_train, self.X_test = self.reshape_for_lstm(self.X_train, self.X_test, 6)  # eu sei que não precisa passar por argumento #semtempoirmão
             if 'transf' in label:
@@ -25,7 +27,7 @@ class DatasetManip():
                 self.X_test = np.transpose(self.X_test, (0, 2, 1))
 
             if apply_normalization:
-                self.X_train, self.X_test = self.data_normalization(self.X_train, self.X_test, dataset_name=dataset)
+                self.X_train, self.X_test = self.data_normalization(self.X_train, self.X_test)
             # if 'novo' not in dataset:
             #     self.X_train = self.X_train.values
             #     self.X_test = self.X_test.values
@@ -44,170 +46,62 @@ class DatasetManip():
         return path_dataset, path_model, path_meta_data, path_model_meta_data
 
     def my_padding(self, all_data, max_seq_len, parameters):
-        n_features = len(parameters.split('|'))
+        n_features = len(parameters)  # len(all_data[0].columns)  # len(parameters.split('|'))
         n_samples = len(all_data)
         aux_all_data = np.zeros((n_samples, max_seq_len, n_features))
         for i, sample in enumerate(all_data):
             aux_sample = np.zeros((max_seq_len, n_features))
-            aux_sample[:sample.shape[0]] = sample
+            aux_sample[:sample.shape[0]] = sample[parameters]
             aux_all_data[i] = aux_sample
         return aux_all_data
 
-    def load_data(self, parameters, dataset_name='original',
-                  phases_to_load=['insertion', 'backspin', 'threading']):
+    def load_data(self, parameters, do_paa, do_padding):
         print("Loading data with all components")
-        # dir_abs = os.path.abspath('.')
-        # dir_abs = '/home/glahr/kuka-ml-threading'
-        dir_abs = os.getcwd()
-        # print("pwd aqui: ", os.getcwd())
-        dir_new_dataset = dir_abs + '/dataset/dataset_new_iros21/'
-        # here we get all folders. We will have also with angular error and angular/linear error
-        dir_all_trials = [dir_new_dataset + dir_ for dir_ in os.listdir(dir_new_dataset)]
-        paa = PiecewiseAggregateApproximation(window_size=12)
+        dir_dataset = os.getcwd() + '/dataset/'
 
-        if 'novo' in dataset_name:
-            all_data = []
-            max_seq_len = 0
-            for dir_trial in dir_all_trials:
-                if 'insertion' in phases_to_load:
-                    all_files_insertion = os.listdir(dir_trial + '/data_insertion/')
-                    all_files_insertion.sort()
-                    all_files_insertion = [dir_trial + '/data_insertion/' + file_ins for file_ins in
-                                           all_files_insertion]
-                else:
-                    all_files_insertion = None
+        all_files_names = os.listdir(dir_dataset + 'data/')
+        all_files_names.sort()
+        # check if we are doing paa
 
-                if 'backspin' in phases_to_load:
-                    all_files_backspin = os.listdir(dir_trial + '/data_backspin/')
-                    all_files_backspin.sort()
-                    all_files_backspin = [dir_trial + '/data_backspin/' + file_bs for file_bs in
-                                           all_files_backspin]
-                else:
-                    all_files_backspin = None
+        all_data = []
+        max_seq_len = 0
 
-                if 'threading' in phases_to_load:
-                    all_files_threading = os.listdir(dir_trial + '/data_threading/')
-                    all_files_threading.sort()
-                    all_files_threading = [dir_trial + '/data_threading/' + file_th for file_th in
-                                          all_files_threading]
-                else:
-                    all_files_threading = None
+        for file_name in all_files_names:
+            all_data.append(pd.read_csv(dir_dataset + 'data/' + file_name))
+            if all_data[-1].shape[0] > max_seq_len:
+                max_seq_len = all_data[-1].shape[0]
+        
+        # this guy gets the first non null value
+        # n_samples = all_files_insertion or all_files_backspin or all_files_threading
 
-                # this guy gets the first non null value
-                n_samples = all_files_insertion or all_files_backspin or all_files_threading
-                n_samples = len(n_samples)
+        # max_seq_len = max(max_seq_len, len(data.values[:, 0]))
+        all_data = self.my_padding(all_data, max_seq_len, parameters) if do_padding else all_data
+        
+        all_data = self.paa_in_data(all_data) if do_paa else all_data
 
-                all_files_insertion = [None] * n_samples if all_files_insertion is None else all_files_insertion
-                all_files_backspin =  [None] * n_samples if all_files_backspin is None else all_files_backspin
-                all_files_threading = [None] * n_samples if all_files_threading is None else all_files_threading
+        # data_aux = paa.transform(X=data.values.T)
+        # data = pd.DataFrame(data_aux.T, columns=[data.columns])
 
-                for file_ins, file_bs, file_th in zip(all_files_insertion, all_files_backspin, all_files_threading):
-                    data_in = None if file_ins is None else pd.read_csv(file_ins)
-                    data_bs = None if file_bs is None else pd.read_csv(file_bs)
-                    data_th = None if file_th is None else pd.read_csv(file_th)
+        # reading labels
+        meta = pd.read_csv(dir_dataset + 'meta.csv', index_col=False)  # meta has other interesting info
+        labels = meta['label']
+        labels.replace('Mounted', MOUNTED, inplace=True)
+        labels.replace('Jammed', JAMMED, inplace=True)
+        labels.replace('Not-Mounted', MOUNTED, inplace=True)
 
-                    data_th['rotx'][data_th['rotx'].argmin() + 1:] = data_th['rotx'][data_th['rotx'].argmin() + 1:] - 360  # offset = 360: maps from 180 to -180
-                    # (data_th['rotx'].argmin() + 1, data_th['rotx'].count() - data_th['rotx'].argmin())
-                    # offset = 0
-                    # for i, _ in enumerate(data_th.values):
-                    #     if i>0 and np.sign(data_th['rotx'][i]) != np.sign(data_th['rotx'][i - 1]) and data_th['rotx'][i] > 100:
-                    #     # print(data_th['rotx'][i])
-                    #     # if i>0 and data_th['rotx'][i] > 150:
-                    #         offset = -360
-                    #     data_th.at[i, 'rotx'] = data_th['rotx'][i] + offset
+        train, test, train_labels, test_labels = train_test_split(all_data, labels.values, test_size=0.20, random_state=42, stratify=labels)
 
-                    data = pd.concat([data_in, data_bs, data_th])
-                    data.reset_index(inplace=True)  # reset indexes
-                    data['rotx'] = (data['rotx'] + 90)*np.pi/180  # changing from degrees to radian
+        return train, test, train_labels, test_labels  # X_train, X_test, y_train, y_test
+        
 
-                    # data = self.remove_offset(data)
-                    data.drop(columns=['Unnamed: 13'], inplace=True)
-                    # data = self.generate_velocity(data)
+    def paa_in_data(self, data, window_size=12):
+        paa = PiecewiseAggregateApproximation(window_size=window_size)
+        data_aux = np.array([])
+        for sample in data:
+            sample_aux = paa.transform(sample.T).T
+            data_aux = np.concatenate([data_aux, sample_aux.reshape(1, sample_aux.shape[0], sample_aux.shape[1])], axis=0) if data_aux.size else sample_aux.reshape(1, sample_aux.shape[0], sample_aux.shape[1])
+        return data_aux
 
-                    data_aux = paa.transform(X=data.values.T)
-                    data = pd.DataFrame(data_aux.T, columns=[data.columns])
-
-                    max_seq_len = max(max_seq_len, len(data.values[:, 0]))
-                    # all_data.append(data[forces + vel].values)
-                    all_data.append(data[[parameters.split('|')]].values)
-
-            # all_data = tf.keras.preprocessing.sequence.pad_sequences(all_data, maxlen=max_seq_len, padding='post',
-            #                                                         dtype='float32')
-            all_data = self.my_padding(all_data, max_seq_len, parameters)
-
-            labels = None
-            for dir_ in dir_all_trials:
-                if labels is None:
-                    labels = pd.read_csv(dir_ + '/data_labels/labels.csv').values
-                else:
-                    labels = np.vstack((labels, pd.read_csv(dir_ + '/data_labels/labels.csv').values))
-
-            train, test, train_labels, test_labels = train_test_split(all_data, labels, test_size=0.20, random_state=42, stratify=labels)
-            return train, test, train_labels, test_labels
-        else:
-            parameters = 'fx|fy|fz|mx|my|mz'
-            if dataset_name == 'original':
-                names_X = ['X_train.csv', 'X_test.csv']
-                names_y = ['y_train.csv', 'y_test.csv']
-            if dataset_name == 'nivelado':
-                names_X = ['X_train_labels_niveladas.csv','X_test.csv']
-                names_y = ['y_train_labels_niveladas.csv', 'y_test.csv']
-            if dataset_name == 'quadruplicado':
-                names_X = ['X_train_labels_niveladas_quadruplicado.csv', 'X_test.csv']
-                names_y = ['y_train_labels_niveladas_quadruplicado.csv', 'y_test.csv']
-
-            X = []
-            y = []
-
-            for dataset_i in names_X:
-                # dataframe = pd.read_csv(dir_abs.join([self.path_dataset, dataset_i]), index_col=0)
-                dataframe = pd.read_csv(dir_abs + '/' + self.path_dataset + dataset_i, index_col=0)
-                dataframe = dataframe.iloc[:, dataframe.columns.str.contains(parameters)]
-
-                # @DONE: paa here
-                X_new = self.reshape_lstm_process(dataframe.values, parameters=parameters)
-                data = []
-                for experiment in X_new:
-                    aux = paa.transform(X=experiment.T)
-                    data.append(aux.T)
-                data = np.array(data)
-                X.append(data)
-
-            for dataset_i in names_y:
-                # dataframe = pd.read_csv(''.join([self.path_dataset, dataset_i]), index_col=0)
-                dataframe = pd.read_csv(dir_abs + '/' + self.path_dataset + dataset_i, index_col=0)
-                # y.append(np.array(dataframe))
-                y.append(dataframe.values)
-
-            # X[0] = tf.keras.preprocessing.sequence.pad_sequences(X[0], maxlen=max_seq_len, padding='post',
-            #                                               dtype='float32')
-            # X[1] = tf.keras.preprocessing.sequence.pad_sequences(X[1], maxlen=max_seq_len, padding='post',
-            #                                                      dtype='float32')
-
-            print('Shape X_train: ', np.shape(X[0]))
-            print('Shape X_test : ', np.shape(X[1]))
-            print('Shape y_train: ', np.shape(y[0]))
-            print('Shape y_test : ', np.shape(y[1]))
-
-            y[0] = y[0] - 1
-            y[1] = y[1] - 1
-
-            return X[0], X[1], y[0], y[1]  # X_train, X_test, y_train, y_test
-
-    def remove_offset(self, data):
-        features = ['fx', 'fy', 'fz', 'mx', 'my', 'mz']
-        for feature in features:
-            n = 50
-            mean = np.mean(data[feature][:n])
-            data[feature] = data[feature] - mean
-        return data
-
-    def generate_velocity(self, data, dt = 0.012):
-        pos = ['x', 'y', 'z', 'rotx', 'roty', 'rotz']
-        for feature in data[pos]:
-            data['v' + feature] = data[feature].diff() / dt
-            data['v' + feature][0] = 0.0
-        return data
 
     def reshape_lstm_process(self, X_reshape, parameters):
         if type(parameters) is str:
