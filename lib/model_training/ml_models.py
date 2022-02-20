@@ -3,9 +3,10 @@ from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier as RF
 import os
 from joblib import dump
-from sklearn.metrics import f1_score, precision_score, recall_score, classification_report, confusion_matrix
+from sklearn.metrics import f1_score, precision_score, recall_score, classification_report, confusion_matrix, r2_score
 from sklearn.model_selection import StratifiedShuffleSplit
 from lib.model_training.ml_load_models import load_model_from_trial
+from sklearn.model_selection import train_test_split
 import numpy as np
 # from src.ml_dataset_manipulation import DatasetManip
 from shutil import move
@@ -16,8 +17,8 @@ from time import time
 BATCH_SIZE = 64
 BATCHSIZE_RECURRENT = int(BATCH_SIZE / 4)
 EPOCHS = 100
-OUTPUT_SHAPE = 3
 INPUT_SHAPE = 156
+OUTPUT_SHAPE = INPUT_SHAPE
 INPUT_SHAPE_CNN_RNN = None
 FEATURES = 6
 MAX_DROPOUT = 0.5
@@ -54,7 +55,7 @@ class ModelsBuild:
         tf.keras.backend.clear_session()
         print("Training ", self.label, " in dataset ", self.dataset_name)
         # model = self.get_model(trial, self.label)
-        score_mean, score_std = self._model_train(trial, self.label)
+        score_mean = self._model_train(trial, self.label)
         # self._save_model(trial, model)
         return score_mean
 
@@ -79,6 +80,7 @@ class ModelsBuild:
             model = self.objective_transformer(trial)
         if label == 'vitransf':
             model = self.objective_vitransformer(trial)
+        model = self.add_optimizer(model, trial, loss_func='mse', metrics=['mse'])
         return model
 
     def objective_lstm(self, trial):
@@ -214,7 +216,7 @@ class ModelsBuild:
         model.add(tf.keras.layers.Dense(OUTPUT_SHAPE, activation="softmax", name='dense_'+str(time())))
         # optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
         # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
-        model = self.add_optimizer(model, trial)
+        # model = self.add_optimizer(model, trial)
         return model
 
     def objective_svm(self, trial):
@@ -261,7 +263,7 @@ class ModelsBuild:
 
         # optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
         # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
-        model = self.add_optimizer(model, trial)
+        # model = self.add_optimizer(model, trial, loss_func='mse', metrics=['mse'])
 
         return model
 
@@ -650,55 +652,42 @@ class ModelsBuild:
         if label == 'rf' or label == 'svm' or label == 'mlp':
             X_train = self.dataset.X_train.reshape((self.dataset.X_train.shape[0],
                                                     self.dataset.X_train.shape[1]*self.dataset.X_train.shape[2]))
+            y_train = self.dataset.y_train.reshape((self.dataset.y_train.shape[0],
+                                                    self.dataset.y_train.shape[1]*self.dataset.y_train.shape[2]))
         else:
             X_train = self.dataset.X_train
-        return X_train, self.dataset.y_train
+            y_train = self.dataset.y_train
+        return X_train, y_train
 
 
     def _model_train(self, trial, label):
         X_train, y_train = self._reshape_X_for_train(label)
 
-        split = StratifiedShuffleSplit(n_splits=N_SPLITS, test_size=TEST_SPLIT_SIZE)
-        scores = []
-
         self.get_model(trial, label)
         n_channels = self.dataset.X_train.shape[1] if 'transf' in label else self.dataset.X_train.shape[2]
         n_timesteps = self.dataset.X_train.shape[2] if 'transf' in label else self.dataset.X_train.shape[1]
 
-        # @TODO: should we change to StratifiedKFold? https://stackoverflow.com/questions/45969390/difference-between-stratifiedkfold-and-stratifiedshufflesplit-in-sklearn
+        train, val, train_labels, val_labels = train_test_split(X_train, y_train, test_size=0.10, random_state=42)
 
-        for train, val in split.split(X_train, self.dataset.y_train):
-            # each training must have a new model
-            model = load_model_from_trial(label, trial.params, n_channels, n_timesteps)
-            model = self._model_fit(X_train, self.dataset.y_train, train, val, model)
-            score = self.get_score(model)
-            scores.append(score)
-            del model
+        model = load_model_from_trial(label, trial.params, n_channels, n_timesteps)
+        model = self._model_fit(train, train_labels, val, val_labels, model)
+        y_pred = model.predict(self.dataset.X_test)
+        y_true = self.dataset.y_test
+        score = r2_score(y_true, y_pred)
+        del model
 
-        trial.set_user_attr('classification_reports', scores)
-        score_mean = np.mean(scores)
-        score_std = np.std(scores)
-        return score_mean, score_std
+        trial.set_user_attr('reports', score)
+        return score
 
 
-    def _model_fit(self, X_train, y_train, train, val, model):
-        X_train_vl = np.asarray(X_train)[train].copy()
-        X_val = np.asarray(X_train)[val].copy()
-
-        y_train_vl = y_train[train].copy()
-        y_val = y_train[val].copy()
-
-        if self.label == 'svm' or self.label == 'rf':
-            # TODO: do these guys use X_val?
-            model.fit(X_train_vl, y_train_vl.reshape((len(y_train_vl, ))))
-        else:
-            model.fit(
-                X_train_vl, y_train_vl,
-                validation_data=(X_val, y_val),
-                shuffle=False,
-                batch_size=BATCH_SIZE,
-                epochs=EPOCHS,
-                verbose=False)
+    def _model_fit(self, X_train, y_train, X_val, y_val, model):
+        model.fit(
+            X_train, y_train,
+            validation_data=(X_val, y_val),
+            shuffle=False,
+            batch_size=BATCH_SIZE,
+            epochs=EPOCHS,
+            verbose=True)
         return model
 
     def _model_train_no_validation(self, trial, label):

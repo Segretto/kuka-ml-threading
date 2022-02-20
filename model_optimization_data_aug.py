@@ -4,7 +4,7 @@ from utils.optuna_utils import OptunaCheckpointing
 
 # THE USER SHOULD MODIFY THESE ONES
 # models_names = ['svm', 'rf', 'mlp', 'cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
-models_names = ['mlp', 'svm']
+models_names = ['cnn']
 experiment_name = 'teste_checkpoint'
 
 N_TRIALS = 100
