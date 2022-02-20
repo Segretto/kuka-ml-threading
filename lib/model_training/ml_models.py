@@ -26,7 +26,7 @@ TEST_SPLIT_SIZE = 0.2
 
 
 class ModelsBuild:
-    def __init__(self, label='mlp', dataset_name='original', metrics='recall', dataset=None):
+    def __init__(self, label='mlp', dataset_name='original', metrics='recall', dataset=None, is_regression=False):
         self.label = label
         self.dataset_name = dataset_name
         self.metrics = metrics
@@ -35,6 +35,7 @@ class ModelsBuild:
         self.path_to_temp_trained_models = 'output/models_trained/temp/'
         self.path_to_best_trained_models = 'output/models_trained/best/'
         self.objective_iterator = 0
+        self.is_regression = is_regression
 
         # dir creation for logging
         if not os.path.isdir('output'):

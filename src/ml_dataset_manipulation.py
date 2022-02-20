@@ -13,13 +13,16 @@ NOT_MOUNTED = 2
 
 class DatasetManip():
     def __init__(self, label='mlp', load_models=True, parameters=['fx','fy','fz','mx','my','mz'],
-                 apply_normalization=True, do_paa=True, do_padding=True):
+                 apply_normalization=True, do_paa=True, do_padding=True, is_regression=False, window=64, stride=32):
         self.label = label
         print('Loading data')
         self.path_dataset, self.path_model, self.path_meta_data, self.path_model_meta_data = self.load_paths()
         self.scaler = None
         if load_models:
-            self.X_train, self.X_test, self.y_train, self.y_test = self.load_data(do_paa=do_paa, do_padding=do_padding, parameters=parameters)
+            self.X_train, self.X_test, self.y_train, self.y_test = self.load_data(do_paa=do_paa, do_padding=do_padding,
+                                                                                  parameters=parameters,
+                                                                                  is_regression=is_regression,
+                                                                                  window=window, stride=stride)
 
             # self.X_train, self.X_test = self.reshape_for_lstm(self.X_train, self.X_test, 6)  # eu sei que não precisa passar por argumento #semtempoirmão
             if 'transf' in label:
@@ -51,11 +54,11 @@ class DatasetManip():
         aux_all_data = np.zeros((n_samples, max_seq_len, n_features))
         for i, sample in enumerate(all_data):
             aux_sample = np.zeros((max_seq_len, n_features))
-            aux_sample[:sample.shape[0]] = sample[parameters]
+            aux_sample[:sample.shape[0]] = sample
             aux_all_data[i] = aux_sample
         return aux_all_data
 
-    def load_data(self, parameters, do_paa, do_padding):
+    def load_data(self, parameters, do_paa, do_padding, is_regression, window, stride):
         print("Loading data with all components")
         dir_dataset = os.getcwd() + '/dataset/'
 
@@ -67,7 +70,7 @@ class DatasetManip():
         max_seq_len = 0
 
         for file_name in all_files_names:
-            all_data.append(pd.read_csv(dir_dataset + 'data/' + file_name))
+            all_data.append(pd.read_csv(dir_dataset + 'data/' + file_name)[parameters].values)
             if all_data[-1].shape[0] > max_seq_len:
                 max_seq_len = all_data[-1].shape[0]
         
@@ -76,20 +79,22 @@ class DatasetManip():
 
         # max_seq_len = max(max_seq_len, len(data.values[:, 0]))
         all_data = self.my_padding(all_data, max_seq_len, parameters) if do_padding else all_data
-        
         all_data = self.paa_in_data(all_data) if do_paa else all_data
 
-        # data_aux = paa.transform(X=data.values.T)
-        # data = pd.DataFrame(data_aux.T, columns=[data.columns])
+        if is_regression:
+            X, y = self.slice_data(all_data, window, stride)
+            del all_data
+            train, test, train_labels, test_labels = train_test_split(X, y, test_size=0.20, random_state=42)
 
-        # reading labels
-        meta = pd.read_csv(dir_dataset + 'meta.csv', index_col=False)  # meta has other interesting info
-        labels = meta['label']
-        labels.replace('Mounted', MOUNTED, inplace=True)
-        labels.replace('Jammed', JAMMED, inplace=True)
-        labels.replace('Not-Mounted', MOUNTED, inplace=True)
+        else:
+            # reading labels
+            meta = pd.read_csv(dir_dataset + 'meta.csv', index_col=False)  # meta has other interesting info
+            labels = meta['label']
+            labels.replace('Mounted', MOUNTED, inplace=True)
+            labels.replace('Jammed', JAMMED, inplace=True)
+            labels.replace('Not-Mounted', NOT_MOUNTED, inplace=True)
 
-        train, test, train_labels, test_labels = train_test_split(all_data, labels.values, test_size=0.20, random_state=42, stratify=labels)
+            train, test, train_labels, test_labels = train_test_split(all_data, labels.values, test_size=0.20, random_state=42, stratify=labels)
 
         return train, test, train_labels, test_labels  # X_train, X_test, y_train, y_test
         
@@ -194,3 +199,43 @@ class DatasetManip():
             self.create_validation_set(X_train, X_test, y_train, y_test, label, parameters)
 
         return X_train, X_train_vl, X_val, X_test, y_train, y_train_vl, y_val, y_test
+    
+    def slice_array(self, arr, window, stride):
+        aux = np.array([])
+        n_channels, n_timesteps = arr.shape
+
+        for idx in np.arange(0, n_timesteps-window, step=stride):
+            aux = np.concatenate((aux, arr[:, idx:idx+window].reshape(1, n_channels, -1))) if aux.size else arr[:, idx:idx+window].reshape(1, n_channels, -1)
+
+        return aux
+    
+    def change_Xy_in_slices(self, window, stride):
+        aux_x_train = np.array([])
+        aux_x_test = np.array([])
+        aux_y_train = np.array([])
+        aux_y_test = np.array([])
+        for x_train, x_test in zip(self.X_train, self.X_test):
+            x = self.slice_array(x_train.T[:3], window, stride)
+            y = self.slice_array(x_train.T[3:], window, stride)
+            aux_x_train = np.concatenate((aux_x_train, x)) if aux_x_train.size else x
+            aux_y_train = np.concatenate((aux_y_train, y)) if aux_y_train.size else y
+
+            x = self.slice_array(x_test.T[:3], window, stride)
+            y = self.slice_array(x_test.T[3:], window, stride)
+            aux_x_test = np.concatenate((aux_x_test, x)) if aux_x_test.size else x
+            aux_y_test = np.concatenate((aux_y_test, y)) if aux_y_test.size else y
+        
+        self.X_train = aux_x_train
+        self.X_test = aux_x_test
+        self.y_train = aux_y_train
+        self.y_test = aux_y_test
+
+    def slice_data(self, data, window, stride):
+        aux_x = np.array([])
+        aux_y = np.array([])
+        for sample in data:
+            x = self.slice_array(sample.T[:3], window, stride)
+            y = self.slice_array(sample.T[3:], window, stride)
+            aux_x = np.concatenate((aux_x, x)) if aux_x.size else x
+            aux_y = np.concatenate((aux_y, y)) if aux_y.size else y
+        return aux_x, aux_y
