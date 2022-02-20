@@ -208,27 +208,6 @@ class DatasetManip():
             aux = np.concatenate((aux, arr[:, idx:idx+window].reshape(1, n_channels, -1))) if aux.size else arr[:, idx:idx+window].reshape(1, n_channels, -1)
 
         return aux
-    
-    def change_Xy_in_slices(self, window, stride):
-        aux_x_train = np.array([])
-        aux_x_test = np.array([])
-        aux_y_train = np.array([])
-        aux_y_test = np.array([])
-        for x_train, x_test in zip(self.X_train, self.X_test):
-            x = self.slice_array(x_train.T[:3], window, stride)
-            y = self.slice_array(x_train.T[3:], window, stride)
-            aux_x_train = np.concatenate((aux_x_train, x)) if aux_x_train.size else x
-            aux_y_train = np.concatenate((aux_y_train, y)) if aux_y_train.size else y
-
-            x = self.slice_array(x_test.T[:3], window, stride)
-            y = self.slice_array(x_test.T[3:], window, stride)
-            aux_x_test = np.concatenate((aux_x_test, x)) if aux_x_test.size else x
-            aux_y_test = np.concatenate((aux_y_test, y)) if aux_y_test.size else y
-        
-        self.X_train = aux_x_train
-        self.X_test = aux_x_test
-        self.y_train = aux_y_train
-        self.y_test = aux_y_test
 
     def slice_data(self, data, window, stride):
         aux_x = np.array([])
