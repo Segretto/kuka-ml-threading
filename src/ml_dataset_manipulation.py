@@ -13,11 +13,14 @@ NOT_MOUNTED = 2
 
 class DatasetManip():
     def __init__(self, label='mlp', load_models=True, parameters=['fx','fy','fz','mx','my','mz'],
-                 apply_normalization=True, do_paa=True, do_padding=True, is_regression=False, window=64, stride=32):
+                 apply_normalization=True, do_paa=True, do_padding=True, is_regression=False,
+                 window=64, stride=32, inputs=None, outputs=None):
         self.label = label
         print('Loading data')
         self.path_dataset, self.path_model, self.path_meta_data, self.path_model_meta_data = self.load_paths()
         self.scaler = None
+        self.inputs = inputs
+        self.outputs = outputs
         if load_models:
             self.X_train, self.X_test, self.y_train, self.y_test = self.load_data(do_paa=do_paa, do_padding=do_padding,
                                                                                   parameters=parameters,
@@ -70,7 +73,7 @@ class DatasetManip():
         max_seq_len = 0
 
         for file_name in all_files_names:
-            all_data.append(pd.read_csv(dir_dataset + 'data/' + file_name)[parameters].values)
+            all_data.append(pd.read_csv(dir_dataset + 'data/' + file_name)[parameters])
             if all_data[-1].shape[0] > max_seq_len:
                 max_seq_len = all_data[-1].shape[0]
         
@@ -213,8 +216,8 @@ class DatasetManip():
         aux_x = np.array([])
         aux_y = np.array([])
         for sample in data:
-            x = self.slice_array(sample.T[:3], window, stride)
-            y = self.slice_array(sample.T[3:], window, stride)
+            x = self.slice_array(sample[self.inputs].T.values, window, stride)
+            y = self.slice_array(sample[self.outputs].T.values, window, stride)
             aux_x = np.concatenate((aux_x, x)) if aux_x.size else x
             aux_y = np.concatenate((aux_y, y)) if aux_y.size else y
         return aux_x, aux_y

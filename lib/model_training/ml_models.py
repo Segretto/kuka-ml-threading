@@ -27,7 +27,9 @@ TEST_SPLIT_SIZE = 0.2
 
 
 class ModelsBuild:
-    def __init__(self, label='mlp', dataset_name='original', metrics='recall', dataset=None, is_regression=False):
+    def __init__(self, label='mlp', dataset_name='original', metrics='recall', 
+                 dataset=None, is_regression=False, inputs=None, outputs=None,
+                 window=64):
         self.label = label
         self.dataset_name = dataset_name
         self.metrics = metrics
@@ -37,6 +39,22 @@ class ModelsBuild:
         self.path_to_best_trained_models = 'output/models_trained/best/'
         self.objective_iterator = 0
         self.is_regression = is_regression
+        self.inputs = inputs
+        self.outputs = outputs
+        self.window = window
+
+        gpus = tf.config.experimental.list_physical_devices('GPU')
+        if gpus:
+        # Restrict TensorFlow to only allocate 4GB of memory on the first GPU
+            try:
+                tf.config.experimental.set_virtual_device_configuration(
+                    gpus[0],
+                    [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=512)])
+                logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+                print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+            except RuntimeError as e:
+                # Virtual devices must be set before GPUs have been initialized
+                print(e)
 
         # dir creation for logging
         if not os.path.isdir('output'):
@@ -80,7 +98,7 @@ class ModelsBuild:
             model = self.objective_transformer(trial)
         if label == 'vitransf':
             model = self.objective_vitransformer(trial)
-        model = self.add_optimizer(model, trial, loss_func='mse', metrics=['mse'])
+        model = self.add_optimizer(model, trial, loss_func='mse', metrics=[self.metrics])
         return model
 
     def objective_lstm(self, trial):
@@ -237,7 +255,7 @@ class ModelsBuild:
         model = tf.keras.models.Sequential()
 
         n_layers_cnn = trial.suggest_int('n_hidden_cnn', 1, 8)
-        model.add(tf.keras.layers.Masking(mask_value=0, input_shape=(INPUT_SHAPE_CNN_RNN, FEATURES), name='mask_' + str(time())))
+        model.add(tf.keras.layers.Masking(mask_value=0, input_shape=(len(self.inputs), self.window), name='mask_' + str(time())))
         # model.add(tf.keras.layers.InputLayer(input_shape=[INPUT_SHAPE_CNN_RNN, FEATURES]))
 
         for layer in range(n_layers_cnn):
@@ -245,7 +263,7 @@ class ModelsBuild:
                                           kernel_size=trial.suggest_categorical("kernel_"+str(layer), [1, 3, 5]),
                                           padding='same',
                                           activation='relu', name='conv1d_'+str(time())))
-            model.add(tf.keras.layers.MaxPooling1D(pool_size=trial.suggest_categorical("pool_size_"+str(layer), [1, 2]), name='maxpool1d_'+str(time())))
+            # model.add(tf.keras.layers.MaxPooling1D(pool_size=trial.suggest_categorical("pool_size_"+str(layer), [1, 2]), name='maxpool1d_'+str(time())))
             model.add(tf.keras.layers.BatchNormalization(name='batchnorm_' + str(time())))
 
         model.add(tf.keras.layers.GlobalMaxPooling1D(name='maxpool_' + str(time())))
@@ -259,7 +277,7 @@ class ModelsBuild:
             model.add(tf.keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer), 0, MAX_DROPOUT), name='dropout_' + str(time())))
             # model.add(tf.keras.regularizers.l2(l2=trial.suggest_uniform('regularizer_' + str(layer), 1e-3, 1e-1)))
 
-        model.add(tf.keras.layers.Dense(units=OUTPUT_SHAPE, activation='softmax', name='dense_'+str(time())))
+        model.add(tf.keras.layers.Dense(units=len(self.outputs)*self.window, activation='linear', name='dense_'+str(time())))
 
         # optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
         # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
@@ -682,8 +700,8 @@ class ModelsBuild:
 
     def _model_fit(self, X_train, y_train, X_val, y_val, model):
         model.fit(
-            X_train, y_train,
-            validation_data=(X_val, y_val),
+            X_train, y_train.reshape(-1, len(self.inputs)*self.window),
+            validation_data=(X_val, y_val.reshape(-1, len(self.inputs)*self.window)),
             shuffle=False,
             batch_size=BATCH_SIZE,
             epochs=EPOCHS,

@@ -282,8 +282,7 @@ def load_model_cnn(params, n_channels, n_timesteps):
                                          kernel_size=int(params["kernel_" + str(layer)]),
                                          padding='same',
                                          activation='relu', name='conv1d_' + str(time())))
-        model.add(tf.keras.layers.MaxPooling1D(pool_size=int(params["pool_size_" + str(layer)]),
-                                               name='maxpool1d_' + str(time())))
+        #model.add(tf.keras.layers.MaxPooling1D(pool_size=int(params["pool_size_" + str(layer)]), name='maxpool1d_' + str(time())))
         model.add(tf.keras.layers.BatchNormalization(name='batchnorm_' + str(time())))
 
     model.add(tf.keras.layers.GlobalMaxPooling1D(name='maxpool_' + str(time())))
