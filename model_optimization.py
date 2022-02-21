@@ -4,7 +4,7 @@ from utils.optuna_utils import OptunaCheckpointing
 
 # THE USER SHOULD MODIFY THESE ONES
 # models_names = ['svm', 'rf', 'mlp', 'cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
-models_names = ['mlp', 'svm']
+models_names = ['cnn']
 experiment_name = 'teste_checkpoint'
 
 N_TRIALS = 100
@@ -14,8 +14,8 @@ METRICS = 'mounted'  # or 'jammed' or 'multi' for both
 
 for model_name in models_names:
     optuna_checkpoint = OptunaCheckpointing(model_name=model_name, experiment_name=experiment_name)
-    dataset_handler = DatasetManip(label=model_name)
-    models_build = ModelsBuild(model_name, metrics=METRICS, dataset=dataset_handler)
+    dataset_handler = DatasetManip(label=model_name, do_padding=False, do_paa=False, is_regression=True, window=64, stride=32)
+    models_build = ModelsBuild(model_name, metrics=METRICS, dataset=dataset_handler, is_regression=True)
 
     study, n_trials_to_go = optuna_checkpoint.load_study(metrics=METRICS, n_trials=N_TRIALS)
 
