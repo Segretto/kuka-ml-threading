@@ -67,6 +67,8 @@ class DatasetManip():
 
         all_files_names = os.listdir(dir_dataset + 'data/')
         all_files_names.sort()
+        if 'desktop' in all_files_names[0]:
+            del all_files_names[0]
         # check if we are doing paa
 
         all_data = []
@@ -84,20 +86,9 @@ class DatasetManip():
         all_data = self.my_padding(all_data, max_seq_len, parameters) if do_padding else all_data
         all_data = self.paa_in_data(all_data) if do_paa else all_data
 
-        if is_regression:
-            X, y = self.slice_data(all_data, window, stride)
-            del all_data
-            train, test, train_labels, test_labels = train_test_split(X, y, test_size=0.20, random_state=42)
-
-        else:
-            # reading labels
-            meta = pd.read_csv(dir_dataset + 'meta.csv', index_col=False)  # meta has other interesting info
-            labels = meta['label']
-            labels.replace('Mounted', MOUNTED, inplace=True)
-            labels.replace('Jammed', JAMMED, inplace=True)
-            labels.replace('Not-Mounted', NOT_MOUNTED, inplace=True)
-
-            train, test, train_labels, test_labels = train_test_split(all_data, labels.values, test_size=0.20, random_state=42, stratify=labels)
+        X, y = self.slice_data(all_data, window, stride)
+        del all_data
+        train, test, train_labels, test_labels = train_test_split(X, y, test_size=0.20, random_state=42)
 
         return train, test, train_labels, test_labels  # X_train, X_test, y_train, y_test
         

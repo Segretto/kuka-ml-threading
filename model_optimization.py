@@ -11,18 +11,19 @@ N_TRIALS = 100
 TIMEOUT = None
 n_jobs = 1  # if you have a dedicated machine, change this to -1
 METRICS = 'mse'
-parameters = ['fx', 'fy', 'fz', 'mx', 'my', 'mz']  # ['vx', 'vy', 'vz', 'fx', 'fy', 'fz', 'mx', 'my', 'mz']
-INPUTS = ['fx', 'fy', 'fz']
+parameters = ['vx', 'vy', 'vz', 'fx', 'fy', 'fz', 'mx', 'my', 'mz']  # ['vx', 'vy', 'vz', 'fx', 'fy', 'fz', 'mx', 'my', 'mz']
+INPUTS = ['vx', 'vy', 'vz', 'fx', 'fy', 'fz']
 OUTPUTS = ['mx', 'my', 'mz']
+window_size = 64
 
 for model_name in models_names:
     optuna_checkpoint = OptunaCheckpointing(model_name=model_name, experiment_name=experiment_name)
     dataset_handler = DatasetManip(label=model_name, do_padding=False, do_paa=False, 
-                                   is_regression=True, window=64, stride=32,
-                                   inputs=INPUTS, outputs=OUTPUTS)
+                                   is_regression=True, window=window_size, stride=int(window_size/2),
+                                   inputs=INPUTS, outputs=OUTPUTS, parameters=parameters)
     models_build = ModelsBuild(model_name, metrics=METRICS, dataset=dataset_handler, 
                                is_regression=True, inputs=INPUTS, outputs=OUTPUTS,
-                               window=64)
+                               window=window_size)
 
     study, n_trials_to_go = optuna_checkpoint.load_study(metrics=METRICS, n_trials=N_TRIALS)
 

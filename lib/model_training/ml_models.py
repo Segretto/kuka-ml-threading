@@ -4,6 +4,7 @@ from sklearn.ensemble import RandomForestClassifier as RF
 import os
 from joblib import dump
 from sklearn.metrics import f1_score, precision_score, recall_score, classification_report, confusion_matrix, r2_score
+from  sklearn.metrics import mean_squared_error as mse
 from sklearn.model_selection import StratifiedShuffleSplit
 from lib.model_training.ml_load_models import load_model_from_trial
 from sklearn.model_selection import train_test_split
@@ -14,7 +15,7 @@ import gc
 import pickle
 from time import time
 
-BATCH_SIZE = 64
+BATCH_SIZE = 256
 BATCHSIZE_RECURRENT = int(BATCH_SIZE / 4)
 EPOCHS = 100
 INPUT_SHAPE = 156
@@ -43,18 +44,18 @@ class ModelsBuild:
         self.outputs = outputs
         self.window = window
 
-        gpus = tf.config.experimental.list_physical_devices('GPU')
-        if gpus:
-        # Restrict TensorFlow to only allocate 4GB of memory on the first GPU
-            try:
-                tf.config.experimental.set_virtual_device_configuration(
-                    gpus[0],
-                    [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=4096)])
-                logical_gpus = tf.config.experimental.list_logical_devices('GPU')
-                print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
-            except RuntimeError as e:
-                # Virtual devices must be set before GPUs have been initialized
-                print(e)
+        # gpus = tf.config.experimental.list_physical_devices('GPU')
+        # if gpus:
+        # # Restrict TensorFlow to only allocate 4GB of memory on the first GPU
+        #     try:
+        #         tf.config.experimental.set_virtual_device_configuration(
+        #             gpus[0],
+        #             [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=4096)])
+        #         logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+        #         print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+        #     except RuntimeError as e:
+        #         # Virtual devices must be set before GPUs have been initialized
+        #         print(e)
 
         # dir creation for logging
         if not os.path.isdir('output'):
@@ -219,11 +220,7 @@ class ModelsBuild:
 
     def objective_mlp(self, trial):
         model = tf.keras.models.Sequential()
-        if 'novo' in self.dataset_name:
-            INPUT_SHAPE = self.dataset.X_train.shape[1]
-        else:
-            INPUT_SHAPE = 156
-        model.add(tf.keras.layers.InputLayer(input_shape=[INPUT_SHAPE*FEATURES]))
+        model.add(tf.keras.layers.InputLayer(input_shape=[len(self.inputs), self.window]))
 
         n_hidden = trial.suggest_int('n_hidden', 1, 10)
         for layer in range(n_hidden):
@@ -231,7 +228,7 @@ class ModelsBuild:
             model.add(tf.keras.layers.Dense(n_neurons, activation='relu', name='dense_'+str(time())))
             model.add(tf.keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer), 0, MAX_DROPOUT), name='dropout_'+str(time())))
 
-        model.add(tf.keras.layers.Dense(OUTPUT_SHAPE, activation="softmax", name='dense_'+str(time())))
+        model.add(tf.keras.layers.Dense(len(self.outputs)*self.window, activation="linear", name='dense_'+str(time())))
         # optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
         # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
         # model = self.add_optimizer(model, trial)
@@ -681,28 +678,25 @@ class ModelsBuild:
     def _model_train(self, trial, label):
         X_train, y_train = self._reshape_X_for_train(label)
 
-        self.get_model(trial, label)
         n_channels = self.dataset.X_train.shape[1] if 'transf' in label else self.dataset.X_train.shape[2]
         n_timesteps = self.dataset.X_train.shape[2] if 'transf' in label else self.dataset.X_train.shape[1]
 
         train, val, train_labels, val_labels = train_test_split(X_train, y_train, test_size=0.10, random_state=42)
 
-        # model = load_model_from_trial(label, trial.params, n_channels, n_timesteps)
         model = self.get_model(trial, label)
         model = self._model_fit(train, train_labels, val, val_labels, model)
         y_pred = model.predict(self.dataset.X_test)
         y_true = self.dataset.y_test
-        score = r2_score(y_true, y_pred)
+        score = mse(y_true, y_pred)  # TODO: qual metrica?
         del model
 
         trial.set_user_attr('reports', score)
         return score
 
-
     def _model_fit(self, X_train, y_train, X_val, y_val, model):
         model.fit(
-            X_train, y_train.reshape(-1, len(self.inputs)*self.window),
-            validation_data=(X_val, y_val.reshape(-1, len(self.inputs)*self.window)),
+            X_train, y_train.reshape(-1, len(self.outputs)*self.window),
+            validation_data=(X_val, y_val.reshape(-1, len(self.outputs)*self.window)),
             shuffle=False,
             batch_size=BATCH_SIZE,
             epochs=EPOCHS,
