@@ -49,7 +49,7 @@ class ModelsBuild:
             try:
                 tf.config.experimental.set_virtual_device_configuration(
                     gpus[0],
-                    [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=512)])
+                    [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=4096)])
                 logical_gpus = tf.config.experimental.list_logical_devices('GPU')
                 print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
             except RuntimeError as e:
@@ -587,7 +587,7 @@ class ModelsBuild:
         model = tf.keras.Model(inputs=inputs, outputs=logits)
         # optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
         # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
-        model = self.add_optimizer(model, trial)
+        model = self.add_optimizer(model, trial, loss_func='mse', metrics=['mse'])
         return model
 
     def add_optimizer(self, model, trial, loss_func='sparse_categorical_crossentropy', metrics=['accuracy']):
@@ -687,7 +687,8 @@ class ModelsBuild:
 
         train, val, train_labels, val_labels = train_test_split(X_train, y_train, test_size=0.10, random_state=42)
 
-        model = load_model_from_trial(label, trial.params, n_channels, n_timesteps)
+        # model = load_model_from_trial(label, trial.params, n_channels, n_timesteps)
+        model = self.get_model(trial, label)
         model = self._model_fit(train, train_labels, val, val_labels, model)
         y_pred = model.predict(self.dataset.X_test)
         y_true = self.dataset.y_test
