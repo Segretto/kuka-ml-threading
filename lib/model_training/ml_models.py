@@ -23,10 +23,6 @@ class ModelsBuild:
         self.dataset_name = dataset_name
         self.metrics = metrics
         self.dataset = dataset
-        self.path_to_models_meta_data = 'output/models_meta_data/'
-        self.path_to_temp_trained_models = 'output/models_trained/temp/'
-        self.path_to_best_trained_models = 'output/models_trained/best/'
-        self.objective_iterator = 0
         self.inputs = inputs
         self.outputs = outputs
         self.loss_func = loss_func
@@ -535,6 +531,7 @@ class ModelsBuild:
         return model
 
     def metrics_report(self, model, get_confusion_matrix=None):
+        # TODO: add new regression metrics. There's no classification_report for regression in sklearn
         if self.model_name == 'rf' or self.model_name == 'svm' or self.model_name == 'mlp':
             X_test = self.dataset.dataset['X_test'].reshape((self.dataset.dataset['X_test'].shape[0],
                                           self.dataset.dataset['X_test'].shape[1] * self.dataset.dataset['X_test'].shape[2]))
@@ -560,6 +557,7 @@ class ModelsBuild:
                                      zero_division=0), confusion_matrix(self.dataset.dataset['y_test'], y_pred)
 
     def get_score(self, model):
+        # TODO: add new regression metrics. There's no classification_report for regression in sklearn
         report = self.metrics_report(model)
         if self.metrics == 'mounted':
             return report['mounted']['precision']
@@ -568,29 +566,8 @@ class ModelsBuild:
         if self.metrics == 'multi_mounted':
             return report['mounted']['recall'], report['mounted']['precision']
 
-    def save_best_model(self, study, dataset=None):
-        '''TODO: DEPRECATED'''
-        # 1- get paths
-        # temp_files = os.listdir(self.path_to_temp_trained_models)
-        old_path = self.path_to_temp_trained_models + str(study.best_trial.number) + '_temp_' + self.model_name + '_' + dataset
-        new_path = self.path_to_best_trained_models + 'best_' + self.model_name + '_' + dataset
-
-        if self.model_name == 'svm' or self.model_name == 'rf':
-            old_path += '.joblib'
-            new_path += '.joblib'
-        else:
-            old_path += '.h5'
-            new_path += '.h5'
-
-        # 2- move it to the "best" folder
-        move(old_path, new_path)
-
-        # 3- delete all files from "temp" folder
-        folder_list = os.listdir(self.path_to_temp_trained_models)
-        for file in folder_list:
-            os.remove(self.path_to_temp_trained_models + file)
-
     def _save_model(self, trial, model):
+        '''onde the models start training, use this function to save the current model'''
         model_path = self.path_to_temp_trained_models + \
                      str(trial.number) + '_temp_' + self.model_name + '_' + self.dataset_name
         if self.model_name == 'svm' or self.model_name == 'rf':
@@ -603,6 +580,7 @@ class ModelsBuild:
             tf.keras.models.save_model(model, model_path)
 
     def _reshape_X_for_train(self):
+        # TODO: this guy should be better implemented
         if self.model_name == 'rf' or self.model_name == 'svm' or self.model_name == 'mlp':
             X_train = self.dataset.dataset['X_train'].reshape((self.dataset.dataset['X_train'].shape[0],
                                                     self.dataset.dataset['X_train'].shape[1]*self.dataset.dataset['X_train'].shape[2]))
@@ -653,25 +631,3 @@ class ModelsBuild:
             verbose=True,
             callbacks=[cb_early_stopping])
         return model
-
-    def _model_train_no_validation(self, trial):
-        X_train, y_train = self._reshape_X_for_train()
-
-        n_channels = self.dataset.dataset['X_train'].shape[1] if 'transf' in self.model_name else self.dataset.dataset['X_train'].shape[2]
-        n_timesteps = self.dataset.dataset['X_train'].shape[2] if 'transf' in self.model_name else self.dataset.dataset['X_train'].shape[1]
-
-        model = load_model_from_trial(self.model_name, trial.params, n_channels, n_timesteps)
-        model.fit(X_train, y_train, epochs=100)
-        report, conf_matrix = self.metrics_report(model, get_confusion_matrix=True)
-        return report, conf_matrix
-
-        #trial.set_user_attr('classification_reports', scores)
-        #score_mean = np.mean(scores)
-        #score_std = np.std(scores)
-        #return score_mean, score_std
-
-
-if __name__ == '__main__':
-    print("uhul")
-
-# %%
