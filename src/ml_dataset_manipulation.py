@@ -1,10 +1,8 @@
-# from this import d
 import pandas as pd
 import numpy as np
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
 import os
-# from pyts.approximation import PiecewiseAggregateApproximation
 from .paa import PiecewiseAggregateApproximation
 from pathlib import Path
 from typing import List
@@ -15,11 +13,10 @@ NOT_MOUNTED = 2
 
 class DatasetCreator():
     def __init__(self, raw_data_path: str, datasets_path: str, dataset_name: str=None,
-                 parameters: List[str]=['fx','fy','fz','mx','my','mz'], is_regression: bool=False,
-                 window: int=64, stride: int=32, inputs: List[str]=None, outputs: List[str]=None):
+                 parameters: List[str]=['fx','fy','fz','mx','my','mz'], window: int=64,
+                 stride: int=32, inputs: List[str]=None, outputs: List[str]=None):
         
         self.scaler = None
-        self.path_dataset, self.path_model, self.path_meta_data, self.path_model_meta_data = self.load_paths()
         self.inputs = inputs
         self.outputs = outputs
         self.window = window
@@ -43,17 +40,6 @@ class DatasetCreator():
             'y_train':None,
             'y_test':None,
         }
-        
-        self.is_regression = is_regression
-
-    def load_paths(self):
-        # path_root = self._load_root_path()
-        path_root = ''
-        path_dataset = path_root + 'dataset/'
-        path_model = path_root + 'models/optimization/model/'
-        path_meta_data = path_root + 'models/optimization/meta_data/'
-        path_model_meta_data = path_root + 'models/optimization/models_meta_data/'
-        return path_dataset, path_model, path_meta_data, path_model_meta_data
 
     def my_padding(self, all_data, max_seq_len, parameters):
         n_features = len(parameters)  # len(all_data[0].columns)  # len(parameters.split('|'))
@@ -127,7 +113,6 @@ class DatasetCreator():
         print(f'Data successfully loaded for model {ml_model_type}.')
         return None
         
-
     def paa_in_data(self, data, window_size=12):
         paa = PiecewiseAggregateApproximation(window_size=window_size)
         data_aux = np.array([])
@@ -135,48 +120,6 @@ class DatasetCreator():
             sample_aux = paa.transform(sample.T).T
             data_aux = np.concatenate([data_aux, sample_aux.reshape(1, sample_aux.shape[0], sample_aux.shape[1])], axis=0) if data_aux.size else sample_aux.reshape(1, sample_aux.shape[0], sample_aux.shape[1])
         return data_aux
-
-
-    def reshape_lstm_process(self, X_reshape, parameters):
-        if type(parameters) is str:
-            number_of_features = parameters.count('|') + 1
-        # X_reshape = np.array(X_reshape)
-
-        shape_input = int(np.shape(X_reshape)[1] / number_of_features)
-        X_new = np.array([])
-        # import sys
-
-        for j, example in enumerate(X_reshape):
-            # split data for each component, i.e., [fx, fy, fz]
-            X = np.split(example, number_of_features)
-
-            for i, x in enumerate(X):
-                X[i] = np.reshape(x, (shape_input, 1))
-
-            # concatenate all components with new shape and transpose it to be in (n_experiment, timesteps, components)
-            X_example = np.concatenate([[x for x in X]])
-            X_example = np.transpose(X_example)
-            if X_new.shape == (0,):
-                X_new = X_example
-            else:
-                X_new = np.concatenate((X_new, X_example))
-
-        # print("X_new.shape = ", X_new.shape)
-        # print("new y data shape = ", X_test_full.shape)
-
-        return X_new
-
-    def reshape_for_lstm(self, X_train, X_test, features):
-
-        X = []
-
-        for dataset in [X_train, X_test]:
-            X.append(self.reshape_lstm_process(dataset, features))
-
-        print("\n\n\nX_train.shape = ", X[0].shape)
-        print("X_test.shape = ", X[1].shape)
-
-        return X
 
     def _data_normalization(self, dataset_name='original') -> None:
 
