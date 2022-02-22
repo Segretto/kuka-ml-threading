@@ -1,4 +1,4 @@
-from this import d
+# from this import d
 import pandas as pd
 import numpy as np
 import tensorflow as tf
@@ -71,14 +71,15 @@ class DatasetCreator():
                   paa: bool=False, 
                   padding: bool=False) -> None:
         
-        print(f"Loading data with parameters {self.parameters} from {self.raw_data_path}.")
+        print(f"Loading data with parameters {self.parameters} from {self.raw_data_path} folder.")
         
         if self._exists_dataset():
             dataset_path = self.datasets_dir_path.joinpath(self.dataset_name)
             print('Loading it instead.')
 
             for data_file in dataset_path.iterdir():
-                self.data_files_structure[data_file.name] = pd.read(data_file, index_col=None)
+                # self.data_files_structure[data_file.name] = pd.read(data_file, index_col=None)
+                self.dataset[data_file.name[:-4]] = np.load(data_file, allow_pickle=True)
             
             return None
         
@@ -86,11 +87,13 @@ class DatasetCreator():
         all_data = []
         max_seq_len = 0
 
-        data_files = [file for file in self.raw_data_path.iterdir() if '.csv' in file.name]
+        data_files = [file for file in (self.datasets_dir_path / self.raw_data_path).iterdir() if '.csv' in file.name]
         for file in data_files:
             all_data.append(pd.read_csv(file, index_col=None)[self.parameters])
             if all_data[-1].shape[0] > max_seq_len:
                 max_seq_len = all_data[-1].shape[0]
+        
+        print('Read all individual files.')
         
         # this guy gets the first non null value
         # n_samples = all_files_insertion or all_files_backspin or all_files_threading
@@ -101,6 +104,7 @@ class DatasetCreator():
 
         X, y = self._slice_data(all_data)
         del all_data
+        print('Data is sliced.')
         
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=42)
 
@@ -207,23 +211,6 @@ class DatasetCreator():
             for i, _ in enumerate(X):
                 X[i] = (X[i] - self.scaler.data_min_) / (self.scaler.data_max_ - self.scaler.data_min_ + np.ones(len(self.scaler.data_max_)) * 1e-7)
         return X
-
-    def load_and_pre_process_data(self, label, parameters, dataset):
-        path_dataset, path_model, path_meta_data, path_model_meta_data = self.load_paths()
-
-        # Pre-processing
-        # Loading data
-        X_train, X_test, y_train, y_test = self.load_data(path_dataset, parameters, dataset)
-        X_train['labels'] = y_train.copy()
-
-        # Data normalization
-        X_train, X_test = self._data_normalization(X_train, X_test, label)
-
-        # Creating the validation set
-        X_train, X_train_vl, X_val, X_test, y_train, y_train_vl, y_val, y_test = \
-            self.create_validation_set(X_train, X_test, y_train, y_test, label, parameters)
-
-        return X_train, X_train_vl, X_val, X_test, y_train, y_train_vl, y_val, y_test
     
     def _slice_array(self, arr):
         aux = np.array([])
@@ -267,12 +254,18 @@ class DatasetCreator():
             
             if self._create_dataset_folder():
                 for file_name, data in self.dataset.items():
-                    target_path = self.datasets_dir_path.joinpath(self.dataset_name, file_name + '.csv')
+                    target_path = self.datasets_dir_path.joinpath(self.dataset_name, file_name + '.npy')
+
                     try:
-                        np.savetxt(target_path, data, delimiter=',')
+                        np.save(target_path, data)
                     except Exception as e:
                         print(e)
                         return None
+                path_parameters = self.datasets_dir_path.joinpath(self.dataset_name + '.txt')
+                with open(path_parameters, 'w') as f:
+                    f.write('inputs: ' + self.inputs.__str__())
+                    f.write('\n')
+                    f.write('outputs: ' + self.outputs.__str__())
 
         print(f'Dataset {self.dataset_name} successfully created at {self.datasets_dir_path}.')
         return None
