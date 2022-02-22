@@ -3,21 +3,22 @@ from src.ml_dataset_manipulation import DatasetCreator
 from utils.optuna_utils import OptunaCheckpointing
 
 # THE USER SHOULD MODIFY THESE ONES
-# models_names = ['svm', 'rf', 'mlp', 'cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
-models_names = ['cnn']
+# models_names = ['svr', 'rf', 'mlp', 'cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
+models_names = ['mlp']
 experiment_name = 'teste_checkpoint'
 
 N_TRIALS = 30
 TIMEOUT = None
 N_JOBS = 1  # if you have a dedicated machine, change this to -1
 METRICS = 'mse'
-PARAMETERS = ['vx', 'vy', 'vz', 'fx', 'fy', 'fz', 'mx', 'my', 'mz']  # ['vx', 'vy', 'vz', 'fx', 'fy', 'fz', 'mx', 'my', 'mz']
+PARAMETERS = ['vx', 'vy', 'vz', 'fx', 'fy', 'fz', 'mx', 'my', 'mz']
 INPUTS = ['vx', 'vy', 'vz', 'fx', 'fy', 'fz']
 OUTPUTS = ['mx', 'my', 'mz']
 WINDOW_SIZE = 64
 STRIDE = 32
-RAW_DATA_PATH='raw_data'
-DATASETS_PATH='datasets'
+BATCH_SIZE = 256
+RAW_DATA_PATH='data'
+DATASETS_PATH='dataset'
 DATASET_NAME=None
 
 
@@ -29,17 +30,16 @@ for model_name in models_names:
                             inputs=INPUTS, outputs=OUTPUTS, parameters=PARAMETERS)
 
     dataset.load_data(ml_model_type=model_name)
-    # dataset.save_dataset()
+    dataset.save_dataset()
     
     models_build = ModelsBuild(model_name, metrics=METRICS, dataset=dataset, 
-                               is_regression=True, inputs=INPUTS, outputs=OUTPUTS,
-                               window=WINDOW_SIZE)
+                               inputs=INPUTS, outputs=OUTPUTS, batch_size=BATCH_SIZE)
 
     study, n_trials_to_go = optuna_checkpoint.load_study(metrics=METRICS, n_trials=N_TRIALS)
 
     print("\n\n------------- Starting training experiment " + experiment_name +
             "and model " + model_name + ". " + str(n_trials_to_go) + " until the end -------------\n\n")
-    study.optimize(lambda trial: models_build.objective(trial, label=model_name),
+    study.optimize(lambda trial: models_build.objective(trial, model_name=model_name),
                     timeout=TIMEOUT, n_trials=n_trials_to_go, n_jobs=N_JOBS, callbacks=[optuna_checkpoint])
 
     print("Number of finished trials: {}".format(len(study.trials)))
