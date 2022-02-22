@@ -1,5 +1,5 @@
 from lib.model_training.ml_models import ModelsBuild
-from src.ml_dataset_manipulation import DatasetManip
+from src.ml_dataset_manipulation import DatasetCreator
 from utils.optuna_utils import OptunaCheckpointing
 
 # THE USER SHOULD MODIFY THESE ONES
@@ -7,30 +7,40 @@ from utils.optuna_utils import OptunaCheckpointing
 models_names = ['cnn']
 experiment_name = 'teste_checkpoint'
 
-N_TRIALS = 100
+N_TRIALS = 30
 TIMEOUT = None
-n_jobs = 1  # if you have a dedicated machine, change this to -1
+N_JOBS = 1  # if you have a dedicated machine, change this to -1
 METRICS = 'mse'
-parameters = ['vx', 'vy', 'vz', 'fx', 'fy', 'fz', 'mx', 'my', 'mz']  # ['vx', 'vy', 'vz', 'fx', 'fy', 'fz', 'mx', 'my', 'mz']
+PARAMETERS = ['vx', 'vy', 'vz', 'fx', 'fy', 'fz', 'mx', 'my', 'mz']  # ['vx', 'vy', 'vz', 'fx', 'fy', 'fz', 'mx', 'my', 'mz']
 INPUTS = ['vx', 'vy', 'vz', 'fx', 'fy', 'fz']
 OUTPUTS = ['mx', 'my', 'mz']
-window_size = 64
+WINDOW_SIZE = 64
+STRIDE = 32
+RAW_DATA_PATH='raw_data'
+DATASETS_PATH='datasets'
+DATASET_NAME=None
+
 
 for model_name in models_names:
     optuna_checkpoint = OptunaCheckpointing(model_name=model_name, experiment_name=experiment_name)
-    dataset_handler = DatasetManip(label=model_name, do_padding=False, do_paa=False, 
-                                   is_regression=True, window=window_size, stride=int(window_size/2),
-                                   inputs=INPUTS, outputs=OUTPUTS, parameters=parameters)
-    models_build = ModelsBuild(model_name, metrics=METRICS, dataset=dataset_handler, 
+    
+    dataset = DatasetCreator(raw_data_path=RAW_DATA_PATH, datasets_path=DATASETS_PATH, dataset_name=DATASET_NAME, 
+                            is_regression=True, window=WINDOW_SIZE, stride=STRIDE,
+                            inputs=INPUTS, outputs=OUTPUTS, parameters=PARAMETERS)
+
+    dataset.load_data(ml_model_type=model_name)
+    # dataset.save_dataset()
+    
+    models_build = ModelsBuild(model_name, metrics=METRICS, dataset=dataset, 
                                is_regression=True, inputs=INPUTS, outputs=OUTPUTS,
-                               window=window_size)
+                               window=WINDOW_SIZE)
 
     study, n_trials_to_go = optuna_checkpoint.load_study(metrics=METRICS, n_trials=N_TRIALS)
 
     print("\n\n------------- Starting training experiment " + experiment_name +
             "and model " + model_name + ". " + str(n_trials_to_go) + " until the end -------------\n\n")
     study.optimize(lambda trial: models_build.objective(trial, label=model_name),
-                    timeout=TIMEOUT, n_trials=n_trials_to_go, n_jobs=n_jobs, callbacks=[optuna_checkpoint])
+                    timeout=TIMEOUT, n_trials=n_trials_to_go, n_jobs=N_JOBS, callbacks=[optuna_checkpoint])
 
     print("Number of finished trials: {}".format(len(study.trials)))
     print("Best trial:")

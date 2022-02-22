@@ -6,41 +6,45 @@ from sklearn.model_selection import train_test_split
 import os
 # from pyts.approximation import PiecewiseAggregateApproximation
 from .paa import PiecewiseAggregateApproximation
+from pathlib import Path
+from typing import List
 
 MOUNTED = 0
 JAMMED = 1
 NOT_MOUNTED = 2
 
-class DatasetManip():
-    def __init__(self, label='mlp', load_models=True, parameters=['fx','fy','fz','mx','my','mz'],
-                 apply_normalization=True, do_paa=True, do_padding=True, is_regression=False,
-                 window=64, stride=32, inputs=None, outputs=None):
-        self.label = label
-        print('Loading data')
-        self.path_dataset, self.path_model, self.path_meta_data, self.path_model_meta_data = self.load_paths()
+class DatasetCreator():
+    def __init__(self, raw_data_path: str, datasets_path: str, dataset_name: str=None,
+                 parameters: List[str]=['fx','fy','fz','mx','my','mz'], is_regression: bool=False,
+                 window: int=64, stride: int=32, inputs: List[str]=None, outputs: List[str]=None):
+        
         self.scaler = None
+        self.path_dataset, self.path_model, self.path_meta_data, self.path_model_meta_data = self.load_paths()
         self.inputs = inputs
         self.outputs = outputs
-        if load_models:
-            self.X_train, self.X_test, self.y_train, self.y_test = self.load_data(do_paa=do_paa, do_padding=do_padding,
-                                                                                  parameters=parameters,
-                                                                                  is_regression=is_regression,
-                                                                                  window=window, stride=stride)
+        self.window = window
+        self.stride = stride
+        self.parameters = parameters
 
-            # self.X_train, self.X_test = self.reshape_for_lstm(self.X_train, self.X_test, 6)  # eu sei que não precisa passar por argumento #semtempoirmão
-            if 'transf' in label:
-                self.X_train = np.transpose(self.X_train, (0, 2, 1))
-                self.X_test = np.transpose(self.X_test, (0, 2, 1))
+        self.raw_data_path = Path(raw_data_path)
+        self.datasets_dir_path = Path(datasets_path)
 
-            if apply_normalization:
-                self.X_train, self.X_test = self.data_normalization(self.X_train, self.X_test)
-            # if 'novo' not in dataset:
-            #     self.X_train = self.X_train.values
-            #     self.X_test = self.X_test.values
-            #     self.y_train = self.y_train.values
-            #     self.y_test = self.y_test.values
+        if not dataset_name:
+            self.dataset_name = f'W{self.window}S{self.stride}'
 
-        print('Loading data done')
+        self.X_train = None
+        self.X_test  = None
+        self.y_train = None
+        self.y_test  = None
+
+        self.dataset = {
+            'X_train':None,
+            'X_test':None,
+            'y_train':None,
+            'y_test':None,
+        }
+        
+        self.is_regression = is_regression
 
     def load_paths(self):
         # path_root = self._load_root_path()
@@ -61,21 +65,30 @@ class DatasetManip():
             aux_all_data[i] = aux_sample
         return aux_all_data
 
-    def load_data(self, parameters, do_paa, do_padding, is_regression, window, stride):
-        print("Loading data with all components")
-        dir_dataset = os.getcwd() + '/dataset/'
+    def load_data(self, 
+                  ml_model_type: str, 
+                  apply_normalization: bool=True, 
+                  paa: bool=False, 
+                  padding: bool=False) -> None:
+        
+        print(f"Loading data with parameters {self.parameters} from {self.raw_data_path}.")
+        
+        if self._exists_dataset():
+            dataset_path = self.datasets_dir_path.joinpath(self.dataset_name)
+            print('Loading it instead.')
 
-        all_files_names = os.listdir(dir_dataset + 'data/')
-        all_files_names.sort()
-        if 'desktop' in all_files_names[0]:
-            del all_files_names[0]
-        # check if we are doing paa
+            for data_file in dataset_path.iterdir():
+                self.data_files_structure[data_file.name] = pd.read(data_file, index_col=None)
+            
+            return None
+        
 
         all_data = []
         max_seq_len = 0
 
-        for file_name in all_files_names:
-            all_data.append(pd.read_csv(dir_dataset + 'data/' + file_name)[parameters])
+        data_files = [file for file in self.raw_data_path.iterdir() if '.csv' in file.name]
+        for file in data_files:
+            all_data.append(pd.read_csv(file, index_col=None)[self.parameters])
             if all_data[-1].shape[0] > max_seq_len:
                 max_seq_len = all_data[-1].shape[0]
         
@@ -83,14 +96,32 @@ class DatasetManip():
         # n_samples = all_files_insertion or all_files_backspin or all_files_threading
 
         # max_seq_len = max(max_seq_len, len(data.values[:, 0]))
-        all_data = self.my_padding(all_data, max_seq_len, parameters) if do_padding else all_data
-        all_data = self.paa_in_data(all_data) if do_paa else all_data
+        all_data = self.my_padding(all_data, max_seq_len, self.parameters) if padding else all_data
+        all_data = self.paa_in_data(all_data) if paa else all_data
 
-        X, y = self.slice_data(all_data, window, stride)
+        X, y = self._slice_data(all_data)
         del all_data
-        train, test, train_labels, test_labels = train_test_split(X, y, test_size=0.20, random_state=42)
+        
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=42)
 
-        return train, test, train_labels, test_labels  # X_train, X_test, y_train, y_test
+        self.dataset = {
+            'X_train':X_train,
+            'X_test':X_test,
+            'y_train':y_train,
+            'y_test':y_test,
+        }
+
+        if ml_model_type == 'transf':
+            self.dataset['X_train'] = np.transpose(self.dataset['X_train'], (0, 2, 1))
+            self.dataset['X_test'] = np.transpose(self.dataset['X_test'], (0, 2, 1))
+
+        if apply_normalization:
+            self._data_normalization()
+
+
+        
+        print(f'Data successfully loaded for model {ml_model_type}.')
+        return None
         
 
     def paa_in_data(self, data, window_size=12):
@@ -143,16 +174,16 @@ class DatasetManip():
 
         return X
 
-    def data_normalization(self, X_train, X_test, dataset_name='original'):
+    def _data_normalization(self, dataset_name='original') -> None:
 
-        X_train = self.force_moment_normalization(X_train, dataset_name=dataset_name)
-        X_test = self.force_moment_normalization(X_test, dataset_name=dataset_name, data='test')
+        self.dataset['X_train'] = self._force_moment_normalization(self.dataset['X_train'], dataset_name=dataset_name)
+        self.dataset['X_test'] = self._force_moment_normalization(self.dataset['X_test'], dataset_name=dataset_name, data='test')
 
-        print("X_train.shape = ", np.asarray(X_train).shape)
-        print("X_test.shape = ", np.asarray(X_test).shape)
-        return X_train, X_test
+        print("X_train.shape = ", np.asarray(self.dataset['X_train']).shape)
+        print("X_test.shape = ", np.asarray(self.dataset['X_test']).shape)
+        return None
 
-    def force_moment_normalization(self, X, dataset_name='original', data='train'):
+    def _force_moment_normalization(self, X, dataset_name='original', data='train'):
         # if 'novo' in dataset_name:
         if 'test' not in data:
             from sklearn.preprocessing import MinMaxScaler
@@ -186,7 +217,7 @@ class DatasetManip():
         X_train['labels'] = y_train.copy()
 
         # Data normalization
-        X_train, X_test = self.data_normalization(X_train, X_test, label)
+        X_train, X_test = self._data_normalization(X_train, X_test, label)
 
         # Creating the validation set
         X_train, X_train_vl, X_val, X_test, y_train, y_train_vl, y_val, y_test = \
@@ -194,21 +225,54 @@ class DatasetManip():
 
         return X_train, X_train_vl, X_val, X_test, y_train, y_train_vl, y_val, y_test
     
-    def slice_array(self, arr, window, stride):
+    def _slice_array(self, arr):
         aux = np.array([])
         n_channels, n_timesteps = arr.shape
 
-        for idx in np.arange(0, n_timesteps-window, step=stride):
-            aux = np.concatenate((aux, arr[:, idx:idx+window].reshape(1, n_channels, -1))) if aux.size else arr[:, idx:idx+window].reshape(1, n_channels, -1)
+        for idx in np.arange(0, n_timesteps-self.window, step=self.stride):
+            aux = np.concatenate((aux, arr[:, idx:idx+self.window].reshape(1, n_channels, -1))) if aux.size else arr[:, idx:idx+self.window].reshape(1, n_channels, -1)
 
         return aux
 
-    def slice_data(self, data, window, stride):
+    def _slice_data(self, data):
         aux_x = np.array([])
         aux_y = np.array([])
         for sample in data:
-            x = self.slice_array(sample[self.inputs].T.values, window, stride)
-            y = self.slice_array(sample[self.outputs].T.values, window, stride)
+            x = self._slice_array(sample[self.inputs].T.values)
+            y = self._slice_array(sample[self.outputs].T.values)
             aux_x = np.concatenate((aux_x, x)) if aux_x.size else x
             aux_y = np.concatenate((aux_y, y)) if aux_y.size else y
         return aux_x, aux_y
+
+    def _exists_dataset(self) -> bool:
+        
+        if self.dataset_name in [path.name for path in self.datasets_dir_path.iterdir()]:
+            print(f'Dataset {self.dataset_name} already exists in {self.datasets_dir_path}.')
+            return True
+
+        return False
+
+    def _create_dataset_folder(self) -> bool:
+        try:
+            self.datasets_dir_path.joinpath(self.dataset_name).mkdir()
+        except Exception as e:
+            print(e)
+            return False
+
+        return True
+    
+    def save_dataset(self) -> None:
+
+        if not self._exists_dataset():
+            
+            if self._create_dataset_folder():
+                for file_name, data in self.dataset.items():
+                    target_path = self.datasets_dir_path.joinpath(self.dataset_name, file_name + '.csv')
+                    try:
+                        np.savetxt(target_path, data, delimiter=',')
+                    except Exception as e:
+                        print(e)
+                        return None
+
+        print(f'Dataset {self.dataset_name} successfully created at {self.datasets_dir_path}.')
+        return None

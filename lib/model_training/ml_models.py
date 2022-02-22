@@ -314,7 +314,7 @@ class ModelsBuild:
         kernel = trial.suggest_categorical("kernel", [1, 3, 5])
 
         if 'novo' in self.dataset_name:
-            INPUT_SHAPE_CNN_RNN = self.dataset.X_train.shape[1]
+            INPUT_SHAPE_CNN_RNN = self.dataset.dataset['X_train'].shape[1]
         else:
             INPUT_SHAPE_CNN_RNN = 156
 
@@ -415,8 +415,8 @@ class ModelsBuild:
                 x = self.reshape(x)
                 return x + positions
 
-        n_channels = self.dataset.X_train.shape[1]
-        n_timesteps = self.dataset.X_train.shape[2]
+        n_channels = self.dataset.dataset['X_train'].shape[1]
+        n_timesteps = self.dataset.dataset['X_train'].shape[2]
         n_transformer_layers = trial.suggest_int('transformer_layers', 1, 8)
         maxlen = 96 # Only consider 3 input time points
         embed_dim = trial.suggest_categorical('embed_dim', [2**n for n in range(3, 5)])  # 16  # Embedding size for each token
@@ -444,9 +444,9 @@ class ModelsBuild:
         return model
 
     def objective_vitransformer(self, trial):
-        n_channels = self.dataset.X_train.shape[1]
-        n_timesteps = self.dataset.X_train.shape[2]
-        n_samples = self.dataset.X_train.shape[0]
+        n_channels = self.dataset.dataset['X_train'].shape[1]
+        n_timesteps = self.dataset.dataset['X_train'].shape[2]
+        n_samples = self.dataset.dataset['X_train'].shape[0]
         input_shape = (n_channels, n_timesteps, 1)
         patch_size = trial.suggest_int('patch_size', 1, 3)  # 2  # OPTUNA 1, 2, 3
         image_size = 6
@@ -594,31 +594,31 @@ class ModelsBuild:
 
     def metrics_report(self, model, get_confusion_matrix=None):
         if self.label == 'rf' or self.label == 'svm' or self.label == 'mlp':
-            X_test = self.dataset.X_test.reshape((self.dataset.X_test.shape[0],
-                                          self.dataset.X_test.shape[1] * self.dataset.X_test.shape[2]))
+            X_test = self.dataset.dataset['X_test'].reshape((self.dataset.dataset['X_test'].shape[0],
+                                          self.dataset.dataset['X_test'].shape[1] * self.dataset.dataset['X_test'].shape[2]))
         else:
-            X_test = self.dataset.X_test
+            X_test = self.dataset.dataset['X_test']
 
         if self.label == 'rf' or self.label == 'svm':
             y_pred = np.argmax(model.predict(X_test).reshape(X_test.shape[0], 1), axis=1)
         else:
             y_pred = np.argmax(model(X_test), axis=1)
 
-        # return recall_score(y_true=self.dataset.y_test, y_pred=y_pred, average='macro')
+        # return recall_score(y_true=self.dataset.dataset['y_test'], y_pred=y_pred, average='macro')
         # TODO: this problem occurs due to the lack of class jammed. I'll gather more data and remove this
         # try:
         if get_confusion_matrix is None:
-            return classification_report(y_true=self.dataset.y_test, y_pred=y_pred,
+            return classification_report(y_true=self.dataset.dataset['y_test'], y_pred=y_pred,
                                          output_dict=True, target_names=['mounted', 'jammed', 'not mounted'],
                                          zero_division=0)
             # except ValueError:
         else:
-            return classification_report(y_true=self.dataset.y_test, y_pred=y_pred,
+            return classification_report(y_true=self.dataset.dataset['y_test'], y_pred=y_pred,
                                      output_dict=True, target_names=['mounted', 'jammed', 'not mounted'],
-                                     zero_division=0), confusion_matrix(self.dataset.y_test, y_pred)
+                                     zero_division=0), confusion_matrix(self.dataset.dataset['y_test'], y_pred)
         # except ValueError:
         # except ValueError:
-        #     return classification_report(y_true=self.dataset.y_test, y_pred=y_pred,
+        #     return classification_report(y_true=self.dataset.dataset['y_test'], y_pred=y_pred,
         #                              output_dict=True, target_names=['mounted', 'not mounted'], zero_division=0)  # , 'jammed'])
 
     def get_score(self, model):
@@ -665,28 +665,28 @@ class ModelsBuild:
 
     def _reshape_X_for_train(self, label):
         if label == 'rf' or label == 'svm' or label == 'mlp':
-            X_train = self.dataset.X_train.reshape((self.dataset.X_train.shape[0],
-                                                    self.dataset.X_train.shape[1]*self.dataset.X_train.shape[2]))
-            y_train = self.dataset.y_train.reshape((self.dataset.y_train.shape[0],
-                                                    self.dataset.y_train.shape[1]*self.dataset.y_train.shape[2]))
+            X_train = self.dataset.dataset['X_train'].reshape((self.dataset.dataset['X_train'].shape[0],
+                                                    self.dataset.dataset['X_train'].shape[1]*self.dataset.dataset['X_train'].shape[2]))
+            y_train = self.dataset.dataset['y_train'].reshape((self.dataset.dataset['y_train'].shape[0],
+                                                    self.dataset.dataset['y_train'].shape[1]*self.dataset.dataset['y_train'].shape[2]))
         else:
-            X_train = self.dataset.X_train
-            y_train = self.dataset.y_train
+            X_train = self.dataset.dataset['X_train']
+            y_train = self.dataset.dataset['y_train']
         return X_train, y_train
 
 
     def _model_train(self, trial, label):
         X_train, y_train = self._reshape_X_for_train(label)
 
-        n_channels = self.dataset.X_train.shape[1] if 'transf' in label else self.dataset.X_train.shape[2]
-        n_timesteps = self.dataset.X_train.shape[2] if 'transf' in label else self.dataset.X_train.shape[1]
+        n_channels = self.dataset.dataset['X_train'].shape[1] if 'transf' in label else self.dataset.dataset['X_train'].shape[2]
+        n_timesteps = self.dataset.dataset['X_train'].shape[2] if 'transf' in label else self.dataset.dataset['X_train'].shape[1]
 
         train, val, train_labels, val_labels = train_test_split(X_train, y_train, test_size=0.10, random_state=42)
 
         model = self.get_model(trial, label)
         model = self._model_fit(train, train_labels, val, val_labels, model)
-        y_pred = model.predict(self.dataset.X_test)
-        y_true = self.dataset.y_test
+        y_pred = model.predict(self.dataset.dataset['X_test'])
+        y_true = self.dataset.dataset['y_test'].reshape(-1, len(self.outputs)*self.window)
         score = mse(y_true, y_pred)  # TODO: qual metrica?
         del model
 
@@ -694,20 +694,31 @@ class ModelsBuild:
         return score
 
     def _model_fit(self, X_train, y_train, X_val, y_val, model):
+        cb_early_stopping =tf.keras.callbacks.EarlyStopping(
+            monitor=self.metrics,
+            min_delta=0.01,
+            patience=5,
+            verbose=0,
+            mode="auto",
+            baseline=None,
+            restore_best_weights=False,
+        )
+        
         model.fit(
             X_train, y_train.reshape(-1, len(self.outputs)*self.window),
             validation_data=(X_val, y_val.reshape(-1, len(self.outputs)*self.window)),
             shuffle=False,
             batch_size=BATCH_SIZE,
             epochs=EPOCHS,
-            verbose=True)
+            verbose=True,
+            callbacks=[cb_early_stopping])
         return model
 
     def _model_train_no_validation(self, trial, label):
         X_train, y_train = self._reshape_X_for_train(label)
 
-        n_channels = self.dataset.X_train.shape[1] if 'transf' in label else self.dataset.X_train.shape[2]
-        n_timesteps = self.dataset.X_train.shape[2] if 'transf' in label else self.dataset.X_train.shape[1]
+        n_channels = self.dataset.dataset['X_train'].shape[1] if 'transf' in label else self.dataset.dataset['X_train'].shape[2]
+        n_timesteps = self.dataset.dataset['X_train'].shape[2] if 'transf' in label else self.dataset.dataset['X_train'].shape[1]
 
         model = load_model_from_trial(label, trial.params, n_channels, n_timesteps)
         model.fit(X_train, y_train, epochs=100)
@@ -722,3 +733,5 @@ class ModelsBuild:
 
 if __name__ == '__main__':
     print("uhul")
+
+# %%
