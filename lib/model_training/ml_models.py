@@ -1,37 +1,25 @@
 import tensorflow as tf
-from sklearn.svm import SVC
-from sklearn.ensemble import RandomForestClassifier as RF
+from sklearn.svm import SVR
+from sklearn.ensemble import RandomForestRegressor as RFR
 import os
 from joblib import dump
-from sklearn.metrics import f1_score, precision_score, recall_score, classification_report, confusion_matrix, r2_score
+from sklearn.metrics import classification_report, confusion_matrix, r2_score
 from  sklearn.metrics import mean_squared_error as mse
-from sklearn.model_selection import StratifiedShuffleSplit
 from lib.model_training.ml_load_models import load_model_from_trial
 from sklearn.model_selection import train_test_split
 import numpy as np
-# from src.ml_dataset_manipulation import DatasetManip
 from shutil import move
 import gc
 import pickle
 from time import time
 
-BATCH_SIZE = 256
-BATCHSIZE_RECURRENT = int(BATCH_SIZE / 4)
 EPOCHS = 100
-INPUT_SHAPE = 156
-OUTPUT_SHAPE = INPUT_SHAPE
-INPUT_SHAPE_CNN_RNN = None
-FEATURES = 6
 MAX_DROPOUT = 0.5
-N_SPLITS = 10
-TEST_SPLIT_SIZE = 0.2
-
 
 class ModelsBuild:
-    def __init__(self, label='mlp', dataset_name='original', metrics='recall', 
-                 dataset=None, is_regression=False, inputs=None, outputs=None,
-                 window=64):
-        self.label = label
+    def __init__(self, model_name='mlp', dataset_name='original', metrics='mse', 
+                 dataset=None, inputs=None, outputs=None, loss_func='mse', batch_size=256):
+        self.model_name = model_name
         self.dataset_name = dataset_name
         self.metrics = metrics
         self.dataset = dataset
@@ -39,11 +27,15 @@ class ModelsBuild:
         self.path_to_temp_trained_models = 'output/models_trained/temp/'
         self.path_to_best_trained_models = 'output/models_trained/best/'
         self.objective_iterator = 0
-        self.is_regression = is_regression
         self.inputs = inputs
         self.outputs = outputs
-        self.window = window
+        self.loss_func = loss_func
+        self.window = self.dataset.dataset['X_train'].shape[2]
+        self.OUTPUT_SHAPE = self.window*len(outputs)
+        self.INPUT_SHAPE = (len(self.inputs), self.window)
+        self.BATCH_SIZE = batch_size
 
+        # # if you are having problems with memory allocation with tensorflow, uncomment below
         # gpus = tf.config.experimental.list_physical_devices('GPU')
         # if gpus:
         # # Restrict TensorFlow to only allocate 4GB of memory on the first GPU
@@ -69,44 +61,45 @@ class ModelsBuild:
         if not os.path.isdir(self.path_to_models_meta_data):
             os.mkdir(self.path_to_models_meta_data)
 
-    def objective(self, trial, label=None, experiment=None):
+    def objective(self, trial, model_name=None):
+        self.model_name = model_name
         tf.keras.backend.reset_uids()
         tf.keras.backend.clear_session()
-        print("Training ", self.label, " in dataset ", self.dataset_name)
-        # model = self.get_model(trial, self.label)
-        score_mean = self._model_train(trial, self.label)
+        print("Training ", self.model_name, " in dataset ", self.dataset_name)
+        score_mean = self._model_train(trial)
         # self._save_model(trial, model)
         return score_mean
 
-    def get_model(self, trial, label):
-        if label == 'lstm':
+    def get_model(self, trial):
+        if self.model_name == 'lstm':
             model = self.objective_lstm(trial)
-        if label == 'bidirec_lstm':
+        if self.model_name == 'bidirec_lstm':
             model = self.objective_bidirectional_lstm(trial)
-        if label == 'gru':
+        if self.model_name == 'gru':
             model = self.objective_gru(trial)
-        if label == 'mlp':
+        if self.model_name == 'mlp':
             model = self.objective_mlp(trial)
-        if label == 'svm':
-            model = self.objective_svm(trial)
-        if label == 'cnn':
+        if self.model_name == 'svr':
+            model = self.objective_svr(trial)
+        if self.model_name == 'cnn':
             model = self.objective_cnn(trial)
-        if label == 'wavenet':
+        if self.model_name == 'wavenet':
             model = self.objective_wavenet(trial)
-        if label == 'rf':
+        if self.model_name == 'rf':
             model = self.objective_rf(trial)
-        if label == 'transf':
+        if self.model_name == 'transf':
             model = self.objective_transformer(trial)
-        if label == 'vitransf':
+        if self.model_name == 'vitransf':
             model = self.objective_vitransformer(trial)
-        model = self.add_optimizer(model, trial, loss_func='mse', metrics=[self.metrics])
+        if self.model_name != 'svr' and self.model_name != 'rf':
+            model = self.add_optimizer(model, trial)
         return model
 
     def objective_lstm(self, trial):
         model = tf.keras.models.Sequential()
         # input layer
         n_hidden = trial.suggest_int('n_hidden', 0, 5)
-        model.add(tf.keras.layers.Masking(mask_value=0, input_shape=(INPUT_SHAPE_CNN_RNN, FEATURES)))
+        model.add(tf.keras.layers.Masking(mask_value=0, input_shape=self.INPUT_SHAPE))
         if n_hidden == 0:
             model.add(tf.keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 9),
                                         return_sequences=False,
@@ -131,10 +124,7 @@ class ModelsBuild:
 
         # TODO: change optimizer and add batchNorm in layers. It is taking too long to train
         # output layer
-        model.add(tf.keras.layers.Dense(OUTPUT_SHAPE, activation='softmax'))
-        # optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
-        # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
-        model = self.add_optimizer(model, trial)
+        model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation='linear'))
 
         return model
 
@@ -142,7 +132,7 @@ class ModelsBuild:
         model = tf.keras.models.Sequential()
         # input layer
         n_hidden = trial.suggest_int('n_hidden', 0, 5)
-        model.add(tf.keras.layers.Masking(mask_value=0, input_shape=(INPUT_SHAPE_CNN_RNN, FEATURES)))
+        model.add(tf.keras.layers.Masking(mask_value=0, input_shape=self.INPUT_SHAPE))
         if n_hidden == 0:
             model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 9),
                                                     return_sequences=False,
@@ -173,17 +163,14 @@ class ModelsBuild:
 
         # TODO: change optimizer and add batchNorm in layers
         # output layer
-        model.add(tf.keras.layers.Dense(OUTPUT_SHAPE, activation='softmax'))
-        # optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
-        # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
-        model = self.add_optimizer(model, trial)
+        model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation='linear'))
 
         return model
 
     def objective_gru(self, trial):
         model = tf.keras.models.Sequential()
         n_hidden = trial.suggest_int('n_hidden', 0, 5)
-        model.add(tf.keras.layers.Masking(mask_value=0, input_shape=(INPUT_SHAPE_CNN_RNN, FEATURES)))
+        model.add(tf.keras.layers.Masking(mask_value=0, input_shape=self.INPUT_SHAPE))
         # input layer
         if n_hidden == 0:
             model.add(tf.keras.layers.GRU(units=trial.suggest_int('n_input', 1, 9),
@@ -211,16 +198,13 @@ class ModelsBuild:
 
         # TODO: change optimizer and add batchNorm in layers
         # output layer
-        model.add(tf.keras.layers.Dense(OUTPUT_SHAPE, activation='softmax'))
-        # optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
-        # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
-        model = self.add_optimizer(model, trial)
+        model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation='linear'))
 
         return model
 
     def objective_mlp(self, trial):
         model = tf.keras.models.Sequential()
-        model.add(tf.keras.layers.InputLayer(input_shape=[len(self.inputs), self.window]))
+        model.add(tf.keras.layers.InputLayer(input_shape=[len(self.inputs) * self.window]))
 
         n_hidden = trial.suggest_int('n_hidden', 1, 10)
         for layer in range(n_hidden):
@@ -228,21 +212,18 @@ class ModelsBuild:
             model.add(tf.keras.layers.Dense(n_neurons, activation='relu', name='dense_'+str(time())))
             model.add(tf.keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer), 0, MAX_DROPOUT), name='dropout_'+str(time())))
 
-        model.add(tf.keras.layers.Dense(len(self.outputs)*self.window, activation="linear", name='dense_'+str(time())))
-        # optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
-        # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
-        # model = self.add_optimizer(model, trial)
+        model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation="linear", name='dense_'+str(time())))
+
         return model
 
-    def objective_svm(self, trial):
-        model = SVC(C=trial.suggest_loguniform('svc_c', 1e-10, 1e10),
-                    kernel=trial.suggest_categorical("kernel", ["rbf", "sigmoid"]),
-                    probability=True, gamma='auto',
-                    class_weight=trial.suggest_categorical("class_weight", ['balanced', None]))
+    def objective_svr(self, trial):
+        model = SVR(C=trial.suggest_loguniform('svc_c', 1e-5, 1e5),
+                    kernel=trial.suggest_categorical("kernel", ["rbf", "linear", "sigmoid", "poly"]),
+                    gamma='auto')
         return model
 
     def objective_rf(self, trial):
-        model = RF(n_estimators=int(trial.suggest_int('rf_n_estimators', 1, 100+1)),
+        model = RFR(n_estimators=int(trial.suggest_int('rf_n_estimators', 1, 100+1)),
                    max_depth=int(trial.suggest_int('rf_max_depth', 2, 32+1)),
                    max_leaf_nodes=trial.suggest_int('rf_max_leaf', 2, 40+1),
                    min_samples_split=trial.suggest_int('rf_min_samples_split', 2, 10+1))
@@ -252,8 +233,7 @@ class ModelsBuild:
         model = tf.keras.models.Sequential()
 
         n_layers_cnn = trial.suggest_int('n_hidden_cnn', 1, 8)
-        model.add(tf.keras.layers.Masking(mask_value=0, input_shape=(len(self.inputs), self.window), name='mask_' + str(time())))
-        # model.add(tf.keras.layers.InputLayer(input_shape=[INPUT_SHAPE_CNN_RNN, FEATURES]))
+        model.add(tf.keras.layers.Masking(mask_value=0, input_shape=self.INPUT_SHAPE, name='mask_' + str(time())))
 
         for layer in range(n_layers_cnn):
             model.add(tf.keras.layers.Conv1D(filters=trial.suggest_categorical("filters_"+str(layer), [32, 64]),
@@ -274,12 +254,7 @@ class ModelsBuild:
             model.add(tf.keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer), 0, MAX_DROPOUT), name='dropout_' + str(time())))
             # model.add(tf.keras.regularizers.l2(l2=trial.suggest_uniform('regularizer_' + str(layer), 1e-3, 1e-1)))
 
-        model.add(tf.keras.layers.Dense(units=len(self.outputs)*self.window, activation='linear', name='dense_'+str(time())))
-
-        # optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
-        # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
-        # model = self.add_optimizer(model, trial, loss_func='mse', metrics=['mse'])
-
+        model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation='linear', name='dense_'+str(time())))
         return model
 
     def objective_wavenet(self, trial):
@@ -313,12 +288,7 @@ class ModelsBuild:
         n_outputs_conv = trial.suggest_categorical("n_outputs", [32, 64, 128])  # 256 in the paper
         kernel = trial.suggest_categorical("kernel", [1, 3, 5])
 
-        if 'novo' in self.dataset_name:
-            INPUT_SHAPE_CNN_RNN = self.dataset.dataset['X_train'].shape[1]
-        else:
-            INPUT_SHAPE_CNN_RNN = 156
-
-        inputs = tf.keras.layers.Input(shape=[INPUT_SHAPE_CNN_RNN, FEATURES])
+        inputs = tf.keras.layers.Input(shape=self.INPUT_SHAPE)
         # inputs_ = tf.keras.layers.Masking(mask_value=0)
         z = tf.keras.layers.Conv1D(n_filters, kernel_size=2, padding="causal", name='conv1d_'+str(time()))(inputs)
         skip_to_last = []
@@ -334,29 +304,9 @@ class ModelsBuild:
         for layer in range(n_layers_dense):
             z = tf.keras.layers.Dense(trial.suggest_int('n_neurons_dense' + str(layer), 1, 2048),
                                             activation='relu', name='dense_'+str(time()))(z)
-        Y_outputs = tf.keras.layers.Dense(units=OUTPUT_SHAPE, activation='softmax', name='dense_'+str(time()))(z)
+        Y_outputs = tf.keras.layers.Dense(units=self.OUTPUT_SHAPE, activation='linear', name='dense_'+str(time()))(z)
 
         model = tf.keras.models.Model(inputs=[inputs], outputs=[Y_outputs])
-
-        # Vanilla Wavenet
-        # model = tf.keras.models.Sequential()
-        # model.add(tf.keras.layers.InputLayer(input_shape=[INPUT_SHAPE, FEATURES]))
-        # for layer, rate in enumerate((1, 2, 4, 8) * 2):
-        #     model.add(tf.keras.layers.Conv1D(filters=trial.suggest_categorical("filters_"+str(layer), [32, 64]),
-        #                                      kernel_size=trial.suggest_categorical("kernel_"+str(layer), [1, 3, 5]),
-        #                                      padding="causal", activation="relu", dilation_rate=rate))
-        # # model.add(tf.keras.layers.Conv1D(filters=10, kernel_size=1))
-        # model.add(tf.keras.layers.Flatten())
-        # n_layers_dense = trial.suggest_int('n_hidden', 1, 4)
-        # for layer in range(n_layers_dense):
-        #     model.add(tf.keras.layers.Dense(trial.suggest_int('n_neurons_dense' + str(layer), 1, 129),
-        #                                     activation='relu'))
-        # model.add(tf.keras.layers.Dense(units=OUTPUT_SHAPE, activation='softmax'))
-
-        # optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
-        # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
-        model = self.add_optimizer(model, trial)
-
         return model
 
     def objective_transformer(self, trial):
@@ -433,20 +383,15 @@ class ModelsBuild:
         x = tf.keras.layers.Dropout(0.5, name='drop1_end_' + str(time()))(x)
         x = tf.keras.layers.Dense(64, activation="relu")(x)
         x = tf.keras.layers.Dropout(0.5, name='drop2_end_' + str(time()))(x)
-        outputs = tf.keras.layers.Dense(3, activation="softmax")(x)
+        outputs = tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation="linear")(x)
 
         model = tf.keras.Model(inputs=inputs, outputs=outputs)
-
-        # optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
-        # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
-        model = self.add_optimizer(model, trial)
 
         return model
 
     def objective_vitransformer(self, trial):
         n_channels = self.dataset.dataset['X_train'].shape[1]
         n_timesteps = self.dataset.dataset['X_train'].shape[2]
-        n_samples = self.dataset.dataset['X_train'].shape[0]
         input_shape = (n_channels, n_timesteps, 1)
         patch_size = trial.suggest_int('patch_size', 1, 3)  # 2  # OPTUNA 1, 2, 3
         image_size = 6
@@ -579,27 +524,24 @@ class ModelsBuild:
         # Add MLP.
         features = mlp(representation, n_hidden=mlp_units_final_layer)
         # Classify outputs.
-        logits = tf.keras.layers.Dense(3, activation="softmax", name='dense_' + str(time()))(features)  # TODO: change output
+        logits = tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation="linear", name='dense_' + str(time()))(features)  # TODO: change output
         # Create the Keras model.
         model = tf.keras.Model(inputs=inputs, outputs=logits)
-        # optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
-        # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
-        model = self.add_optimizer(model, trial, loss_func='mse', metrics=['mse'])
         return model
 
-    def add_optimizer(self, model, trial, loss_func='sparse_categorical_crossentropy', metrics=['accuracy']):
+    def add_optimizer(self, model, trial):
         optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
-        model.compile(loss=loss_func, optimizer=optimizer, metrics=metrics)
+        model.compile(loss=self.loss_func, optimizer=optimizer, metrics=[self.metrics])
         return model
 
     def metrics_report(self, model, get_confusion_matrix=None):
-        if self.label == 'rf' or self.label == 'svm' or self.label == 'mlp':
+        if self.model_name == 'rf' or self.model_name == 'svm' or self.model_name == 'mlp':
             X_test = self.dataset.dataset['X_test'].reshape((self.dataset.dataset['X_test'].shape[0],
                                           self.dataset.dataset['X_test'].shape[1] * self.dataset.dataset['X_test'].shape[2]))
         else:
             X_test = self.dataset.dataset['X_test']
 
-        if self.label == 'rf' or self.label == 'svm':
+        if self.model_name == 'rf' or self.model_name == 'svm':
             y_pred = np.argmax(model.predict(X_test).reshape(X_test.shape[0], 1), axis=1)
         else:
             y_pred = np.argmax(model(X_test), axis=1)
@@ -616,10 +558,6 @@ class ModelsBuild:
             return classification_report(y_true=self.dataset.dataset['y_test'], y_pred=y_pred,
                                      output_dict=True, target_names=['mounted', 'jammed', 'not mounted'],
                                      zero_division=0), confusion_matrix(self.dataset.dataset['y_test'], y_pred)
-        # except ValueError:
-        # except ValueError:
-        #     return classification_report(y_true=self.dataset.dataset['y_test'], y_pred=y_pred,
-        #                              output_dict=True, target_names=['mounted', 'not mounted'], zero_division=0)  # , 'jammed'])
 
     def get_score(self, model):
         report = self.metrics_report(model)
@@ -630,31 +568,32 @@ class ModelsBuild:
         if self.metrics == 'multi_mounted':
             return report['mounted']['recall'], report['mounted']['precision']
 
-    def save_best_model(self, study, dataset=None, label=None):
-        # 1 get paths
+    def save_best_model(self, study, dataset=None):
+        '''TODO: DEPRECATED'''
+        # 1- get paths
         # temp_files = os.listdir(self.path_to_temp_trained_models)
-        old_path = self.path_to_temp_trained_models + str(study.best_trial.number) + '_temp_' + label + '_' + dataset
-        new_path = self.path_to_best_trained_models + 'best_' + label + '_' + dataset
+        old_path = self.path_to_temp_trained_models + str(study.best_trial.number) + '_temp_' + self.model_name + '_' + dataset
+        new_path = self.path_to_best_trained_models + 'best_' + self.model_name + '_' + dataset
 
-        if label == 'svm' or label == 'rf':
+        if self.model_name == 'svm' or self.model_name == 'rf':
             old_path += '.joblib'
             new_path += '.joblib'
         else:
             old_path += '.h5'
             new_path += '.h5'
 
-        # 2 move it to the "best" folder
+        # 2- move it to the "best" folder
         move(old_path, new_path)
 
-        # 3 delete all files from "temp" folder
+        # 3- delete all files from "temp" folder
         folder_list = os.listdir(self.path_to_temp_trained_models)
         for file in folder_list:
             os.remove(self.path_to_temp_trained_models + file)
 
     def _save_model(self, trial, model):
         model_path = self.path_to_temp_trained_models + \
-                     str(trial.number) + '_temp_' + self.label + '_' + self.dataset_name
-        if self.label == 'svm' or self.label == 'rf':
+                     str(trial.number) + '_temp_' + self.model_name + '_' + self.dataset_name
+        if self.model_name == 'svm' or self.model_name == 'rf':
             # sklearn
             model_path += '.joblib'
             dump(model, model_path)
@@ -663,31 +602,33 @@ class ModelsBuild:
             model_path += '.h5'
             tf.keras.models.save_model(model, model_path)
 
-    def _reshape_X_for_train(self, label):
-        if label == 'rf' or label == 'svm' or label == 'mlp':
+    def _reshape_X_for_train(self):
+        if self.model_name == 'rf' or self.model_name == 'svm' or self.model_name == 'mlp':
             X_train = self.dataset.dataset['X_train'].reshape((self.dataset.dataset['X_train'].shape[0],
                                                     self.dataset.dataset['X_train'].shape[1]*self.dataset.dataset['X_train'].shape[2]))
             y_train = self.dataset.dataset['y_train'].reshape((self.dataset.dataset['y_train'].shape[0],
                                                     self.dataset.dataset['y_train'].shape[1]*self.dataset.dataset['y_train'].shape[2]))
+            X_test = self.dataset.dataset['X_test'].reshape((self.dataset.dataset['X_test'].shape[0],
+                                                    self.dataset.dataset['X_test'].shape[1]*self.dataset.dataset['X_test'].shape[2]))
+            y_test = self.dataset.dataset['y_test'].reshape((self.dataset.dataset['y_test'].shape[0],
+                                                    self.dataset.dataset['y_test'].shape[1]*self.dataset.dataset['y_test'].shape[2]))
         else:
             X_train = self.dataset.dataset['X_train']
             y_train = self.dataset.dataset['y_train']
-        return X_train, y_train
+            X_test = self.dataset.dataset['X_test']
+            y_test = self.dataset.dataset['y_test']
+        return X_train, y_train, X_test, y_test
 
 
-    def _model_train(self, trial, label):
-        X_train, y_train = self._reshape_X_for_train(label)
-
-        n_channels = self.dataset.dataset['X_train'].shape[1] if 'transf' in label else self.dataset.dataset['X_train'].shape[2]
-        n_timesteps = self.dataset.dataset['X_train'].shape[2] if 'transf' in label else self.dataset.dataset['X_train'].shape[1]
+    def _model_train(self, trial):
+        X_train, y_train, X_test, y_test = self._reshape_X_for_train()
 
         train, val, train_labels, val_labels = train_test_split(X_train, y_train, test_size=0.10, random_state=42)
 
-        model = self.get_model(trial, label)
+        model = self.get_model(trial)
         model = self._model_fit(train, train_labels, val, val_labels, model)
-        y_pred = model.predict(self.dataset.dataset['X_test'])
-        y_true = self.dataset.dataset['y_test'].reshape(-1, len(self.outputs)*self.window)
-        score = mse(y_true, y_pred)  # TODO: qual metrica?
+        y_pred = model.predict(X_test)
+        score = mse(y_test, y_pred)  # TODO: qual metrica?
         del model
 
         trial.set_user_attr('reports', score)
@@ -707,20 +648,19 @@ class ModelsBuild:
         model.fit(
             X_train, y_train.reshape(-1, len(self.outputs)*self.window),
             validation_data=(X_val, y_val.reshape(-1, len(self.outputs)*self.window)),
-            shuffle=False,
-            batch_size=BATCH_SIZE,
+            batch_size=self.BATCH_SIZE,
             epochs=EPOCHS,
             verbose=True,
             callbacks=[cb_early_stopping])
         return model
 
-    def _model_train_no_validation(self, trial, label):
-        X_train, y_train = self._reshape_X_for_train(label)
+    def _model_train_no_validation(self, trial):
+        X_train, y_train = self._reshape_X_for_train()
 
-        n_channels = self.dataset.dataset['X_train'].shape[1] if 'transf' in label else self.dataset.dataset['X_train'].shape[2]
-        n_timesteps = self.dataset.dataset['X_train'].shape[2] if 'transf' in label else self.dataset.dataset['X_train'].shape[1]
+        n_channels = self.dataset.dataset['X_train'].shape[1] if 'transf' in self.model_name else self.dataset.dataset['X_train'].shape[2]
+        n_timesteps = self.dataset.dataset['X_train'].shape[2] if 'transf' in self.model_name else self.dataset.dataset['X_train'].shape[1]
 
-        model = load_model_from_trial(label, trial.params, n_channels, n_timesteps)
+        model = load_model_from_trial(self.model_name, trial.params, n_channels, n_timesteps)
         model.fit(X_train, y_train, epochs=100)
         report, conf_matrix = self.metrics_report(model, get_confusion_matrix=True)
         return report, conf_matrix
