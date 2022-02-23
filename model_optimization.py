@@ -26,8 +26,7 @@ for model_name in models_names:
     optuna_checkpoint = OptunaCheckpointing(model_name=model_name, experiment_name=experiment_name)
     
     dataset = DatasetCreator(raw_data_path=RAW_DATA_PATH, datasets_path=DATASETS_PATH, dataset_name=DATASET_NAME, 
-                            is_regression=True, window=WINDOW_SIZE, stride=STRIDE,
-                            inputs=INPUTS, outputs=OUTPUTS, parameters=PARAMETERS)
+                            window=WINDOW_SIZE, stride=STRIDE, inputs=INPUTS, outputs=OUTPUTS, parameters=PARAMETERS)
 
     dataset.load_data(ml_model_type=model_name)
     dataset.save_dataset()
