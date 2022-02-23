@@ -4,8 +4,8 @@ from utils.optuna_utils import OptunaCheckpointing
 
 # THE USER SHOULD MODIFY THESE ONES
 # models_names = ['svr', 'rf', 'mlp', 'cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
-models_names = ['cnn']
-experiment_name = 'regression'
+models_names = ['lstm']
+experiment_name = 'regression_lstm'
 
 N_TRIALS = 100
 TIMEOUT = None
@@ -33,7 +33,8 @@ for model_name in models_names:
     dataset.save_dataset()
     
     models_build = ModelsBuild(model_name, metrics=METRICS, dataset=dataset, 
-                               inputs=INPUTS, outputs=OUTPUTS, batch_size=BATCH_SIZE)
+                               inputs=INPUTS, outputs=OUTPUTS, batch_size=BATCH_SIZE,
+                               experiment_name=experiment_name)
 
     study, n_trials_to_go = optuna_checkpoint.load_study(metrics=METRICS, n_trials=N_TRIALS,
                                                         metrics_direction=METRICS_DIRECTION)

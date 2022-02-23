@@ -18,7 +18,8 @@ MAX_DROPOUT = 0.5
 
 class ModelsBuild:
     def __init__(self, model_name='mlp', dataset_name='original', metrics='mse', 
-                 dataset=None, inputs=None, outputs=None, loss_func='mse', batch_size=256):
+                 dataset=None, inputs=None, outputs=None, loss_func='mse', batch_size=256,
+                 experiment_name=None):
         self.model_name = model_name
         self.dataset_name = dataset_name
         self.metrics = metrics
@@ -30,6 +31,8 @@ class ModelsBuild:
         self.OUTPUT_SHAPE = self.window*len(outputs)
         self.INPUT_SHAPE = (len(self.inputs), self.window)
         self.BATCH_SIZE = batch_size
+        self.is_discriminator = False
+        self.experiment_name = experiment_name
 
         # # if you are having problems with memory allocation with tensorflow, uncomment below
         # gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -60,28 +63,30 @@ class ModelsBuild:
         # self._save_model(trial, model)
         return score_mean
 
-    def get_model(self, trial):
-        if self.model_name == 'lstm':
+    def get_model(self, trial, model_name):
+        if model_name == 'lstm':
             model = self.objective_lstm(trial)
-        if self.model_name == 'bidirec_lstm':
+        if model_name == 'bidirec_lstm':
             model = self.objective_bidirectional_lstm(trial)
-        if self.model_name == 'gru':
+        if model_name == 'gru':
             model = self.objective_gru(trial)
-        if self.model_name == 'mlp':
+        if model_name == 'mlp':
             model = self.objective_mlp(trial)
-        if self.model_name == 'svr':
+        if model_name == 'svr':
             model = self.objective_svr(trial)
-        if self.model_name == 'cnn':
+        if model_name == 'cnn':
             model = self.objective_cnn(trial)
-        if self.model_name == 'wavenet':
+        if model_name == 'wavenet':
             model = self.objective_wavenet(trial)
-        if self.model_name == 'rf':
+        if model_name == 'rf':
             model = self.objective_rf(trial)
-        if self.model_name == 'transf':
+        if model_name == 'transf':
             model = self.objective_transformer(trial)
-        if self.model_name == 'vitransf':
+        if model_name == 'vitransf':
             model = self.objective_vitransformer(trial)
-        if self.model_name != 'svr' and self.model_name != 'rf':
+        if model_name == 'gan':
+            model = self.objective_gan(trial)
+        if model_name != 'svr' and self.model_name != 'rf' and self.model_name != 'gan':
             model = self.add_optimizer(model, trial)
         return model
 
@@ -89,6 +94,7 @@ class ModelsBuild:
         model = tf.keras.models.Sequential()
         # input layer
         n_hidden = trial.suggest_int('n_hidden', 0, 5)
+        
         model.add(tf.keras.layers.Masking(mask_value=0, input_shape=self.INPUT_SHAPE))
         if n_hidden == 0:
             model.add(tf.keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 9),
@@ -114,7 +120,10 @@ class ModelsBuild:
 
         # TODO: change optimizer and add batchNorm in layers. It is taking too long to train
         # output layer
-        model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation='linear'))
+        if self.is_discriminator:
+            model.add(tf.keras.layers.Dense(1, activation='sigmoid', name='dense_'+str(time())))
+        else:
+            model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation='linear'))
 
         return model
 
@@ -153,7 +162,10 @@ class ModelsBuild:
 
         # TODO: change optimizer and add batchNorm in layers
         # output layer
-        model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation='linear'))
+        if self.is_discriminator:
+            model.add(tf.keras.layers.Dense(1, activation='sigmoid', name='dense_'+str(time())))
+        else:
+            model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation='linear'))
 
         return model
 
@@ -188,7 +200,10 @@ class ModelsBuild:
 
         # TODO: change optimizer and add batchNorm in layers
         # output layer
-        model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation='linear'))
+        if self.is_discriminator:
+            model.add(tf.keras.layers.Dense(1, activation='sigmoid', name='dense_'+str(time())))
+        else:
+            model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation='linear'))
 
         return model
 
@@ -202,7 +217,10 @@ class ModelsBuild:
             model.add(tf.keras.layers.Dense(n_neurons, activation='relu', name='dense_'+str(time())))
             model.add(tf.keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer), 0, MAX_DROPOUT), name='dropout_'+str(time())))
 
-        model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation="linear", name='dense_'+str(time())))
+        if self.is_discriminator:
+            model.add(tf.keras.layers.Dense(1, activation='sigmoid', name='dense_'+str(time())))
+        else:
+            model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation="linear", name='dense_'+str(time())))
 
         return model
 
@@ -244,7 +262,10 @@ class ModelsBuild:
             model.add(tf.keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer), 0, MAX_DROPOUT), name='dropout_' + str(time())))
             # model.add(tf.keras.regularizers.l2(l2=trial.suggest_uniform('regularizer_' + str(layer), 1e-3, 1e-1)))
 
-        model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation='linear', name='dense_'+str(time())))
+        if self.is_discriminator:
+            model.add(tf.keras.layers.Dense(1, activation='sigmoid', name='dense_'+str(time())))
+        else:
+            model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation='linear', name='dense_'+str(time())))
         return model
 
     def objective_wavenet(self, trial):
@@ -296,7 +317,10 @@ class ModelsBuild:
                                             activation='relu', name='dense_'+str(time()))(z)
         Y_outputs = tf.keras.layers.Dense(units=self.OUTPUT_SHAPE, activation='linear', name='dense_'+str(time()))(z)
 
-        model = tf.keras.models.Model(inputs=[inputs], outputs=[Y_outputs])
+        if self.is_discriminator:
+            model.add(tf.keras.layers.Dense(1, activation='sigmoid', name='dense_'+str(time())))
+        else:
+            model = tf.keras.models.Model(inputs=[inputs], outputs=[Y_outputs])
         return model
 
     def objective_transformer(self, trial):
@@ -375,7 +399,10 @@ class ModelsBuild:
         x = tf.keras.layers.Dropout(0.5, name='drop2_end_' + str(time()))(x)
         outputs = tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation="linear")(x)
 
-        model = tf.keras.Model(inputs=inputs, outputs=outputs)
+        if self.is_discriminator:
+            model.add(tf.keras.layers.Dense(1, activation='sigmoid', name='dense_'+str(time())))
+        else:
+            model = tf.keras.Model(inputs=inputs, outputs=outputs)
 
         return model
 
@@ -516,8 +543,31 @@ class ModelsBuild:
         # Classify outputs.
         logits = tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation="linear", name='dense_' + str(time()))(features)  # TODO: change output
         # Create the Keras model.
-        model = tf.keras.Model(inputs=inputs, outputs=logits)
+        if self.is_discriminator:
+            model.add(tf.keras.layers.Dense(1, activation='sigmoid', name='dense_'+str(time())))
+        else:
+            model = tf.keras.Model(inputs=inputs, outputs=logits)
         return model
+
+    def objective_gan(self, trial):
+        generator_model = trial.suggest_categorical('generator', ['cnn'])
+        self.is_discriminator = False
+        generator = self.get_model(trial, model_name=generator_model)
+
+        discriminator_model = trial.suggest_categorical('discriminator', ['cnn'])
+        self.is_discriminator = True
+        discriminator = self.get_model(trial, model_name=discriminator_model)
+
+        print("GENERATOR = ", generator_model)
+        print("DISCRIMINATOR = ", discriminator_model)
+        gan = tf.keras.models.Sequential([generator, discriminator])
+
+        optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr_disc", 1e-5, 1e-1, log=True))
+        discriminator.compile(loss="binary_crossentropy", optimizer=optimizer)
+        discriminator.trainable = False
+        optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr_gan", 1e-5, 1e-1, log=True))
+        gan.compile(loss="binary_crossentropy", optimizer=optimizer)
+        return gan
 
     def add_optimizer(self, model, trial):
         optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
@@ -561,7 +611,7 @@ class ModelsBuild:
             return report['mounted']['recall'], report['mounted']['precision']
 
     def _save_model(self, trial, model):
-        '''onde the models start training, use this function to save the current model'''
+        '''once the models start training, use this function to save the current model'''
         model_path = self.path_to_temp_trained_models + \
                      str(trial.number) + '_temp_' + self.model_name + '_' + self.dataset_name
         if self.model_name == 'svm' or self.model_name == 'rf':
@@ -589,13 +639,12 @@ class ModelsBuild:
                                                         self.dataset.dataset['y_test'].shape[1]*self.dataset.dataset['y_test'].shape[2]))
         return X_train, y_train, X_test, y_test
 
-
     def _model_train(self, trial):
         X_train, y_train, X_test, y_test = self._reshape_X_for_train()
 
         train, val, train_labels, val_labels = train_test_split(X_train, y_train, test_size=0.10, random_state=42)
 
-        model = self.get_model(trial)
+        model = self.get_model(trial, self.model_name)
         model = self._model_fit(train, train_labels, val, val_labels, model)
         y_pred = model.predict(X_test)
         score = mse(y_test, y_pred)  # TODO: qual metrica?
@@ -605,21 +654,81 @@ class ModelsBuild:
         return score
 
     def _model_fit(self, X_train, y_train, X_val, y_val, model):
-        cb_early_stopping =tf.keras.callbacks.EarlyStopping(
-            monitor=self.metrics,
-            min_delta=0.005,
-            patience=10,
-            verbose=0,
-            mode="auto",
-            baseline=None,
-            restore_best_weights=False,
-        )
-        
-        model.fit(
-            X_train, y_train.reshape(-1, len(self.outputs)*self.window),
-            validation_data=(X_val, y_val.reshape(-1, len(self.outputs)*self.window)),
-            batch_size=self.BATCH_SIZE,
-            epochs=EPOCHS,
-            verbose=0,
-            callbacks=[cb_early_stopping])
+        if self.model_name != 'gan':
+            cb_early_stopping =tf.keras.callbacks.EarlyStopping(
+                monitor=self.metrics,
+                min_delta=0.005,
+                patience=10,
+                verbose=0,
+                mode="auto",
+                baseline=None,
+                restore_best_weights=False,
+            )
+            
+            model.fit(
+                X_train, y_train.reshape(-1, len(self.outputs)*self.window),
+                validation_data=(X_val, y_val.reshape(-1, len(self.outputs)*self.window)),
+                batch_size=self.BATCH_SIZE,
+                epochs=EPOCHS,
+                verbose=0,
+                callbacks=[cb_early_stopping])
+        else:
+            model = self._gan_fit(X_train, y_train, X_val, y_val, model)
         return model
+
+    def _gan_fit(self, X_train, y_train, X_val, y_val, gan):
+        generator, discriminator = gan.layers
+        batch_size = 64
+        n_samples = X_train.shape[0]
+        n_epochs = 5000
+        for epoch in range(0, n_epochs): # TODO: add the starting number here reading from file title
+            batch_loss = []
+            # for X_batch in dataset:
+            for idx in np.arange(0, n_samples, step=batch_size):
+                start = time()
+                
+                # phase 1 - training the discriminator
+                # noise -> input vectors / noise = X_train[idx:idx+self.window]
+                print(generator.summary())
+                generated_signals = generator(X_train[idx:idx+self.window])
+                # generated_signals -> fake -> label = 0
+                # y_train -> treal -> label = 1
+                X_fake_and_real = tf.concat([generated_signals, y_train[idx:idx+self.window]], axis=0)
+                y1 = tf.constant([[0.]] * batch_size + [[1.]] * batch_size)
+                discriminator.trainable = True
+                discriminator.train_on_batch(X_fake_and_real, y1)
+
+                # phase 2 - training the generator
+                noise = tf.random.normal(shape=y_train[idx:idx+self.window].shape)
+                y2 = tf.constant([[1.]] * batch_size)
+                discriminator.trainable = False
+                h = gan.train_on_batch(noise, y2)
+                batch_loss.append(h)
+                print('batch time =', time()-start)
+            history_loss.append(np.mean(batch_loss))
+            
+            gc.collect()
+            tf.keras.backend.clear_session()
+            # del gan
+            # _, _, gan = get_models()
+            # gan_w = keras.models.load_model(file_name)
+            # gan.set_weights(gan_w.get_weights())
+            # generator, discriminator = gan.layers
+            if epoch % 50 == 0:
+                gan.save('output/'+self.experiment_name+'/gan_' + str(epoch) + 'epochs.h5')
+                idx = y_test[np.random.randint(y_test.shape[0])]
+                fake_signal = generator.predict(idx)
+                plt.plot(fake_signal.reshape(-1, y_test.shape[1]))
+                plt.plot(y_test[idx].reshape(-1, y_test.shape[1]))
+                plt.xlabel('time')
+                plt.ylabel('Torque')
+                plt.legend(['mx-fake', 'my-fake', 'mz-fake', 'mx', 'my', 'mz'])
+                plt.savefig('output/'+self.experiment_name+'/gan_' + str(epoch) + 'epochs_ft.png')
+
+                plt.plot(np.arange(0, len(history_loss)), history_loss)
+                plt.xlabel('epochs')
+                plt.ylabel('loss')
+                plt.savefig('output/'+self.experiment_name+'/loss_' + str(epoch) + 'epochs.png')
+                plt.clf()
+            print("Finished epoch", epoch)
+        return generator
