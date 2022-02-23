@@ -4,13 +4,14 @@ from utils.optuna_utils import OptunaCheckpointing
 
 # THE USER SHOULD MODIFY THESE ONES
 # models_names = ['svr', 'rf', 'mlp', 'cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
-models_names = ['mlp']
-experiment_name = 'teste_checkpoint'
+models_names = ['cnn']
+experiment_name = 'regression'
 
-N_TRIALS = 30
+N_TRIALS = 100
 TIMEOUT = None
 N_JOBS = 1  # if you have a dedicated machine, change this to -1
 METRICS = 'mse'
+METRICS_DIRECTION = 'minimize'
 PARAMETERS = ['vx', 'vy', 'vz', 'fx', 'fy', 'fz', 'mx', 'my', 'mz']
 INPUTS = ['vx', 'vy', 'vz', 'fx', 'fy', 'fz']
 OUTPUTS = ['mx', 'my', 'mz']
@@ -34,7 +35,8 @@ for model_name in models_names:
     models_build = ModelsBuild(model_name, metrics=METRICS, dataset=dataset, 
                                inputs=INPUTS, outputs=OUTPUTS, batch_size=BATCH_SIZE)
 
-    study, n_trials_to_go = optuna_checkpoint.load_study(metrics=METRICS, n_trials=N_TRIALS)
+    study, n_trials_to_go = optuna_checkpoint.load_study(metrics=METRICS, n_trials=N_TRIALS,
+                                                        metrics_direction=METRICS_DIRECTION)
 
     print("\n\n------------- Starting training experiment " + experiment_name +
             "and model " + model_name + ". " + str(n_trials_to_go) + " until the end -------------\n\n")

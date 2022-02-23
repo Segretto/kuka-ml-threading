@@ -4,9 +4,8 @@ import pickle
 from time import time
 
 class OptunaCheckpointing:
-    def __init__(self, model_name=None, dataset_name=None, experiment_name=None, n_trials_to_checkpoint=1):
+    def __init__(self, model_name=None, experiment_name=None, n_trials_to_checkpoint=1):
         self.model_name=model_name
-        self.dataset_name=dataset_name
         self.experiment_name=experiment_name
         self.experiment_folder = './output/' + self.experiment_name + '/'
         self.n_trials_to_checkpoint = n_trials_to_checkpoint
@@ -25,7 +24,7 @@ class OptunaCheckpointing:
         # Saving hyperparam
         study.trials_dataframe().iloc[study.best_trial.number].to_json(self.hyperparam_path)
 
-    def load_study(self, metrics='maximize', n_trials=100):
+    def load_study(self, metrics='mse', metrics_direction="maximize", n_trials=100):
         if os.path.isfile(self.pickle_path):
             print("Study exists: loading object.")
             with open(self.pickle_path, 'rb') as f:
@@ -37,7 +36,7 @@ class OptunaCheckpointing:
             study_name = self.experiment_name + '_' + self.model_name
             # TODO: implement the multi better (list that iterates)
             if metrics != 'multi':
-                study = optuna.create_study(study_name=study_name, direction="maximize")
+                study = optuna.create_study(study_name=study_name, direction=metrics_direction)
             else:
                 study = optuna.create_study(study_name=study_name, directions=["maximize", "maximize"])
             study.time_start = time()

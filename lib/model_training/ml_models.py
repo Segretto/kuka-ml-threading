@@ -578,17 +578,15 @@ class ModelsBuild:
         if self.model_name == 'rf' or self.model_name == 'svm' or self.model_name == 'mlp':
             X_train = self.dataset.dataset['X_train'].reshape((self.dataset.dataset['X_train'].shape[0],
                                                     self.dataset.dataset['X_train'].shape[1]*self.dataset.dataset['X_train'].shape[2]))
-            y_train = self.dataset.dataset['y_train'].reshape((self.dataset.dataset['y_train'].shape[0],
-                                                    self.dataset.dataset['y_train'].shape[1]*self.dataset.dataset['y_train'].shape[2]))
             X_test = self.dataset.dataset['X_test'].reshape((self.dataset.dataset['X_test'].shape[0],
                                                     self.dataset.dataset['X_test'].shape[1]*self.dataset.dataset['X_test'].shape[2]))
-            y_test = self.dataset.dataset['y_test'].reshape((self.dataset.dataset['y_test'].shape[0],
-                                                    self.dataset.dataset['y_test'].shape[1]*self.dataset.dataset['y_test'].shape[2]))
         else:
             X_train = self.dataset.dataset['X_train']
-            y_train = self.dataset.dataset['y_train']
             X_test = self.dataset.dataset['X_test']
-            y_test = self.dataset.dataset['y_test']
+        y_train = self.dataset.dataset['y_train'].reshape((self.dataset.dataset['y_train'].shape[0],
+                                                        self.dataset.dataset['y_train'].shape[1]*self.dataset.dataset['y_train'].shape[2]))
+        y_test = self.dataset.dataset['y_test'].reshape((self.dataset.dataset['y_test'].shape[0],
+                                                        self.dataset.dataset['y_test'].shape[1]*self.dataset.dataset['y_test'].shape[2]))
         return X_train, y_train, X_test, y_test
 
 
@@ -609,8 +607,8 @@ class ModelsBuild:
     def _model_fit(self, X_train, y_train, X_val, y_val, model):
         cb_early_stopping =tf.keras.callbacks.EarlyStopping(
             monitor=self.metrics,
-            min_delta=0.01,
-            patience=5,
+            min_delta=0.005,
+            patience=10,
             verbose=0,
             mode="auto",
             baseline=None,
@@ -622,6 +620,6 @@ class ModelsBuild:
             validation_data=(X_val, y_val.reshape(-1, len(self.outputs)*self.window)),
             batch_size=self.BATCH_SIZE,
             epochs=EPOCHS,
-            verbose=True,
+            verbose=0,
             callbacks=[cb_early_stopping])
         return model
