@@ -4,8 +4,8 @@ from utils.optuna_utils import OptunaCheckpointing
 
 # THE USER SHOULD MODIFY THESE ONES
 # models_names = ['svr', 'rf', 'mlp', 'cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
-models_names = ['lstm']
-experiment_name = 'regression_lstm'
+models_names = ['gan']
+experiment_name = 'regression_gan'
 
 N_TRIALS = 100
 TIMEOUT = None
@@ -15,9 +15,9 @@ METRICS_DIRECTION = 'minimize'
 PARAMETERS = ['vx', 'vy', 'vz', 'fx', 'fy', 'fz', 'mx', 'my', 'mz']
 INPUTS = ['vx', 'vy', 'vz', 'fx', 'fy', 'fz']
 OUTPUTS = ['mx', 'my', 'mz']
-WINDOW_SIZE = 64
-STRIDE = 32
-BATCH_SIZE = 256
+WINDOW_SIZE = 128
+STRIDE = 64
+BATCH_SIZE = 512
 RAW_DATA_PATH='data'
 DATASETS_PATH='dataset'
 DATASET_NAME=None

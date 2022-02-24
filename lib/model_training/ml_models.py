@@ -1,3 +1,4 @@
+from pickletools import optimize
 import tensorflow as tf
 from sklearn.svm import SVR
 from sklearn.ensemble import RandomForestRegressor as RFR
@@ -11,6 +12,7 @@ import numpy as np
 from shutil import move
 import gc
 import pickle
+import matplotlib.pyplot as plt
 from time import time
 
 EPOCHS = 100
@@ -86,8 +88,8 @@ class ModelsBuild:
             model = self.objective_vitransformer(trial)
         if model_name == 'gan':
             model = self.objective_gan(trial)
-        if model_name != 'svr' and self.model_name != 'rf' and self.model_name != 'gan':
-            model = self.add_optimizer(model, trial)
+        # if model_name != 'svr' and model_name != 'rf' and self.model_name != 'gan':
+        #     model = self.add_optimizer(model, trial)
         return model
 
     def objective_lstm(self, trial):
@@ -241,13 +243,21 @@ class ModelsBuild:
         model = tf.keras.models.Sequential()
 
         n_layers_cnn = trial.suggest_int('n_hidden_cnn', 1, 8)
-        model.add(tf.keras.layers.Masking(mask_value=0, input_shape=self.INPUT_SHAPE, name='mask_' + str(time())))
+        if self.is_discriminator:
+            model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation="relu"))
+            # model.add(tf.keras.layers.Reshape((len(self.outputs), self.window)))
+        else:
+            # IS GENERATOR
+            # model.add(tf.keras.layers.Masking(mask_value=0, input_shape=self.INPUT_SHAPE, name='mask_' + str(time())))
+            model.add(tf.keras.layers.InputLayer(input_shape=self.INPUT_SHAPE, name='input_' + str(time())))
+        
+        # TODO: change optuna name for each layer of the gan
 
         for layer in range(n_layers_cnn):
             model.add(tf.keras.layers.Conv1D(filters=trial.suggest_categorical("filters_"+str(layer), [32, 64]),
                                           kernel_size=trial.suggest_categorical("kernel_"+str(layer), [1, 3, 5]),
                                           padding='same',
-                                          activation='relu', name='conv1d_'+str(time())))
+                                          activation='relu', name='conv1d_'+str(time())+str(self.is_discriminator)))
             # model.add(tf.keras.layers.MaxPooling1D(pool_size=trial.suggest_categorical("pool_size_"+str(layer), [1, 2]), name='maxpool1d_'+str(time())))
             model.add(tf.keras.layers.BatchNormalization(name='batchnorm_' + str(time())))
 
@@ -265,7 +275,10 @@ class ModelsBuild:
         if self.is_discriminator:
             model.add(tf.keras.layers.Dense(1, activation='sigmoid', name='dense_'+str(time())))
         else:
+            # IS GENERATOR
+            # model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(len(self.outputs), activation="linear")))
             model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation='linear', name='dense_'+str(time())))
+            model.add(tf.keras.layers.Reshape((len(self.outputs), self.window)))
         return model
 
     def objective_wavenet(self, trial):
@@ -558,8 +571,6 @@ class ModelsBuild:
         self.is_discriminator = True
         discriminator = self.get_model(trial, model_name=discriminator_model)
 
-        print("GENERATOR = ", generator_model)
-        print("DISCRIMINATOR = ", discriminator_model)
         gan = tf.keras.models.Sequential([generator, discriminator])
 
         optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr_disc", 1e-5, 1e-1, log=True))
@@ -678,33 +689,34 @@ class ModelsBuild:
 
     def _gan_fit(self, X_train, y_train, X_val, y_val, gan):
         generator, discriminator = gan.layers
-        batch_size = 64
         n_samples = X_train.shape[0]
         n_epochs = 5000
+        history_loss = []
         for epoch in range(0, n_epochs): # TODO: add the starting number here reading from file title
             batch_loss = []
             # for X_batch in dataset:
-            for idx in np.arange(0, n_samples, step=batch_size):
-                start = time()
-                
-                # phase 1 - training the discriminator
-                # noise -> input vectors / noise = X_train[idx:idx+self.window]
-                print(generator.summary())
-                generated_signals = generator(X_train[idx:idx+self.window])
-                # generated_signals -> fake -> label = 0
-                # y_train -> treal -> label = 1
-                X_fake_and_real = tf.concat([generated_signals, y_train[idx:idx+self.window]], axis=0)
-                y1 = tf.constant([[0.]] * batch_size + [[1.]] * batch_size)
-                discriminator.trainable = True
-                discriminator.train_on_batch(X_fake_and_real, y1)
+            start = time()
+            for idx in np.arange(0, n_samples, step=self.BATCH_SIZE):
+                if X_train[idx:idx+self.BATCH_SIZE].shape[0]%self.BATCH_SIZE == 0:
+                    # phase 1 - training the discriminator
+                    # noise -> input vectors / noise = X_train[idx:idx+batch_size]
+                    generated_signals = generator.predict(X_train[idx:idx+self.BATCH_SIZE])
+                    # generated_signals -> fake -> label = 0
+                    # y_train -> treal -> label = 1
+                    X_fake_and_real = np.concatenate([generated_signals, y_train[idx:idx+self.BATCH_SIZE].reshape(generated_signals.shape)], axis=0)
+                    y1 = np.concatenate([[0.]] * self.BATCH_SIZE + [[1.]] * self.BATCH_SIZE)
+                    discriminator.trainable = True
+                    discriminator.train_on_batch(X_fake_and_real, y1)
 
-                # phase 2 - training the generator
-                noise = tf.random.normal(shape=y_train[idx:idx+self.window].shape)
-                y2 = tf.constant([[1.]] * batch_size)
-                discriminator.trainable = False
-                h = gan.train_on_batch(noise, y2)
-                batch_loss.append(h)
-                print('batch time =', time()-start)
+                    # phase 2 - training the generator
+                    noise = tf.random.normal(shape=y_train[idx:idx+self.BATCH_SIZE].reshape(generated_signals.shape).shape).numpy()
+                    y2 = np.array([[1.]] * self.BATCH_SIZE)
+                    discriminator.trainable = False
+                    h = gan.train_on_batch(noise, y2)
+                    batch_loss.append(h)
+                else:
+                    continue
+            print('Epoch time =', time()-start)
             history_loss.append(np.mean(batch_loss))
             
             gc.collect()
@@ -714,12 +726,12 @@ class ModelsBuild:
             # gan_w = keras.models.load_model(file_name)
             # gan.set_weights(gan_w.get_weights())
             # generator, discriminator = gan.layers
-            if epoch % 50 == 0:
+            if epoch % 50 == 0 and epoch != 0:
                 gan.save('output/'+self.experiment_name+'/gan_' + str(epoch) + 'epochs.h5')
-                idx = y_test[np.random.randint(y_test.shape[0])]
-                fake_signal = generator.predict(idx)
-                plt.plot(fake_signal.reshape(-1, y_test.shape[1]))
-                plt.plot(y_test[idx].reshape(-1, y_test.shape[1]))
+                idx = np.random.randint(self.dataset.dataset['y_test'].shape[0])
+                fake_signal = generator.predict(self.dataset.dataset['y_test'][idx].reshape(1, self.dataset.dataset['y_test'].shape[1], self.dataset.dataset['y_test'].shape[2]))
+                plt.plot(fake_signal.reshape(-1, self.dataset.dataset['y_test'].shape[1]))
+                plt.plot(self.dataset.dataset['y_test'][idx].reshape(-1, self.dataset.dataset['y_test'].shape[1]))
                 plt.xlabel('time')
                 plt.ylabel('Torque')
                 plt.legend(['mx-fake', 'my-fake', 'mz-fake', 'mx', 'my', 'mz'])
