@@ -730,12 +730,12 @@ class ModelsBuild:
             # gan_w = keras.models.load_model(file_name)
             # gan.set_weights(gan_w.get_weights())
             # generator, discriminator = gan.layers
-            if epoch % 50 == 0 and epoch != 0:
+            if epoch % 2 == 0 and epoch != 0:
                 gan.save('output/'+self.experiment_name+'/gan_' + str(epoch) + 'epochs.h5')
-                idx = np.random.randint(self.dataset.dataset['y_test'].shape[0])
-                fake_signal = generator.predict(self.dataset.dataset['y_test'][idx].reshape(1, self.dataset.dataset['y_test'].shape[1], self.dataset.dataset['y_test'].shape[2]))
-                plt.plot(fake_signal.reshape(-1, self.dataset.dataset['y_test'].shape[1]))
-                plt.plot(self.dataset.dataset['y_test'][idx].reshape(-1, self.dataset.dataset['y_test'].shape[1]))
+                idx = np.random.randint(self.dataset.dataset['X_test'].shape[0])
+                fake_signal = generator.predict(self.dataset.dataset['X_test'][idx].reshape(1, self.dataset.dataset['X_test'].shape[1], self.dataset.dataset['X_test'].shape[2]))
+                plt.plot(fake_signal.reshape(self.dataset.dataset['y_test'].shape[1], self.dataset.dataset['y_test'].shape[2]).T)
+                plt.plot(self.dataset.dataset['y_test'][idx].reshape(self.dataset.dataset['y_test'].shape[1], self.dataset.dataset['y_test'].shape[2]).T)
                 plt.xlabel('time')
                 plt.ylabel('Torque')
                 plt.legend(['mx-fake', 'my-fake', 'mz-fake', 'mx', 'my', 'mz'])
