@@ -19,11 +19,10 @@ EPOCHS = 100
 MAX_DROPOUT = 0.5
 
 class ModelsBuild:
-    def __init__(self, model_name='mlp', dataset_name='original', metrics='mse', 
-                 dataset=None, inputs=None, outputs=None, loss_func='mse', batch_size=256,
-                 experiment_name=None):
+    def __init__(self, model_name='mlp', metrics='mse', dataset=None, inputs=None, outputs=None, 
+                loss_func='mse', batch_size=256,
+                experiment_name=None):
         self.model_name = model_name
-        self.dataset_name = dataset_name
         self.metrics = metrics
         self.dataset = dataset
         self.inputs = inputs
@@ -60,7 +59,7 @@ class ModelsBuild:
         self.model_name = model_name
         tf.keras.backend.reset_uids()
         tf.keras.backend.clear_session()
-        print("Training ", self.model_name, " in dataset ", self.dataset_name)
+        print("Training ", self.model_name, " in dataset W", self.window)
         score_mean = self._model_train(trial)
         # self._save_model(trial, model)
         return score_mean
@@ -88,8 +87,8 @@ class ModelsBuild:
             model = self.objective_vitransformer(trial)
         if model_name == 'gan':
             model = self.objective_gan(trial)
-        # if model_name != 'svr' and model_name != 'rf' and self.model_name != 'gan':
-        #     model = self.add_optimizer(model, trial)
+        if model_name != 'svr' and model_name != 'rf' and self.model_name != 'gan':
+            model = self.add_optimizer(model, trial)
         return model
 
     def objective_lstm(self, trial):
@@ -243,13 +242,15 @@ class ModelsBuild:
         model = tf.keras.models.Sequential()
 
         n_layers_cnn = trial.suggest_int('n_hidden_cnn', 1, 8)
-        if self.is_discriminator:
-            model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation="relu"))
-            # model.add(tf.keras.layers.Reshape((len(self.outputs), self.window)))
+        if self.model_name == 'gan':
+            if self.is_discriminator:
+                model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation="relu"))
+                # model.add(tf.keras.layers.Reshape((len(self.outputs), self.window)))
+            else:
+                # IS GENERATOR
+                model.add(tf.keras.layers.InputLayer(input_shape=self.INPUT_SHAPE, name='input_' + str(time())))
         else:
-            # IS GENERATOR
-            # model.add(tf.keras.layers.Masking(mask_value=0, input_shape=self.INPUT_SHAPE, name='mask_' + str(time())))
-            model.add(tf.keras.layers.InputLayer(input_shape=self.INPUT_SHAPE, name='input_' + str(time())))
+            model.add(tf.keras.layers.Masking(mask_value=0, input_shape=self.INPUT_SHAPE, name='mask_' + str(time())))
         
         # TODO: change optuna name for each layer of the gan
 
@@ -272,13 +273,16 @@ class ModelsBuild:
             model.add(tf.keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer), 0, MAX_DROPOUT), name='dropout_' + str(time())))
             # model.add(tf.keras.regularizers.l2(l2=trial.suggest_uniform('regularizer_' + str(layer), 1e-3, 1e-1)))
 
-        if self.is_discriminator:
-            model.add(tf.keras.layers.Dense(1, activation='sigmoid', name='dense_'+str(time())))
+        if self.model_name == 'gan':
+            if self.is_discriminator:
+                model.add(tf.keras.layers.Dense(1, activation='sigmoid', name='dense_'+str(time())))
+            else:
+                # IS GENERATOR
+                # model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(len(self.outputs), activation="linear")))
+                model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation='linear', name='dense_'+str(time())))
+                model.add(tf.keras.layers.Reshape((len(self.outputs), self.window)))
         else:
-            # IS GENERATOR
-            # model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(len(self.outputs), activation="linear")))
             model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation='linear', name='dense_'+str(time())))
-            model.add(tf.keras.layers.Reshape((len(self.outputs), self.window)))
         return model
 
     def objective_wavenet(self, trial):
@@ -624,7 +628,7 @@ class ModelsBuild:
     def _save_model(self, trial, model):
         '''once the models start training, use this function to save the current model'''
         model_path = self.path_to_temp_trained_models + \
-                     str(trial.number) + '_temp_' + self.model_name + '_' + self.dataset_name
+                     str(trial.number) + '_temp_' + self.model_name
         if self.model_name == 'svm' or self.model_name == 'rf':
             # sklearn
             model_path += '.joblib'
