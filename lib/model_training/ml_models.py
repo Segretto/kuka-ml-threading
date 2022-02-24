@@ -735,12 +735,13 @@ class ModelsBuild:
                 plt.xlabel('time')
                 plt.ylabel('Torque')
                 plt.legend(['mx-fake', 'my-fake', 'mz-fake', 'mx', 'my', 'mz'])
-                plt.savefig('output/'+self.experiment_name+'/gan_' + str(epoch) + 'epochs_ft.png')
+                plt.savefig('output/'+self.experiment_name+'/gan_' + str(epoch) + '_epochs_ft.png')
+                plt.clf()
 
                 plt.plot(np.arange(0, len(history_loss)), history_loss)
                 plt.xlabel('epochs')
                 plt.ylabel('loss')
-                plt.savefig('output/'+self.experiment_name+'/loss_' + str(epoch) + 'epochs.png')
+                plt.savefig('output/'+self.experiment_name+'/loss_' + str(epoch) + '_epochs.png')
                 plt.clf()
             print("Finished epoch", epoch)
         return generator
