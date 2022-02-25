@@ -52,8 +52,7 @@ class DatasetCreator():
 
     def load_data(self, 
                   ml_model_type: str, 
-                  apply_normalization: bool=True, 
-                  paa: bool=False, 
+                  apply_normalization: bool=True,  
                   padding: bool=False) -> None:
         
         print(f"Loading data with parameters {self.parameters} from {self.raw_data_path} folder.")
@@ -63,9 +62,7 @@ class DatasetCreator():
             print('Loading it instead.')
 
             for data_file in dataset_path.iterdir():
-                # self.data_files_structure[data_file.name] = pd.read(data_file, index_col=None)
                 self.dataset[data_file.name[:-4]] = np.load(data_file, allow_pickle=True)
-            
             return None
         
 
@@ -85,8 +82,7 @@ class DatasetCreator():
 
         # max_seq_len = max(max_seq_len, len(data.values[:, 0]))
         all_data = self.my_padding(all_data, max_seq_len, self.parameters) if padding else all_data
-        all_data = self.paa_in_data(all_data) if paa else all_data
-
+    
         X, y = self._slice_data(all_data)
         del all_data
         print('Data is sliced.')
@@ -107,17 +103,25 @@ class DatasetCreator():
         if apply_normalization:
             self._data_normalization()
 
-
-        
         print(f'Data successfully loaded for model {ml_model_type}.')
         return None
-        
-    def paa_in_data(self, data, window_size=12):
+    
+    def paa(self, data=None, keys=['X_train', 'X_test']):
+        print("Running PAA.")
+        if data is None:
+            for key in keys:
+                self.dataset[key] = self._paa_in_data(self.dataset[key])
+        else:
+            return self._paa_in_data(data)
+
+    def _paa_in_data(self, data, window_size=10):
         paa = PiecewiseAggregateApproximation(window_size=window_size)
         data_aux = np.array([])
-        for sample in data:
+        for i, sample in enumerate(data):
             sample_aux = paa.transform(sample)
             data_aux = np.concatenate([data_aux, sample_aux.reshape(1, sample_aux.shape[0], sample_aux.shape[1])], axis=0) if data_aux.size else sample_aux.reshape(1, sample_aux.shape[0], sample_aux.shape[1])
+            if i%1000 == 0:
+                print("iteration ", i)
         return data_aux
 
     def _data_normalization(self, dataset_name='original') -> None:
