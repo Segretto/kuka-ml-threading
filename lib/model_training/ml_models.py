@@ -1,4 +1,3 @@
-from pickletools import optimize
 import tensorflow as tf
 from sklearn.svm import SVR
 from sklearn.ensemble import RandomForestRegressor as RFR
@@ -9,9 +8,7 @@ from  sklearn.metrics import mean_squared_error as mse
 from lib.model_training.ml_load_models import load_model_from_trial
 from sklearn.model_selection import train_test_split
 import numpy as np
-from shutil import move
 import gc
-import pickle
 import matplotlib.pyplot as plt
 from time import time
 
@@ -20,8 +17,7 @@ MAX_DROPOUT = 0.5
 
 class ModelsBuild:
     def __init__(self, model_name='mlp', metrics='mse', dataset=None, inputs=None, outputs=None, 
-                loss_func='mse', batch_size=256,
-                experiment_name=None):
+                loss_func='mse', batch_size=256, experiment_name=None):
         self.model_name = model_name
         self.metrics = metrics
         self.dataset = dataset
@@ -664,7 +660,10 @@ class ModelsBuild:
         model = self.get_model(trial, self.model_name)
         model = self._model_fit(train, train_labels, val, val_labels, model)
         y_pred = model.predict(X_test)
-        score = mse(y_test.reshape(y_test.shape[0], y_test.shape[1]*y_test.shape[2]), y_pred.reshape(y_pred.shape[0], y_pred.shape[1]*y_pred.shape[2]))  # TODO: qual metrica?
+        if self.model_name == 'gan':
+            score = mse(y_test.reshape(y_test.shape[0], y_test.shape[1]*y_test.shape[2]), y_pred.reshape(y_pred.shape[0], y_pred.shape[1]*y_pred.shape[2]))  # TODO: qual metrica?
+        else:
+            score = mse(y_test, y_pred)
         del model
 
         trial.set_user_attr('reports', score)
