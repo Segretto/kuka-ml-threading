@@ -248,7 +248,9 @@ class ModelsBuild:
                 # model.add(tf.keras.layers.Reshape((len(self.outputs), self.window)))
             else:
                 # IS GENERATOR
-                model.add(tf.keras.layers.InputLayer(input_shape=self.INPUT_SHAPE, name='input_' + str(time())))
+                input_generator_shape = self.dataset.paa(data=self.dataset.dataset['X_test'][0:2]).shape
+                input_generator_shape = (input_generator_shape[1], input_generator_shape[2])
+                model.add(tf.keras.layers.InputLayer(input_shape=input_generator_shape, name='input_' + str(time())))
         else:
             model.add(tf.keras.layers.Masking(mask_value=0, input_shape=self.INPUT_SHAPE, name='mask_' + str(time())))
         
@@ -713,7 +715,7 @@ class ModelsBuild:
                     discriminator.train_on_batch(X_fake_and_real, y1)
 
                     # phase 2 - training the generator
-                    noise = tf.random.normal(shape=y_train[idx:idx+self.BATCH_SIZE].reshape(generated_signals.shape).shape).numpy()
+                    noise = tf.random.normal(shape=X_train[idx:idx+self.BATCH_SIZE].shape).numpy()
                     y2 = np.array([[1.]] * self.BATCH_SIZE)
                     discriminator.trainable = False
                     h = gan.train_on_batch(noise, y2)
@@ -733,7 +735,8 @@ class ModelsBuild:
             if epoch % 1000 == 0 and epoch != 0:
                 gan.save('output/'+self.experiment_name+'/gan_' + str(epoch) + 'epochs.h5')
                 idx = np.random.randint(self.dataset.dataset['X_test'].shape[0])
-                fake_signal = generator.predict(self.dataset.dataset['X_test'][idx].reshape(1, self.dataset.dataset['X_test'].shape[1], self.dataset.dataset['X_test'].shape[2]))
+                noise = self.dataset.paa_in_data(self.dataset.dataset['X_test'][idx].reshape(1, self.dataset.dataset['X_test'].shape[1], self.dataset.dataset['X_test'].shape[2]))
+                fake_signal = generator.predict()
                 plt.plot(fake_signal.reshape(self.dataset.dataset['y_test'].shape[1], self.dataset.dataset['y_test'].shape[2]).T)
                 plt.plot(self.dataset.dataset['y_test'][idx].reshape(self.dataset.dataset['y_test'].shape[1], self.dataset.dataset['y_test'].shape[2]).T)
                 plt.xlabel('time')
