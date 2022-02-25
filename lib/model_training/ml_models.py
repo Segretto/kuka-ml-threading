@@ -662,7 +662,7 @@ class ModelsBuild:
         model = self.get_model(trial, self.model_name)
         model = self._model_fit(train, train_labels, val, val_labels, model)
         y_pred = model.predict(X_test)
-        score = mse(y_test, y_pred)  # TODO: qual metrica?
+        score = mse(y_test.reshape(y_test.shape[0], y_test.shape[1]*y_test.shape[2]), y_pred.reshape(y_pred.shape[0], y_pred.shape[1]*y_pred.shape[2]))  # TODO: qual metrica?
         del model
 
         trial.set_user_attr('reports', score)
@@ -730,7 +730,7 @@ class ModelsBuild:
             # gan_w = keras.models.load_model(file_name)
             # gan.set_weights(gan_w.get_weights())
             # generator, discriminator = gan.layers
-            if epoch % 2 == 0 and epoch != 0:
+            if epoch % 1000 == 0 and epoch != 0:
                 gan.save('output/'+self.experiment_name+'/gan_' + str(epoch) + 'epochs.h5')
                 idx = np.random.randint(self.dataset.dataset['X_test'].shape[0])
                 fake_signal = generator.predict(self.dataset.dataset['X_test'][idx].reshape(1, self.dataset.dataset['X_test'].shape[1], self.dataset.dataset['X_test'].shape[2]))
