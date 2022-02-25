@@ -2,7 +2,6 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
-import os
 from .paa import PiecewiseAggregateApproximation
 from pathlib import Path
 from typing import List
@@ -117,20 +116,20 @@ class DatasetCreator():
         paa = PiecewiseAggregateApproximation(window_size=window_size)
         data_aux = np.array([])
         for sample in data:
-            sample_aux = paa.transform(sample.T).T
+            sample_aux = paa.transform(sample)
             data_aux = np.concatenate([data_aux, sample_aux.reshape(1, sample_aux.shape[0], sample_aux.shape[1])], axis=0) if data_aux.size else sample_aux.reshape(1, sample_aux.shape[0], sample_aux.shape[1])
         return data_aux
 
     def _data_normalization(self, dataset_name='original') -> None:
 
-        self.dataset['X_train'] = self._force_moment_normalization(self.dataset['X_train'], dataset_name=dataset_name)
-        self.dataset['X_test'] = self._force_moment_normalization(self.dataset['X_test'], dataset_name=dataset_name, data='test')
+        self.dataset['X_train'] = self._force_moment_normalization(self.dataset['X_train'])
+        self.dataset['X_test'] = self._force_moment_normalization(self.dataset['X_test'], data='test')
 
         print("X_train.shape = ", np.asarray(self.dataset['X_train']).shape)
         print("X_test.shape = ", np.asarray(self.dataset['X_test']).shape)
         return None
 
-    def _force_moment_normalization(self, X, dataset_name='original', data='train'):
+    def _force_moment_normalization(self, X, data='train'):
         # if 'novo' in dataset_name:
         if 'test' not in data:
             from sklearn.preprocessing import MinMaxScaler
