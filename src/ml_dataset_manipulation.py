@@ -8,28 +8,25 @@ from typing import List
 
 class DatasetCreator():
     def __init__(self, raw_data_path: str, datasets_path: str, dataset_name: str=None,
-                 parameters: List[str]=['fx','fy','fz','mx','my','mz'], window: int=64,
-                 stride: int=32, inputs: List[str]=None, outputs: List[str]=None,
-                 model_name: str=None):
+                 parameters: List[str]=['fx','fy','fz','mx','my','mz'],
+                 inputs: List[str]=None, outputs: List[str]=None, model_name: str=None):
         
         self.scaler = None
         self.inputs = inputs
         self.outputs = outputs
-        self.window = window
-        self.stride = stride
         self.parameters = parameters
         self.max_seq_len = 0
         self.model_name = model_name
+        self.dataset_name = dataset_name
 
         self.MOUNTED = 0
         self.JAMMED = 1
         self.NOT_MOUNTED = 2
+        self.is_padded = False
+        self.is_sliced = False
 
         self.raw_data_path = Path(raw_data_path)
         self.datasets_dir_path = Path(datasets_path)
-
-        if not dataset_name:
-            self.dataset_name = f'W{self.window}S{self.stride}'
 
         self.X_train = None
         self.X_test  = None
@@ -102,13 +99,27 @@ class DatasetCreator():
     
     def _paa_in_data(self, data, window_size=10):
         paa = PiecewiseAggregateApproximation(window_size=window_size)
-        data_aux = np.array([])
-        for i, sample in enumerate(data):
-            sample_aux = paa.transform(sample)
-            data_aux = np.concatenate([data_aux, sample_aux.reshape(1, sample_aux.shape[0], sample_aux.shape[1])], axis=0) if data_aux.size else sample_aux.reshape(1, sample_aux.shape[0], sample_aux.shape[1])
-            if i%1000 == 0:
-                print("iteration ", i)
-        return data_aux
+        if type(data) == list:  # this is only true if we call paa without slicing or padding, so different timesteps
+            data_paa = []  # TODO: test again
+            for i, sample in enumerate(data):
+                sample_aux = paa.transform(sample.T).T
+                if len(data_paa) != 0:
+                    data_paa.append(sample_aux.reshape(1, sample_aux.shape[0], sample_aux.shape[1]))
+                else:
+                    sample_aux.reshape(1, sample_aux.shape[0], sample_aux.shape[1])
+                if i%1000 == 0:
+                    print("iteration ", i)
+        else:
+            data_paa = np.array([])
+            for i, sample in enumerate(data):
+                sample_aux = paa.transform(sample.T).T
+                if data_paa.size:
+                    data_paa = np.concatenate([data_paa, sample_aux.reshape(1, sample_aux.shape[0], sample_aux.shape[1])], axis=0)
+                else:
+                    data_paa = sample_aux.reshape(1, sample_aux.shape[0], sample_aux.shape[1])
+                if i%10000 == 0:
+                    print("PAA iteration ", i)
+        return data_paa
     
     def padding(self, data=None, keys=['X_train', 'X_test']):
         print("Running padding.")
@@ -121,27 +132,32 @@ class DatasetCreator():
     def _padding_in_data(self, data):
         n_features = len(self.inputs)
         n_samples = len(data)
-        aux_all_data = np.zeros((n_samples, self.max_seq_len, n_features))
+        data_padded = np.zeros((n_samples, self.max_seq_len, n_features))
         for i, sample in enumerate(data):
             aux_sample = np.zeros((self.max_seq_len, n_features))
             aux_sample[:sample.shape[0]] = sample
-            aux_all_data[i] = aux_sample
-        return aux_all_data
+            data_padded[i] = aux_sample
+        return data_padded
     
-    def slicing(self, data=None, keys=['X_train', 'X_test']):
+    def slicing(self, data=None, keys=['X_train', 'X_test', 'y_train', 'y_test'],
+                      window=64, stride=32):
         print("Slicing data")
         if data is None:
             for key in keys:
-                self.dataset[key] = self._slice_array(self.dataset[key])
+                self.dataset[key] = self._slice_array(self.dataset[key], window=window, stride=stride)
         else:
-            return self._slice_array(data)
+            return self._slice_array(data, window=window, stride=stride)
     
-    def _slice_array(self, arr):
-        aux = np.array([])
-        n_channels, n_timesteps = arr.shape
-        for idx in np.arange(0, n_timesteps-self.window, step=self.stride):
-            aux = np.concatenate((aux, arr[:, idx:idx+self.window].reshape(1, n_channels, -1))) if aux.size else arr[:, idx:idx+self.window].reshape(1, n_channels, -1)
-        return aux
+    def _slice_array(self, data, window, stride):
+        data_sliced = np.array([])
+        for arr in data:
+            n_timesteps, n_channels = arr.shape
+            for idx in np.arange(0, n_timesteps-window, step=stride):
+                if data_sliced.size:
+                    data_sliced = np.concatenate((data_sliced, arr[idx:idx+window].reshape(1, window, n_channels)))
+                else:
+                    data_sliced = arr[idx:idx+window].reshape(1, window, n_channels)
+        return data_sliced
 
     def normalization(self, data=None, keys=['X_train', 'X_test']):
         print("Running normalization.")
