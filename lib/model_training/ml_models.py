@@ -24,9 +24,9 @@ class ModelsBuild:
         self.inputs = inputs
         self.outputs = outputs
         self.loss_func = loss_func
-        self.window = self.dataset.dataset['X_train'].shape[2]
+        self.window = self.dataset.dataset['X_train'].shape[1]
         self.OUTPUT_SHAPE = self.window*len(outputs)
-        self.INPUT_SHAPE = (len(self.inputs), self.window)
+        self.INPUT_SHAPE = (self.window, len(self.inputs))  # TODO: this is not a good way of defining input_shape
         self.BATCH_SIZE = batch_size
         self.is_discriminator = False
         self.experiment_name = experiment_name

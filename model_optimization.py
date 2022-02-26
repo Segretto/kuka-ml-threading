@@ -4,8 +4,8 @@ from utils.optuna_utils import OptunaCheckpointing
 
 # THE USER SHOULD MODIFY THESE ONES
 # models_names = ['svr', 'rf', 'mlp', 'cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
-models_names = ['gan']
-experiment_name = 'regression_gan_cnn_W256_paa'
+MODELS_NAMES = ['gan']
+EXPERIMENT_NAME = 'regression_gan_cnn_W256_paa'
 
 N_TRIALS = 100
 TIMEOUT = None
@@ -20,28 +20,26 @@ STRIDE = 128
 BATCH_SIZE = 512
 RAW_DATA_PATH='data'
 DATASETS_PATH='dataset'
-DATASET_NAME=None
+DATASET_NAME= f'W{WINDOW_SIZE}S{STRIDE}'
 
 
-for model_name in models_names:
+for model_name in MODELS_NAMES:
     optuna_checkpoint = OptunaCheckpointing(model_name=model_name,
-                                            experiment_name=experiment_name)
+                                            experiment_name=EXPERIMENT_NAME)
     
     dataset = DatasetCreator(raw_data_path=RAW_DATA_PATH,
                              datasets_path=DATASETS_PATH,
                              dataset_name=DATASET_NAME, 
-                             window=WINDOW_SIZE,
-                             stride=STRIDE,
                              inputs=INPUTS,
                              outputs=OUTPUTS,
                              parameters=PARAMETERS,
                              model_name=model_name)
 
     dataset.load_data(is_regression=True)
-    dataset.paa()
+    dataset.slicing(window=WINDOW_SIZE, stride=STRIDE)
+    dataset.paa(keys=['X_train', 'X_test'])
     # dataset.padding()
-    # dataset.slicing()
-    # dataset.normalization()
+    # dataset.normalization()  # we need to review this function, the mathematics
     dataset.save_dataset()
     
     models_build = ModelsBuild(model_name,
@@ -50,16 +48,19 @@ for model_name in models_names:
                                inputs=INPUTS,
                                outputs=OUTPUTS,
                                batch_size=BATCH_SIZE,
-                               experiment_name=experiment_name)
+                               experiment_name=EXPERIMENT_NAME)
 
     study, n_trials_to_go = optuna_checkpoint.load_study(metrics=METRICS,
                                                          n_trials=N_TRIALS,
                                                          metrics_direction=METRICS_DIRECTION)
 
-    print("\n\n------------- Starting training experiment " + experiment_name +
+    print("\n\n------------- Starting training experiment " + EXPERIMENT_NAME +
             " and model " + model_name + ". " + str(n_trials_to_go) + " until the end -------------\n\n")
     study.optimize(lambda trial: models_build.objective(trial, model_name=model_name),
-                    timeout=TIMEOUT, n_trials=n_trials_to_go, n_jobs=N_JOBS, callbacks=[optuna_checkpoint])
+                    timeout=TIMEOUT,
+                    n_trials=n_trials_to_go,
+                    n_jobs=N_JOBS,
+                    callbacks=[optuna_checkpoint])
 
     print("Number of finished trials: {}".format(len(study.trials)))
     print("Best trial:")
