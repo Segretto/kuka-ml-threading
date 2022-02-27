@@ -33,11 +33,13 @@ for model_name in MODELS_NAMES:
                              inputs=INPUTS,
                              outputs=OUTPUTS,
                              parameters=PARAMETERS,
-                             model_name=model_name)
+                             model_name=model_name,
+                             window=WINDOW_SIZE,
+                             stride=STRIDE)
 
     dataset.load_data(is_regression=True)
-    dataset.slicing(window=WINDOW_SIZE, stride=STRIDE)
-    dataset.paa(keys=['X_train', 'X_test'])
+    # dataset.slicing(window=WINDOW_SIZE, stride=STRIDE)
+    # dataset.paa(keys=['X_train', 'X_test'])
     # dataset.padding()
     # dataset.normalization()  # we need to review this function, the mathematics
     dataset.save_dataset()
