@@ -5,7 +5,6 @@ import os
 from joblib import dump
 from sklearn.metrics import classification_report, confusion_matrix, r2_score
 from sklearn.metrics import mean_squared_error as mse
-from lib.model_training.ml_load_models import load_model_from_trial
 from sklearn.model_selection import train_test_split
 import numpy as np
 import gc
@@ -636,7 +635,7 @@ class ModelsBuild:
             model_path += '.h5'
             tf.keras.models.save_model(model, model_path)
 
-    def _reshape_X_for_train(self):
+    def _reshape_Xy_for_train(self):
         # TODO: this guy should be better implemented
         if self.model_name == 'rf' or self.model_name == 'svm' or self.model_name == 'mlp':
             X_train = self.dataset.dataset['X_train'].reshape((self.dataset.dataset['X_train'].shape[0],
@@ -653,7 +652,7 @@ class ModelsBuild:
         return X_train, y_train, X_test, y_test
 
     def _model_train(self, trial):
-        X_train, y_train, X_test, y_test = self._reshape_X_for_train()
+        X_train, y_train, X_test, y_test = self._reshape_Xy_for_train()
 
         train, val, train_labels, val_labels = train_test_split(X_train, y_train, test_size=0.10, random_state=42)
 
