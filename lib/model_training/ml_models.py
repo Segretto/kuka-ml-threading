@@ -4,7 +4,7 @@ from sklearn.ensemble import RandomForestRegressor as RFR
 import os
 from joblib import dump
 from sklearn.metrics import classification_report, confusion_matrix, r2_score
-from  sklearn.metrics import mean_squared_error as mse
+from sklearn.metrics import mean_squared_error as mse
 from lib.model_training.ml_load_models import load_model_from_trial
 from sklearn.model_selection import train_test_split
 import numpy as np
@@ -244,8 +244,7 @@ class ModelsBuild:
                 # model.add(tf.keras.layers.Reshape((len(self.outputs), self.window)))
             else:
                 # IS GENERATOR
-                input_generator_shape = self.dataset.paa(data=self.dataset.dataset['X_test'][0:2]).shape
-                input_generator_shape = (input_generator_shape[1], input_generator_shape[2])
+                input_generator_shape = self.dataset.dataset['X_train'][0].shape
                 model.add(tf.keras.layers.InputLayer(input_shape=input_generator_shape, name='input_' + str(time())))
         else:
             model.add(tf.keras.layers.Masking(mask_value=0, input_shape=self.INPUT_SHAPE, name='mask_' + str(time())))
@@ -277,8 +276,9 @@ class ModelsBuild:
             else:
                 # IS GENERATOR
                 # model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(len(self.outputs), activation="linear")))
-                model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation='linear', name='dense_'+str(time())))
-                model.add(tf.keras.layers.Reshape((len(self.outputs), self.window)))
+                output_generator_shape = self.dataset.dataset['y_train'].shape[1]*self.dataset.dataset['y_train'].shape[2]
+                model.add(tf.keras.layers.Dense(output_generator_shape, activation='linear', name='dense_'+str(time())))
+                model.add(tf.keras.layers.Reshape((self.dataset.window, len(self.outputs))))
         else:
             model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation='linear', name='dense_'+str(time())))
         return model
@@ -705,10 +705,13 @@ class ModelsBuild:
                 if X_train[idx:idx+self.BATCH_SIZE].shape[0]%self.BATCH_SIZE == 0:
                     # phase 1 - training the discriminator
                     # noise -> input vectors / noise = X_train[idx:idx+batch_size]
-                    generated_signals = generator.predict(X_train[idx:idx+self.BATCH_SIZE])
+                    
+                    generated_signals = generator.predict(X_train[idx:idx+self.BATCH_SIZE]).reshape(self.BATCH_SIZE, self.dataset.window, len(self.outputs))
                     # generated_signals -> fake -> label = 0
                     # y_train -> treal -> label = 1
-                    X_fake_and_real = np.concatenate([generated_signals, y_train[idx:idx+self.BATCH_SIZE].reshape(generated_signals.shape)], axis=0)
+                    X_fake_and_real = np.concatenate([generated_signals,
+                                                      y_train[idx:idx+self.BATCH_SIZE].reshape(self.BATCH_SIZE, self.dataset.window, len(self.outputs))],
+                                                      axis=0)
                     y1 = np.concatenate([[0.]] * self.BATCH_SIZE + [[1.]] * self.BATCH_SIZE)
                     discriminator.trainable = True
                     discriminator.train_on_batch(X_fake_and_real, y1)
@@ -734,10 +737,10 @@ class ModelsBuild:
             if epoch % 1000 == 0 and epoch != 0:
                 gan.save('output/'+self.experiment_name+'/gan_' + str(epoch) + 'epochs.h5')
                 idx = np.random.randint(self.dataset.dataset['X_test'].shape[0])
-                noise = self.dataset.paa_in_data(self.dataset.dataset['X_test'][idx].reshape(1, self.dataset.dataset['X_test'].shape[1], self.dataset.dataset['X_test'].shape[2]))
-                fake_signal = generator.predict()
-                plt.plot(fake_signal.reshape(self.dataset.dataset['y_test'].shape[1], self.dataset.dataset['y_test'].shape[2]).T)
-                plt.plot(self.dataset.dataset['y_test'][idx].reshape(self.dataset.dataset['y_test'].shape[1], self.dataset.dataset['y_test'].shape[2]).T)
+                noise = self.dataset.dataset['X_test'][idx].reshape(1, self.dataset.dataset['X_test'].shape[1], self.dataset.dataset['X_test'].shape[2])
+                fake_signal = generator.predict(noise)
+                plt.plot(fake_signal.reshape(self.dataset.dataset['y_test'].shape[1], self.dataset.dataset['y_test'].shape[2]))
+                plt.plot(self.dataset.dataset['y_test'][idx].reshape(self.dataset.dataset['y_test'].shape[1], self.dataset.dataset['y_test'].shape[2]))
                 plt.xlabel('time')
                 plt.ylabel('Torque')
                 plt.legend(['mx-fake', 'my-fake', 'mz-fake', 'mx', 'my', 'mz'])
