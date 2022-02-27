@@ -21,6 +21,8 @@ BATCH_SIZE = 512
 RAW_DATA_PATH='data'
 DATASETS_PATH='dataset'
 DATASET_NAME= f'W{WINDOW_SIZE}S{STRIDE}'
+if 'vx' not in INPUTS:
+    EXPERIMENT_NAME+='_no_vel'
 
 
 for model_name in MODELS_NAMES:
