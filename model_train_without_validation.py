@@ -6,8 +6,8 @@ METRICS = 'mse'
 PARAMETERS = ['vx', 'vy', 'vz', 'fx', 'fy', 'fz', 'mx', 'my', 'mz']
 INPUTS = ['vx', 'vy', 'vz', 'fx', 'fy', 'fz']
 OUTPUTS = ['mx', 'my', 'mz']
-WINDOW_SIZE = 256
-STRIDE = 128
+WINDOW_SIZE = 64
+STRIDE = 32
 BATCH_SIZE = 512
 RAW_DATA_PATH='data'
 DATASETS_PATH='dataset'
@@ -44,7 +44,7 @@ for model_name in MODELS_NAMES:
                               experiment_name=EXPERIMENT_NAME)
     
     models_eval.load_params()
-    model_best = models_eval.train_model_no_validation(model_name, dataset)
+    model_best = models_eval.train_model_no_validation()
 
     print("IMPLEMENT HERE THE ANALYSIS")
 

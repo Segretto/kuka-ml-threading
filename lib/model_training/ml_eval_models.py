@@ -22,7 +22,7 @@ class ModelsEval:
         self.trial = Trial()
 
     def train_model_no_validation(self):
-        X_train, y_train = self._reshape_Xy_for_train()
+        X_train, y_train, _, _ = self._reshape_Xy_for_train()
 
         model = self.load_model_from_trial()
         model.fit(X_train, y_train, epochs=100)
@@ -69,7 +69,7 @@ class ModelsEval:
         if self.model_name == 'lstm':
             model = self.load_model_lstm()
         if self.model_name != 'svr' and self.model_name != 'rf' and self.model_name != 'gan':
-            model = self.add_optimizer(model, self.trial)
+            model = self.add_optimizer(model)
         return model
 
     def load_model_transf(self, params, n_channels, n_timesteps):
@@ -347,10 +347,10 @@ class ModelsEval:
 
         n_layers_dense = self.trial.params['n_hidden']
         for layer in range(n_layers_dense):
-            model.add(tf.keras.layers.Dense(self.trial.params['n_neurons_dense'],
+            model.add(tf.keras.layers.Dense(self.trial.params['n_neurons_dense' + str(layer)],
                                             activation='relu',
-                                            kernel_regularizer=tf.keras.regularizers.l2(l2=self.trial.params['regularizer_' + str(layer)],
-                                            name='dense_'+str(time()))))
+                                            kernel_regularizer=tf.keras.regularizers.l2(l2=self.trial.params['regularizer_' + str(layer)]),
+                                            name='dense_'+str(time())))
             model.add(tf.keras.layers.Dropout(self.trial.params['dropout_' + str(layer)], name='dropout_' + str(time())))
 
         if self.model_name == 'gan':
@@ -488,10 +488,11 @@ class ModelsEval:
 
         return model
 
-    def add_optimizer(self, model, trial):
-        optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+    def add_optimizer(self, model):
+        optimizer = tf.keras.optimizers.Adam(learning_rate=self.trial.params["lr"])
         model.compile(loss=self.loss_func, optimizer=optimizer, metrics=[self.metrics])
         return model
+
     # def load_model_from_file(path_model_weights, path_model_hyperparam, label, dataset, random_weights=False):
     #     path_model_hyperparam += 'best_' + label + '_' + dataset
     #     path_model_weights += 'best_' + label + '_' + dataset
