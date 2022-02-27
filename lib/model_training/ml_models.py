@@ -30,6 +30,7 @@ class ModelsBuild:
         self.BATCH_SIZE = batch_size
         self.is_discriminator = False
         self.experiment_name = experiment_name
+        self.params = {}
 
         # # if you are having problems with memory allocation with tensorflow, uncomment below
         # gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -672,6 +673,7 @@ class ModelsBuild:
         
         if self.model_name == 'gan':
             params = self._get_trial_gan(trial)
+            self.params = params
         
         if self.model_name == 'mlp':
             params = self._get_trial_mlp(trial)
@@ -782,6 +784,7 @@ class ModelsBuild:
         return model
 
     def _gan_fit(self, X_train, y_train, X_val, y_val, gan):
+        file_name = 'output/' + self.experiment_name + '/best_' + self.model_name + '.h5'
         generator, discriminator = gan.layers
         n_samples = X_train.shape[0]
         n_epochs = 5000
@@ -817,12 +820,14 @@ class ModelsBuild:
             history_loss.append(np.mean(batch_loss))
             
             gc.collect()
+            gan.save(file_name)
             tf.keras.backend.clear_session()
-            # del gan
-            # _, _, gan = get_models()
-            # gan_w = keras.models.load_model(file_name)
-            # gan.set_weights(gan_w.get_weights())
-            # generator, discriminator = gan.layers
+            del gan
+            _, _, gan = self._get_model(self.params, self.model_name)
+            gan_w = tf.keras.models.load_model(file_name)
+            gan.set_weights(gan_w.get_weights())
+            generator, discriminator = gan.layers
+            
             if epoch % 1000 == 0 and epoch != 0:
                 gan.save('output/'+self.experiment_name+'/gan_' + str(epoch) + 'epochs.h5')
                 idx = np.random.randint(self.dataset.dataset['X_test'].shape[0])
