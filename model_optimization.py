@@ -5,7 +5,7 @@ from utils.optuna_utils import OptunaCheckpointing
 # THE USER SHOULD MODIFY THESE ONES
 # models_names = ['svr', 'rf', 'mlp', 'cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
 MODELS_NAMES = ['gan']
-EXPERIMENT_NAME = 'regression_gan_cnn_W256_paa'
+EXPERIMENT_NAME = 'regression_gan'
 
 N_TRIALS = 100
 TIMEOUT = None
@@ -15,8 +15,8 @@ METRICS_DIRECTION = 'minimize'
 PARAMETERS = ['vx', 'vy', 'vz', 'fx', 'fy', 'fz', 'mx', 'my', 'mz']
 INPUTS = ['vx', 'vy', 'vz', 'fx', 'fy', 'fz']
 OUTPUTS = ['mx', 'my', 'mz']
-WINDOW_SIZE = 256
-STRIDE = 128
+WINDOW_SIZE = 64
+STRIDE = 32
 BATCH_SIZE = 512
 RAW_DATA_PATH='data'
 DATASETS_PATH='dataset'
@@ -74,5 +74,8 @@ for model_name in MODELS_NAMES:
     for key, value in best_trial.params.items():
         print("    {}: {}".format(key, value))
 
-    # TODO: get more insight on visualization for single objective
-    # optuna.visualization.plot_pareto_front(study)
+
+    # MODELS EVALUATION
+    # model = models_build.model_train_no_validation(model_name)
+    
+    # TODO: EVALUATE MODELS
