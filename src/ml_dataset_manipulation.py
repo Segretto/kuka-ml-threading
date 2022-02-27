@@ -9,7 +9,8 @@ from typing import List
 class DatasetCreator():
     def __init__(self, raw_data_path: str, datasets_path: str, dataset_name: str=None,
                  parameters: List[str]=['fx','fy','fz','mx','my','mz'],
-                 inputs: List[str]=None, outputs: List[str]=None, model_name: str=None):
+                 inputs: List[str]=None, outputs: List[str]=None, model_name: str=None,
+                 window: int=64, stride: int=32):
         
         self.scaler = None
         self.inputs = inputs
@@ -18,6 +19,8 @@ class DatasetCreator():
         self.max_seq_len = 0
         self.model_name = model_name
         self.dataset_name = dataset_name
+        self.window = window
+        self.stride = stride
 
         self.MOUNTED = 0
         self.JAMMED = 1
@@ -55,20 +58,18 @@ class DatasetCreator():
         y = []
 
         data_files = [file for file in (self.datasets_dir_path / self.raw_data_path).iterdir() if '.csv' in file.name]
-        for file in data_files:
+        for i, file in enumerate(data_files):
             aux = pd.read_csv(file, index_col=None)[self.parameters]
             if is_regression:
-                # n_inputs = len(self.inputs)
-                # n_outputs = len(self.outputs)
-                # n_timesteps = aux.shape[0]
-                # X = np.concatenate([X, aux[self.inputs].values.reshape(1, n_timesteps, n_inputs)])  if X.size else aux[self.inputs].values.reshape(1, n_timesteps, n_inputs)
-                # y = np.concatenate([y, aux[self.outputs].values.reshape(1, n_timesteps, n_outputs)]) if y.size else aux[self.outputs].values.reshape(1, n_timesteps, n_outputs)
-                X.append(aux[self.inputs].values)
-                y.append(aux[self.outputs].values)
+                aux_slice = self.slicing(aux[self.inputs].values, window=self.window, stride=self.stride, verbose=False)
+                X = np.concatenate([X, aux_slice]) if np.array(X).size else aux_slice
+                aux_slice = self.slicing(aux[self.outputs].values, window=self.window, stride=self.stride, verbose=False)
+                y = np.concatenate([y, aux_slice]) if np.array(y).size else aux_slice
             else:
                 # TODO: REVIEW AND FINISH THIS
                 X = np.concatenate([X, aux[self.inputs].values]) if X.size else aux[self.inputs].values.reshape(1, len(self.inputs), self.window)
                 y = None # TODO: geta from meta.csv the outcomes
+            print("Read i=", i, " in ", len(data_files))
                 
             if X[-1].shape[0] > self.max_seq_len:
                 self.max_seq_len = X[-1].shape[0]
@@ -99,17 +100,7 @@ class DatasetCreator():
     
     def _paa_in_data(self, data, window_size=10):
         paa = PiecewiseAggregateApproximation(window_size=window_size)
-        if type(data) == list:  # this is only true if we call paa without slicing or padding, so different timesteps
-            data_paa = []  # TODO: test again
-            for i, sample in enumerate(data):
-                sample_aux = paa.transform(sample.T).T
-                if len(data_paa) != 0:
-                    data_paa.append(sample_aux.reshape(1, sample_aux.shape[0], sample_aux.shape[1]))
-                else:
-                    sample_aux.reshape(1, sample_aux.shape[0], sample_aux.shape[1])
-                if i%1000 == 0:
-                    print("iteration ", i)
-        else:
+        if self.is_sliced or self.is_padded:  # this is only true if we call paa without slicing or padding, so different timesteps
             data_paa = np.array([])
             for i, sample in enumerate(data):
                 sample_aux = paa.transform(sample.T).T
@@ -119,10 +110,21 @@ class DatasetCreator():
                     data_paa = sample_aux.reshape(1, sample_aux.shape[0], sample_aux.shape[1])
                 if i%10000 == 0:
                     print("PAA iteration ", i)
+        else:         
+            data_paa = []  # TODO: test again
+            for i, sample in enumerate(data):
+                sample_aux = paa.transform(sample.T).T
+                if len(data_paa) != 0:
+                    data_paa.append(sample_aux.reshape(1, sample_aux.shape[0], sample_aux.shape[1]))
+                else:
+                    sample_aux.reshape(1, sample_aux.shape[0], sample_aux.shape[1])
+                if i%1000 == 0:
+                    print("PAA iteration ", i)
         return data_paa
     
     def padding(self, data=None, keys=['X_train', 'X_test']):
         print("Running padding.")
+        self.is_padded = True
         if data is None:
             for key in keys:
                 self.dataset[key] = self._padding_in_data(self.dataset[key])
@@ -140,14 +142,16 @@ class DatasetCreator():
         return data_padded
     
     def slicing(self, data=None, keys=['X_train', 'X_test', 'y_train', 'y_test'],
-                      window=64, stride=32):
-        print("Slicing data")
+                      window=64, stride=32, verbose=True):
+        if verbose:
+            print("Slicing data")
+        self.is_sliced = True
         if data is None:
             for key in keys:
                 self.dataset[key] = self._slice_array(self.dataset[key], window=window, stride=stride)
         else:
-            return self._slice_array(data, window=window, stride=stride)
-    
+            return self._slice_array([data], window=window, stride=stride)
+        
     def _slice_array(self, data, window, stride):
         data_sliced = np.array([])
         for arr in data:
