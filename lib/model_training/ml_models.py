@@ -20,11 +20,11 @@ class ModelsBuild:
                 loss_func='mse', batch_size=256, experiment_name=None):
         self.model_name = model_name
         self.metrics = metrics
-        self.dataset = dataset
+        self.dataset_handler = dataset
         self.inputs = inputs
         self.outputs = outputs
         self.loss_func = loss_func
-        self.window = self.dataset.dataset['X_train'].shape[1]
+        self.window = self.dataset_handler.dataset['X_train'].shape[1]
         self.OUTPUT_SHAPE = self.window*len(outputs)
         self.INPUT_SHAPE = (self.window, len(self.inputs))  # TODO: this is not a good way of defining input_shape
         self.BATCH_SIZE = batch_size
@@ -252,7 +252,7 @@ class ModelsBuild:
                 # model.add(tf.keras.layers.Reshape((len(self.outputs), self.window)))
             else:
                 # IS GENERATOR
-                input_generator_shape = self.dataset.dataset['X_train'][0].shape
+                input_generator_shape = self.dataset_handler.dataset['X_train'][0].shape
                 model.add(tf.keras.layers.InputLayer(input_shape=input_generator_shape, name='input_' + str(time())))
                 gan_text = '_gen'
         else:
@@ -288,9 +288,9 @@ class ModelsBuild:
             else:
                 # IS GENERATOR
                 # model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(len(self.outputs), activation="linear")))
-                output_generator_shape = self.dataset.dataset['y_train'].shape[1]*self.dataset.dataset['y_train'].shape[2]
+                output_generator_shape = self.dataset_handler.dataset['y_train'].shape[1]*self.dataset_handler.dataset['y_train'].shape[2]
                 model.add(tf.keras.layers.Dense(output_generator_shape, activation='linear', name='dense_'+str(time())))
-                model.add(tf.keras.layers.Reshape((self.dataset.window, len(self.outputs))))
+                model.add(tf.keras.layers.Reshape((self.dataset_handler.window, len(self.outputs))))
         else:
             model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation='linear', name='dense_'+str(time())))
         return model
@@ -406,8 +406,8 @@ class ModelsBuild:
                 x = self.reshape(x)
                 return x + positions
 
-        n_channels = self.dataset.dataset['X_train'].shape[1]
-        n_timesteps = self.dataset.dataset['X_train'].shape[2]
+        n_channels = self.dataset_handler.dataset['X_train'].shape[1]
+        n_timesteps = self.dataset_handler.dataset['X_train'].shape[2]
         n_transformer_layers = trial.suggest_int('transformer_layers', 1, 8)
         maxlen = 96 # Only consider 3 input time points
         embed_dim = trial.suggest_categorical('embed_dim', [2**n for n in range(3, 5)])  # 16  # Embedding size for each token
@@ -434,8 +434,8 @@ class ModelsBuild:
         return model
 
     def objective_vitransformer(self, trial):
-        n_channels = self.dataset.dataset['X_train'].shape[1]
-        n_timesteps = self.dataset.dataset['X_train'].shape[2]
+        n_channels = self.dataset_handler.dataset['X_train'].shape[1]
+        n_timesteps = self.dataset_handler.dataset['X_train'].shape[2]
         input_shape = (n_channels, n_timesteps, 1)
         patch_size = trial.suggest_int('patch_size', 1, 3)  # 2  # OPTUNA 1, 2, 3
         image_size = 6
@@ -602,10 +602,10 @@ class ModelsBuild:
     def metrics_report(self, model, get_confusion_matrix=None):
         # TODO: add new regression metrics. There's no classification_report for regression in sklearn
         if self.model_name == 'rf' or self.model_name == 'svm' or self.model_name == 'mlp':
-            X_test = self.dataset.dataset['X_test'].reshape((self.dataset.dataset['X_test'].shape[0],
-                                          self.dataset.dataset['X_test'].shape[1] * self.dataset.dataset['X_test'].shape[2]))
+            X_test = self.dataset_handler.dataset['X_test'].reshape((self.dataset_handler.dataset['X_test'].shape[0],
+                                          self.dataset_handler.dataset['X_test'].shape[1] * self.dataset_handler.dataset['X_test'].shape[2]))
         else:
-            X_test = self.dataset.dataset['X_test']
+            X_test = self.dataset_handler.dataset['X_test']
 
         if self.model_name == 'rf' or self.model_name == 'svm':
             y_pred = np.argmax(model.predict(X_test).reshape(X_test.shape[0], 1), axis=1)
@@ -616,14 +616,14 @@ class ModelsBuild:
         # TODO: this problem occurs due to the lack of class jammed. I'll gather more data and remove this
         # try:
         if get_confusion_matrix is None:
-            return classification_report(y_true=self.dataset.dataset['y_test'], y_pred=y_pred,
+            return classification_report(y_true=self.dataset_handler.dataset['y_test'], y_pred=y_pred,
                                          output_dict=True, target_names=['mounted', 'jammed', 'not mounted'],
                                          zero_division=0)
             # except ValueError:
         else:
-            return classification_report(y_true=self.dataset.dataset['y_test'], y_pred=y_pred,
+            return classification_report(y_true=self.dataset_handler.dataset['y_test'], y_pred=y_pred,
                                      output_dict=True, target_names=['mounted', 'jammed', 'not mounted'],
-                                     zero_division=0), confusion_matrix(self.dataset.dataset['y_test'], y_pred)
+                                     zero_division=0), confusion_matrix(self.dataset_handler.dataset['y_test'], y_pred)
 
     def get_score(self, model):
         # TODO: add new regression metrics. There's no classification_report for regression in sklearn
@@ -647,22 +647,6 @@ class ModelsBuild:
             # keras models
             model_path += '.h5'
             tf.keras.models.save_model(model, model_path)
-
-    def _reshape_Xy_for_train(self):
-        # TODO: this guy should be better implemented
-        if self.model_name == 'rf' or self.model_name == 'svm' or self.model_name == 'mlp':
-            X_train = self.dataset.dataset['X_train'].reshape((self.dataset.dataset['X_train'].shape[0],
-                                                    self.dataset.dataset['X_train'].shape[1]*self.dataset.dataset['X_train'].shape[2]))
-            X_test = self.dataset.dataset['X_test'].reshape((self.dataset.dataset['X_test'].shape[0],
-                                                    self.dataset.dataset['X_test'].shape[1]*self.dataset.dataset['X_test'].shape[2]))
-        else:
-            X_train = self.dataset.dataset['X_train']
-            X_test = self.dataset.dataset['X_test']
-        y_train = self.dataset.dataset['y_train'].reshape((self.dataset.dataset['y_train'].shape[0],
-                                                        self.dataset.dataset['y_train'].shape[1]*self.dataset.dataset['y_train'].shape[2]))
-        y_test = self.dataset.dataset['y_test'].reshape((self.dataset.dataset['y_test'].shape[0],
-                                                        self.dataset.dataset['y_test'].shape[1]*self.dataset.dataset['y_test'].shape[2]))
-        return X_train, y_train, X_test, y_test
     
     def _get_trial(self, trial):
         if self.model_name == 'cnn':
@@ -743,18 +727,21 @@ class ModelsBuild:
         return params
 
     def _model_train(self, trial):
-        X_train, y_train, X_test, y_test = self._reshape_Xy_for_train()
 
-        train, val, train_labels, val_labels = train_test_split(X_train, y_train, test_size=0.10, random_state=42)
+        train, val, train_labels, val_labels = train_test_split(self.dataset_handler.dataset['X_train'],
+                                                                self.dataset_handler.dataset['y_train'],
+                                                                test_size=0.10,
+                                                                random_state=42)
 
         params = self._get_trial(trial)
         model = self._get_model(params, self.model_name)
         model = self._model_fit(train, train_labels, val, val_labels, model)
-        y_pred = model.predict(X_test)
+        
+        y_pred = model.predict(self.dataset_handler.dataset['X_test'])
         if self.model_name == 'gan':
-            score = mse(y_test.reshape(y_test.shape[0], y_test.shape[1]*y_test.shape[2]), y_pred.reshape(y_pred.shape[0], y_pred.shape[1]*y_pred.shape[2]))  # TODO: qual metrica?
-        else:
-            score = mse(y_test, y_pred)
+            y_pred = self.dataset_handler.reshape(data=y_pred, key=['y_pred'])
+
+        score = mse(self.dataset_handler.dataset['y_test'], y_pred)  # TODO: qual metrica?
         del model
 
         trial.set_user_attr('reports', score)
@@ -798,11 +785,11 @@ class ModelsBuild:
                     # phase 1 - training the discriminator
                     # noise -> input vectors / noise = X_train[idx:idx+batch_size]
                     
-                    generated_signals = generator.predict(X_train[idx:idx+self.BATCH_SIZE]).reshape(self.BATCH_SIZE, self.dataset.window, len(self.outputs))
+                    generated_signals = generator.predict(X_train[idx:idx+self.BATCH_SIZE]).reshape(self.BATCH_SIZE, self.dataset_handler.window, len(self.outputs))
                     # generated_signals -> fake -> label = 0
                     # y_train -> treal -> label = 1
                     X_fake_and_real = np.concatenate([generated_signals,
-                                                      y_train[idx:idx+self.BATCH_SIZE].reshape(self.BATCH_SIZE, self.dataset.window, len(self.outputs))],
+                                                      y_train[idx:idx+self.BATCH_SIZE].reshape(self.BATCH_SIZE, self.dataset_handler.window, len(self.outputs))],
                                                       axis=0)
                     y1 = np.concatenate([[0.]] * self.BATCH_SIZE + [[1.]] * self.BATCH_SIZE)
                     discriminator.trainable = True
@@ -830,11 +817,11 @@ class ModelsBuild:
             
             if epoch % 1000 == 0 and epoch != 0:
                 gan.save('output/'+self.experiment_name+'/gan_' + str(epoch) + 'epochs.h5')
-                idx = np.random.randint(self.dataset.dataset['X_test'].shape[0])
-                noise = self.dataset.dataset['X_test'][idx].reshape(1, self.dataset.dataset['X_test'].shape[1], self.dataset.dataset['X_test'].shape[2])
+                idx = np.random.randint(self.dataset_handler.dataset['X_test'].shape[0])
+                noise = self.dataset_handler.dataset['X_test'][idx].reshape(1, self.dataset_handler.dataset['X_test'].shape[1], self.dataset_handler.dataset['X_test'].shape[2])
                 fake_signal = generator.predict(noise)
-                plt.plot(fake_signal.reshape(self.dataset.dataset['y_test'].shape[1], self.dataset.dataset['y_test'].shape[2]))
-                plt.plot(self.dataset.dataset['y_test'][idx].reshape(self.dataset.dataset['y_test'].shape[1], self.dataset.dataset['y_test'].shape[2]))
+                plt.plot(fake_signal.reshape(self.dataset_handler.dataset['y_test'].shape[1], self.dataset_handler.dataset['y_test'].shape[2]))
+                plt.plot(self.dataset_handler.dataset['y_test'][idx].reshape(self.dataset_handler.dataset['y_test'].shape[1], self.dataset_handler.dataset['y_test'].shape[2]))
                 plt.xlabel('time')
                 plt.ylabel('Torque')
                 plt.legend(['mx-fake', 'my-fake', 'mz-fake', 'mx', 'my', 'mz'])
@@ -850,10 +837,9 @@ class ModelsBuild:
         return generator
 
     def model_train_no_validation(self, model_name):
-        X_train, y_train, _, _ = self._reshape_Xy_for_train()
         params = self.load_params()
         model = self._get_model(params, model_name)
-        model.fit(X_train, y_train, epochs=EPOCHS)
+        model.fit(self.dataset_handler.dataset['X_train'], self.dataset_handler.dataset['y_train'], epochs=EPOCHS)
 
         return model
     
