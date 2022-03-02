@@ -5,6 +5,7 @@ from sklearn.model_selection import train_test_split
 from .paa import PiecewiseAggregateApproximation
 from pathlib import Path
 from typing import List
+from sklearn.preprocessing import MinMaxScaler
 
 class DatasetCreator():
     def __init__(self, raw_data_path: str, datasets_path: str, dataset_name: str=None,
@@ -12,7 +13,6 @@ class DatasetCreator():
                  inputs: List[str]=None, outputs: List[str]=None, model_name: str=None,
                  window: int=64, stride: int=32):
         
-        self.scaler = None
         self.inputs = inputs
         self.outputs = outputs
         self.parameters = parameters
@@ -43,6 +43,11 @@ class DatasetCreator():
             'y_test':None,
         }
 
+        self.scaler = {
+            'X_train':MinMaxScaler((-1,1)),
+            'y_train':MinMaxScaler((-1,1)),
+        }
+
     def load_data(self, is_regression: bool=True) -> None:
         
         print(f"Loading data with parameters {self.parameters} from {self.raw_data_path} folder.")
@@ -65,11 +70,13 @@ class DatasetCreator():
                 X = np.concatenate([X, aux_slice]) if np.array(X).size else aux_slice
                 aux_slice = self.slicing(aux[self.outputs].values, window=self.window, stride=self.stride, verbose=False)
                 y = np.concatenate([y, aux_slice]) if np.array(y).size else aux_slice
+                # X.append(aux[self.inputs].values)
+                # y.append(aux[self.outputs].values)
             else:
                 # TODO: REVIEW AND FINISH THIS
                 X = np.concatenate([X, aux[self.inputs].values]) if X.size else aux[self.inputs].values.reshape(1, len(self.inputs), self.window)
                 y = None # TODO: geta from meta.csv the outcomes
-            print("Read i=", i, " in ", len(data_files))
+            print("Read i =", i, " in ", len(data_files))
                 
             if X[-1].shape[0] > self.max_seq_len:
                 self.max_seq_len = X[-1].shape[0]
@@ -154,46 +161,62 @@ class DatasetCreator():
         
     def _slice_array(self, data, window, stride):
         data_sliced = np.array([])
-        for arr in data:
+        for i, arr in enumerate(data):
             n_timesteps, n_channels = arr.shape
             for idx in np.arange(0, n_timesteps-window, step=stride):
                 if data_sliced.size:
                     data_sliced = np.concatenate((data_sliced, arr[idx:idx+window].reshape(1, window, n_channels)))
                 else:
                     data_sliced = arr[idx:idx+window].reshape(1, window, n_channels)
+            # print("sliced i = ", i)
         return data_sliced
 
-    def normalization(self, data=None, keys=['X_train', 'X_test']):
+    def normalization(self, data=None, keys=['X_train', 'X_test', 'y_train', 'y_test']):
         print("Running normalization.")
         if data is None:
             for key in keys:
-                self.dataset[key] = self._force_moment_normalization(self.dataset[key])
+                self.dataset[key] = self._data_normalization(self.dataset[key], key=key)
         else:
-            return self._force_moment_normalization(data)
+            return self._data_normalization(data)  # TODO: this will break for a random dataset. Do it later
 
-    def _force_moment_normalization(self, X, data='train'): # TODO: REDO
-        if 'test' not in data:
-            from sklearn.preprocessing import MinMaxScaler
+    def _data_normalization(self, X, key):
+        if 'test' not in key:
             all_min = []
             all_max = []
-            scaler = MinMaxScaler((-1,1))
-            for data_i in X:
-                s = scaler.fit(data_i)
-                all_min.append(s.data_min_)
-                all_max.append(s.data_max_)
+            # Here I "normalize" the size by taking ALL max and min, then I just select each item with the extremes values
+            for x_i in X:
+                self.scaler[key] = self.scaler[key].fit(x_i)
+                all_min.append(self.scaler[key].data_min_)
+                all_max.append(self.scaler[key].data_max_)
 
-            all_min = np.min(all_min, axis=0)
-            all_max = np.max(all_max, axis=0)
-            s.data_min_ = all_min
-            s.data_max_ = all_max
-
-            for i, _ in enumerate(X):
-                X[i] = (X[i] - all_min) / (all_max - all_min + np.ones(len(all_max)) * 1e-7)
-            self.scaler = s
+            self.scaler[key].data_min_ = np.min(all_min, axis=0)
+            self.scaler[key].data_max_ = np.max(all_max, axis=0)
         else:
-            for i, _ in enumerate(X):
-                X[i] = (X[i] - self.scaler.data_min_) / (self.scaler.data_max_ - self.scaler.data_min_ + np.ones(len(self.scaler.data_max_)) * 1e-7)
+            # If we are normalizing the test, we need to use the train instead
+            key = key[0] + '_train'
+
+        for i, _ in enumerate(X):
+            X[i] = (X[i] - self.scaler[key].data_min_) / (self.scaler[key].data_max_ - self.scaler[key].data_min_ + np.ones(len(self.scaler[key].data_max_)) * 1e-7)
         return X
+
+    def reshape(self, data=None, keys=['X_train', 'X_test', 'y_train', 'y_test']):
+        print("Reshaping.")
+        if data is None:
+            for key in keys:
+                self.dataset[key] = self._reshape_for_train(self.dataset[key], key=key)
+        else:
+            return self._reshape_for_train(data, key)
+
+    def _reshape_for_train(self, data, key):
+        n_samples, n_timestpes, n_channels = data.shape
+
+        if 'y' in key: # reshaping y means flattening all y
+            return data.reshape(n_samples, n_timestpes*n_channels)
+        if 'X' in key: # reshaping X means flattening for rf, svm, and mlp
+            if self.model_name == 'rf' or self.model_name == 'svm' or self.model_name == 'mlp':
+                return data.reshape(n_samples, n_timestpes*n_channels)
+            else:
+                return data
 
     def _exists_dataset(self) -> bool:
         

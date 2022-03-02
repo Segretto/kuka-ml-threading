@@ -45,10 +45,11 @@ for inputs in INPUTS:
                                         stride=STRIDE)
 
             dataset.load_data(is_regression=True)
-            # dataset.slicing(window=WINDOW_SIZE, stride=STRIDE)
+            # dataset.slicing(window=window_size, stride=STRIDE)
             # dataset.paa(keys=['X_train', 'X_test'])
             # dataset.padding()
-            # dataset.normalization()  # we need to review this function, the mathematics
+            dataset.normalization()  # we need to review this function, the mathematics
+            dataset.reshape()
             dataset.save_dataset()
 
             models_build = ModelsBuild(model_name,
