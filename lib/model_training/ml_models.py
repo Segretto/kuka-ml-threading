@@ -10,6 +10,7 @@ import numpy as np
 import gc
 import matplotlib.pyplot as plt
 from time import time
+import json
 
 EPOCHS = 100
 MAX_DROPOUT = 0.5
@@ -29,6 +30,7 @@ class ModelsBuild:
         self.BATCH_SIZE = batch_size
         self.is_discriminator = False
         self.experiment_name = experiment_name
+        self.params = {}
 
         # # if you are having problems with memory allocation with tensorflow, uncomment below
         # gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -59,60 +61,54 @@ class ModelsBuild:
         # self._save_model(trial, model)
         return score_mean
 
-    def get_model(self, trial, model_name):
+    def _get_model(self, params, model_name):
         if model_name == 'lstm':
-            model = self.objective_lstm(trial)
+            model = self.objective_lstm(params)
         if model_name == 'bidirec_lstm':
-            model = self.objective_bidirectional_lstm(trial)
+            model = self.objective_bidirectional_lstm(params)
         if model_name == 'gru':
-            model = self.objective_gru(trial)
+            model = self.objective_gru(params)
         if model_name == 'mlp':
-            model = self.objective_mlp(trial)
+            model = self.objective_mlp(params)
         if model_name == 'svr':
-            model = self.objective_svr(trial)
+            model = self.objective_svr(params)
         if model_name == 'cnn':
-            model = self.objective_cnn(trial)
+            model = self.objective_cnn(params)
         if model_name == 'wavenet':
-            model = self.objective_wavenet(trial)
+            model = self.objective_wavenet(params)
         if model_name == 'rf':
-            model = self.objective_rf(trial)
+            model = self.objective_rf(params)
         if model_name == 'transf':
-            model = self.objective_transformer(trial)
+            model = self.objective_transformer(params)
         if model_name == 'vitransf':
-            model = self.objective_vitransformer(trial)
+            model = self.objective_vitransformer(params)
         if model_name == 'gan':
-            model = self.objective_gan(trial)
+            model = self.objective_gan(params)
         if model_name != 'svr' and model_name != 'rf' and self.model_name != 'gan':
-            model = self.add_optimizer(model, trial)
+            model = self.add_optimizer(model, params)
         return model
 
-    def objective_lstm(self, trial):
+    def objective_lstm(self, params):
         model = tf.keras.models.Sequential()
         # input layer
-        n_hidden = trial.suggest_int('n_hidden', 0, 5)
         
         model.add(tf.keras.layers.Masking(mask_value=0, input_shape=self.INPUT_SHAPE))
-        if n_hidden == 0:
-            model.add(tf.keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 9),
-                                        return_sequences=False,
-                                        dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT), name='lstm_'+str(time())))
+        if params['n_hidden'] == 0:
+            model.add(tf.keras.layers.LSTM(units=params['n_input'],
+                                           return_sequences=False,
+                                           dropout=params['dropout_input'],
+                                           name='lstm_'+str(time())))
         else:
-            model.add(tf.keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 8),
-                                        return_sequences=True,
-                                        dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT),
-                                        #recurrent_dropout=trial.suggest_uniform('dropout_rec_input', 0, MAX_DROPOUT),
-                                        name='lstm_'+str(time())))
-            if n_hidden >= 1:
-                for layer in range(n_hidden-1):
-                    model.add(tf.keras.layers.LSTM(units=trial.suggest_int('n_hidden_' + str(layer + 1), 1, 9),
-                                                return_sequences=True,
-                                                dropout=trial.suggest_uniform('dropout_' + str(layer + 1), 0, MAX_DROPOUT),
-                                                #recurrent_dropout=trial.suggest_uniform('dropout_rec_' + str(layer + 1), 0, MAX_DROPOUT),
-                                                name='lstm_'+str(time())))
-                else:
-                    model.add(tf.keras.layers.LSTM(units=trial.suggest_int('n_hidden_' + str(n_hidden + 1), 1, 9),
-                                                return_sequences=False,
-                                                dropout=trial.suggest_uniform('dropout_' + str(n_hidden + 1), 0, MAX_DROPOUT), name='lstm_'+str(time())))
+            for layer in range(params['n_hidden']):
+                model.add(tf.keras.layers.LSTM(units=params['n_hidden_' + str(layer)],
+                                               return_sequences=True,
+                                               dropout=params['dropout_' + str(layer)],
+                                               name='lstm_'+str(time())))
+            else:
+                model.add(tf.keras.layers.LSTM(units=params['n_hidden_' + str(layer+1)],
+                                               return_sequences=False,
+                                               dropout=params['dropout_' + str(layer+1)],
+                                               name='lstm_'+str(time())))
 
         # TODO: change optimizer and add batchNorm in layers. It is taking too long to train
         # output layer
@@ -203,15 +199,28 @@ class ModelsBuild:
 
         return model
 
-    def objective_mlp(self, trial):
+    def objective_mlp(self, params):
+        gan_text = ''
+        if self.model_name == 'gan':
+            if self.is_discriminator:
+                # model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation="relu"))
+                gan_text = '_disc'
+                # model.add(tf.keras.layers.Reshape((len(self.outputs), self.window)))
+            else:
+                # IS GENERATOR
+                # input_generator_shape = self.dataset.dataset['X_train'][0].shape
+                # model.add(tf.keras.layers.InputLayer(input_shape=input_generator_shape, name='input_' + str(time())))
+                gan_text = '_gen'
+
         model = tf.keras.models.Sequential()
         model.add(tf.keras.layers.InputLayer(input_shape=[len(self.inputs) * self.window]))
 
-        n_hidden = trial.suggest_int('n_hidden', 1, 10)
-        for layer in range(n_hidden):
-            n_neurons = trial.suggest_int('n_neurons_' + str(layer), 1, 2048)
-            model.add(tf.keras.layers.Dense(n_neurons, activation='relu', name='dense_'+str(time())))
-            model.add(tf.keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer), 0, MAX_DROPOUT), name='dropout_'+str(time())))
+        for layer in range(params['n_hidden'+gan_text]):
+            model.add(tf.keras.layers.Dense(params['n_neurons_' + str(layer)+gan_text],
+                                            activation='relu',
+                                            name='dense_'+str(time())))
+            model.add(tf.keras.layers.Dropout(params['dropout_' + str(layer)+gan_text],
+                                              name='dropout_'+str(time())))
 
         if self.is_discriminator:
             model.add(tf.keras.layers.Dense(1, activation='sigmoid', name='dense_'+str(time())))
@@ -233,28 +242,30 @@ class ModelsBuild:
                    min_samples_split=trial.suggest_int('rf_min_samples_split', 2, 10+1))
         return model
 
-    def objective_cnn(self, trial):
+    def objective_cnn(self, params):
         model = tf.keras.models.Sequential()
-
-        n_layers_cnn = trial.suggest_int('n_hidden_cnn', 1, 8)
+        gan_text = ''
         if self.model_name == 'gan':
             if self.is_discriminator:
                 model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation="relu"))
+                gan_text = '_disc'
                 # model.add(tf.keras.layers.Reshape((len(self.outputs), self.window)))
             else:
                 # IS GENERATOR
                 input_generator_shape = self.dataset.dataset['X_train'][0].shape
                 model.add(tf.keras.layers.InputLayer(input_shape=input_generator_shape, name='input_' + str(time())))
+                gan_text = '_gen'
         else:
             model.add(tf.keras.layers.Masking(mask_value=0, input_shape=self.INPUT_SHAPE, name='mask_' + str(time())))
         
         # TODO: change optuna name for each layer of the gan
-
-        for layer in range(n_layers_cnn):
-            model.add(tf.keras.layers.Conv1D(filters=trial.suggest_categorical("filters_"+str(layer), [32, 64]),
-                                          kernel_size=trial.suggest_categorical("kernel_"+str(layer), [1, 3, 5]),
-                                          padding='same',
-                                          activation='relu', name='conv1d_'+str(time())+str(self.is_discriminator)))
+        
+        for layer in range(params['n_hidden_cnn'+gan_text]):
+            model.add(tf.keras.layers.Conv1D(filters=params["filters_"+str(layer)+gan_text],
+                                             kernel_size=params["kernel_"+str(layer)+gan_text],
+                                             padding='same',
+                                             activation='relu',
+                                             name='conv1d_'+str(time())))
             # model.add(tf.keras.layers.MaxPooling1D(pool_size=trial.suggest_categorical("pool_size_"+str(layer), [1, 2]), name='maxpool1d_'+str(time())))
             model.add(tf.keras.layers.BatchNormalization(name='batchnorm_' + str(time())))
 
@@ -262,11 +273,13 @@ class ModelsBuild:
 
         model.add(tf.keras.layers.Flatten(name='flatten_' + str(time())))
 
-        n_layers_dense = trial.suggest_int('n_hidden', 1, 6)
-        for layer in range(n_layers_dense):
-            model.add(tf.keras.layers.Dense(trial.suggest_int('n_neurons_dense' + str(layer), 1, 2048),
-                                         activation='relu', kernel_regularizer=tf.keras.regularizers.l2(l2=trial.suggest_uniform('regularizer_' + str(layer), 1e-3, 1e-1)), name='dense_'+str(time())))
-            model.add(tf.keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer), 0, MAX_DROPOUT), name='dropout_' + str(time())))
+        for layer in range(params['n_layers_dense'+gan_text]):
+            model.add(tf.keras.layers.Dense(params['n_neurons_dense' + str(layer)+gan_text],
+                                            activation='relu',
+                                            kernel_regularizer=tf.keras.regularizers.l2(l2=params['regularizer_' + str(layer)+gan_text]),
+                                            name='dense_'+str(time())))
+            model.add(tf.keras.layers.Dropout(params['dropout_' + str(layer)+gan_text],
+                                              name='dropout_' + str(time())))
             # model.add(tf.keras.regularizers.l2(l2=trial.suggest_uniform('regularizer_' + str(layer), 1e-3, 1e-1)))
 
         if self.model_name == 'gan':
@@ -563,26 +576,26 @@ class ModelsBuild:
             model = tf.keras.Model(inputs=inputs, outputs=logits)
         return model
 
-    def objective_gan(self, trial):
-        generator_model = trial.suggest_categorical('generator', ['cnn'])
+    def objective_gan(self, params):
+        generator_model = params['generator']
         self.is_discriminator = False
-        generator = self.get_model(trial, model_name=generator_model)
+        generator = self._get_model(params, model_name=generator_model)
 
-        discriminator_model = trial.suggest_categorical('discriminator', ['cnn'])
+        discriminator_model = params['discriminator']
         self.is_discriminator = True
-        discriminator = self.get_model(trial, model_name=discriminator_model)
+        discriminator = self._get_model(params, model_name=discriminator_model)
 
         gan = tf.keras.models.Sequential([generator, discriminator])
 
-        optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr_disc", 1e-5, 1e-1, log=True))
+        optimizer = tf.keras.optimizers.Adam(learning_rate=params['lr_disc'])
         discriminator.compile(loss="binary_crossentropy", optimizer=optimizer)
         discriminator.trainable = False
-        optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr_gan", 1e-5, 1e-1, log=True))
+        optimizer = tf.keras.optimizers.Adam(learning_rate=params['lr_gan'])
         gan.compile(loss="binary_crossentropy", optimizer=optimizer)
         return gan
 
-    def add_optimizer(self, model, trial):
-        optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+    def add_optimizer(self, model, params):
+        optimizer = tf.keras.optimizers.Adam(learning_rate=params['lr'])
         model.compile(loss=self.loss_func, optimizer=optimizer, metrics=[self.metrics])
         return model
 
@@ -622,7 +635,7 @@ class ModelsBuild:
         if self.metrics == 'multi_mounted':
             return report['mounted']['recall'], report['mounted']['precision']
 
-    def _save_model(self, trial, model):
+    def _save_model(self, model):
         '''once the models start training, use this function to save the current model'''
         model_path = self.path_to_temp_trained_models + \
                      str(trial.number) + '_temp_' + self.model_name
@@ -650,13 +663,92 @@ class ModelsBuild:
         y_test = self.dataset.dataset['y_test'].reshape((self.dataset.dataset['y_test'].shape[0],
                                                         self.dataset.dataset['y_test'].shape[1]*self.dataset.dataset['y_test'].shape[2]))
         return X_train, y_train, X_test, y_test
+    
+    def _get_trial(self, trial):
+        if self.model_name == 'cnn':
+            params = self._get_trial_cnn(trial)
+        
+        if self.model_name == 'lstm':
+            params = self._get_trial_lstm(trial)
+        
+        if self.model_name == 'gan':
+            params = self._get_trial_gan(trial)
+            self.params = params
+        
+        if self.model_name == 'mlp':
+            params = self._get_trial_mlp(trial)
+            
+        if self.model_name != 'gan':
+            params['lr'] = trial.suggest_float("lr", 1e-5, 1e-1, log=True)
+        return params
+    
+    def _get_trial_cnn(self, trial, gan_text=''):
+        params = {}
+        params['n_hidden_cnn'+gan_text] = trial.suggest_int('n_hidden_cnn'+gan_text, 1, 8)
+        for layer in range(params['n_hidden_cnn'+gan_text]):
+            params["filters_" + str(layer)+gan_text]  = trial.suggest_categorical("filters_"+str(layer)+gan_text, [32, 64])
+            params["kernel_"  + str(layer)+gan_text]  = trial.suggest_categorical("kernel_"+str(layer)+gan_text, [1, 3, 5])
+        
+        params["n_layers_dense"+gan_text] = trial.suggest_int('n_layers_dense'+gan_text, 1, 6)
+        for layer in range(params["n_layers_dense"+gan_text]):
+            params['n_neurons_dense' + str(layer)+gan_text] = trial.suggest_int('n_neurons_dense' + str(layer)+gan_text, 1, 2048)
+            params['regularizer_' + str(layer)+gan_text] = trial.suggest_uniform('regularizer_' + str(layer)+gan_text, 1e-3, 1e-1)
+            params['dropout_' + str(layer)+gan_text] = trial.suggest_uniform('dropout_' + str(layer)+gan_text, 0, MAX_DROPOUT)
+        return params
+
+    def _get_trial_lstm(self, trial, gan_text=''):
+        params={}
+        params['n_hidden'+gan_text] = trial.suggest_int('n_hidden'+gan_text, 0, 5)
+        if params['n_hidden'+gan_text] == 0:
+            params['n_input'+gan_text] = trial.suggest_int('n_input'+gan_text, 1, 9)
+            params['dropout_input'+gan_text] = trial.suggest_uniform('dropout_input'+gan_text, 0, MAX_DROPOUT)
+        else:
+            for layer in range(params['n_hidden'+gan_text]):
+                params['n_hidden_'+gan_text + str(layer)] = trial.suggest_int('n_hidden_' + str(layer)+gan_text, 1, 9)
+                params['dropout_'+gan_text + str(layer)] = trial.suggest_uniform('dropout_' + str(layer)+gan_text, 0, MAX_DROPOUT)
+            else:
+                params['n_hidden_'+gan_text + str(layer+1)] = trial.suggest_int('n_hidden_' + str(layer+1)+gan_text, 1, 9)
+                params['dropout_'+gan_text + str(layer+1)] = trial.suggest_uniform('dropout_' + str(layer+1)+gan_text, 0, MAX_DROPOUT)
+        return params
+
+    def _get_trial_gan(self, trial):
+        params = {}
+        params['lr_disc'] = trial.suggest_float("lr_disc", 1e-5, 1e-1, log=True)
+        params['lr_gan'] = trial.suggest_float("lr_gan", 1e-5, 1e-1, log=True)
+
+        params['generator'] = trial.suggest_categorical('generator', ['cnn'])
+        gan_text = '_gen'
+        if params['generator'] == 'cnn':
+            params.update(self._get_trial_cnn(trial, gan_text))
+        if params['generator'] == 'lstm':
+            params.update(self._get_trial_lstm(trial, gan_text))
+        
+        params['discriminator'] = trial.suggest_categorical('discriminator', ['cnn'])
+        gan_text = '_disc'
+        if params['discriminator'] == 'cnn':
+            params.update(self._get_trial_cnn(trial, gan_text))
+        if params['discriminator'] == 'lstm':
+            params.update(self._get_trial_lstm(trial, gan_text))
+        
+        return params
+
+    def _get_trial_mlp(self, trial, gan_text=''):
+        params = {}
+        params['n_hidden'+gan_text] = trial.suggest_int('n_hidden'+gan_text, 1, 10)
+        for layer in params['n_hidden'+gan_text]:
+            params['n_neurons_' + str(layer)+gan_text] = trial.suggest_int('n_neurons_' + str(layer)+gan_text, 1, 2048)
+            params['dropout_' + str(layer)+gan_text] = trial.suggest_uniform('dropout_' + str(layer)+gan_text, 0, MAX_DROPOUT)
+        
+
+        return params
 
     def _model_train(self, trial):
         X_train, y_train, X_test, y_test = self._reshape_Xy_for_train()
 
         train, val, train_labels, val_labels = train_test_split(X_train, y_train, test_size=0.10, random_state=42)
 
-        model = self.get_model(trial, self.model_name)
+        params = self._get_trial(trial)
+        model = self._get_model(params, self.model_name)
         model = self._model_fit(train, train_labels, val, val_labels, model)
         y_pred = model.predict(X_test)
         if self.model_name == 'gan':
@@ -692,6 +784,7 @@ class ModelsBuild:
         return model
 
     def _gan_fit(self, X_train, y_train, X_val, y_val, gan):
+        file_name = 'output/' + self.experiment_name + '/best_' + self.model_name + '.h5'
         generator, discriminator = gan.layers
         n_samples = X_train.shape[0]
         n_epochs = 5000
@@ -727,12 +820,14 @@ class ModelsBuild:
             history_loss.append(np.mean(batch_loss))
             
             gc.collect()
+            gan.save(file_name)
             tf.keras.backend.clear_session()
-            # del gan
-            # _, _, gan = get_models()
-            # gan_w = keras.models.load_model(file_name)
-            # gan.set_weights(gan_w.get_weights())
-            # generator, discriminator = gan.layers
+            del gan
+            _, _, gan = self._get_model(self.params, self.model_name)
+            gan_w = tf.keras.models.load_model(file_name)
+            gan.set_weights(gan_w.get_weights())
+            generator, discriminator = gan.layers
+            
             if epoch % 1000 == 0 and epoch != 0:
                 gan.save('output/'+self.experiment_name+'/gan_' + str(epoch) + 'epochs.h5')
                 idx = np.random.randint(self.dataset.dataset['X_test'].shape[0])
@@ -753,3 +848,22 @@ class ModelsBuild:
                 plt.clf()
             print("Finished epoch", epoch)
         return generator
+
+    def model_train_no_validation(self, model_name):
+        X_train, y_train, _, _ = self._reshape_Xy_for_train()
+        params = self.load_params()
+        model = self._get_model(params, model_name)
+        model.fit(X_train, y_train, epochs=EPOCHS)
+
+        return model
+    
+    def load_params(self):
+        file_name = 'output/' + self.experiment_name + '/best_' + self.model_name + '.json'
+        params = {}
+        with open(file_name, 'r') as f:
+            hyperparameters = json.load(f)
+        for key, value in hyperparameters.items():
+            if 'params_' in key:
+                if value is not None:
+                    params[key[7:]] = value
+        return params
