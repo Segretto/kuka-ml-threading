@@ -24,9 +24,16 @@ class ModelsBuild:
         self.inputs = inputs
         self.outputs = outputs
         self.loss_func = loss_func
-        self.window = self.dataset_handler.dataset['X_train'].shape[1]
-        self.OUTPUT_SHAPE = self.window*len(outputs)
-        self.INPUT_SHAPE = (self.window, len(self.inputs))  # TODO: this is not a good way of defining input_shape
+        if self.dataset_handler.dataset['X_train'].ndim == 3:
+            _, self.n_timesteps_input, self.n_inputs = self.dataset_handler.dataset['X_train'].shape
+            _, self.n_timesteps_output, self.n_outputs = self.dataset_handler.dataset['y_train'].shape
+            self.INPUT_SHAPE = (self.n_timesteps_input, self.n_inputs)
+            self.OUTPUT_SHAPE = self.n_timesteps_output*len(self.outputs)
+        else:
+            _, self.n_timesteps_input = self.dataset_handler.dataset['X_train'].shape
+            _, self.n_timesteps_output = self.dataset_handler.dataset['y_train'].shape
+            self.INPUT_SHAPE = self.n_timesteps_input
+            self.OUTPUT_SHAPE = self.n_timesteps_output
         self.BATCH_SIZE = batch_size
         self.is_discriminator = False
         self.experiment_name = experiment_name
@@ -56,7 +63,7 @@ class ModelsBuild:
         self.model_name = model_name
         tf.keras.backend.reset_uids()
         tf.keras.backend.clear_session()
-        print("Training ", self.model_name, " in dataset W", self.window)
+        print("Training ", self.model_name, " in dataset W", self.n_timesteps_input)
         score_mean = self._model_train(trial)
         # self._save_model(trial, model)
         return score_mean
@@ -213,7 +220,7 @@ class ModelsBuild:
                 gan_text = '_gen'
 
         model = tf.keras.models.Sequential()
-        model.add(tf.keras.layers.InputLayer(input_shape=[len(self.inputs) * self.window]))
+        model.add(tf.keras.layers.InputLayer(input_shape=[self.INPUT_SHAPE]))
 
         for layer in range(params['n_hidden'+gan_text]):
             model.add(tf.keras.layers.Dense(params['n_neurons_' + str(layer)+gan_text],
@@ -719,7 +726,7 @@ class ModelsBuild:
     def _get_trial_mlp(self, trial, gan_text=''):
         params = {}
         params['n_hidden'+gan_text] = trial.suggest_int('n_hidden'+gan_text, 1, 10)
-        for layer in params['n_hidden'+gan_text]:
+        for layer in range(params['n_hidden'+gan_text]):
             params['n_neurons_' + str(layer)+gan_text] = trial.suggest_int('n_neurons_' + str(layer)+gan_text, 1, 2048)
             params['dropout_' + str(layer)+gan_text] = trial.suggest_uniform('dropout_' + str(layer)+gan_text, 0, MAX_DROPOUT)
         
@@ -760,8 +767,8 @@ class ModelsBuild:
             )
             
             model.fit(
-                X_train, y_train.reshape(-1, len(self.outputs)*self.window),
-                validation_data=(X_val, y_val.reshape(-1, len(self.outputs)*self.window)),
+                X_train, y_train,
+                validation_data=(X_val, y_val),
                 batch_size=self.BATCH_SIZE,
                 epochs=EPOCHS,
                 verbose=0,
