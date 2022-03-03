@@ -16,28 +16,30 @@ EPOCHS = 100
 MAX_DROPOUT = 0.5
 
 class ModelsBuild:
-    def __init__(self, model_name='mlp', metrics='mse', dataset=None, inputs=None, outputs=None, 
+    def __init__(self, model_name='mlp', metrics='mse', dataset=None, 
                 loss_func='mse', batch_size=256, experiment_name=None):
         self.model_name = model_name
         self.metrics = metrics
         self.dataset_handler = dataset
-        self.inputs = inputs
-        self.outputs = outputs
         self.loss_func = loss_func
-        if self.dataset_handler.dataset['X_train'].ndim == 3:
-            _, self.n_timesteps_input, self.n_inputs = self.dataset_handler.dataset['X_train'].shape
-            _, self.n_timesteps_output, self.n_outputs = self.dataset_handler.dataset['y_train'].shape
-            self.INPUT_SHAPE = (self.n_timesteps_input, self.n_inputs)
-            self.OUTPUT_SHAPE = self.n_timesteps_output*len(self.outputs)
-        else:
-            _, self.n_timesteps_input = self.dataset_handler.dataset['X_train'].shape
-            _, self.n_timesteps_output = self.dataset_handler.dataset['y_train'].shape
-            self.INPUT_SHAPE = self.n_timesteps_input
-            self.OUTPUT_SHAPE = self.n_timesteps_output
+
+        self.inputs = self.dataset_handler.inputs
+        self.outputs = self.dataset_handler.outputs
+        
         self.BATCH_SIZE = batch_size
         self.is_discriminator = False
         self.experiment_name = experiment_name
+        
         self.params = {}
+
+        shapes = self.dataset_handler._get_shapes()
+
+        self.INPUT_SHAPE = shapes['input_shape']
+        self.OUTPUT_SHAPE = shapes['output_shape']
+        self.N_CHANNELS_OUTPUTS = shapes['n_channels_output']
+        self.N_CHANNELS_INPUTS = shapes['n_channels_input']
+        self.N_TIMESTEPS_INPUT = shapes['n_timesteps_input']
+        self.N_TIMESTEPS_OUTPUT = shapes['n_timesteps_output']
 
         # # if you are having problems with memory allocation with tensorflow, uncomment below
         # gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -63,7 +65,7 @@ class ModelsBuild:
         self.model_name = model_name
         tf.keras.backend.reset_uids()
         tf.keras.backend.clear_session()
-        print("Training ", self.model_name, " in dataset W", self.n_timesteps_input)
+        print("Training ", self.model_name, " in dataset W", self.N_TIMESTEPS_INPUT)
         score_mean = self._model_train(trial)
         # self._save_model(trial, model)
         return score_mean

@@ -8,13 +8,13 @@ MODELS_NAMES = ['lstm', 'cnn']
 
 N_TRIALS = 100
 TIMEOUT = None
-N_JOBS = 1  # if you have a dedicated machine, change this to -1
+N_JOBS = -1  # if you have a dedicated machine, change this to -1
 METRICS = 'mse'
 METRICS_DIRECTION = 'minimize'
 PARAMETERS = ['vx', 'vy', 'vz', 'fx', 'fy', 'fz', 'mx', 'my', 'mz']
-INPUTS = [['vx', 'vy', 'vz', 'fx', 'fy', 'fz']]
+INPUTS = [['fx', 'fy', 'fz'], ['vx', 'vy', 'vz', 'fx', 'fy', 'fz']]
 OUTPUTS = ['mx', 'my', 'mz']
-WINDOW_SIZE = [128]
+WINDOW_SIZE = [64, 128]
 BATCH_SIZE = 512
 RAW_DATA_PATH='data'
 DATASETS_PATH='dataset'
@@ -48,15 +48,13 @@ for inputs in INPUTS:
             # dataset.slicing(window=window_size, stride=STRIDE)
             # dataset.paa(keys=['X_train', 'X_test'])
             # dataset.padding()
-            dataset.normalization()  # we need to review this function, the mathematics
+            # dataset.normalization()
             dataset.reshape()
             dataset.save_dataset()
 
             models_build = ModelsBuild(model_name,
                                         metrics=METRICS, 
                                         dataset=dataset,
-                                        inputs=inputs,
-                                        outputs=OUTPUTS,
                                         batch_size=BATCH_SIZE,
                                         experiment_name=EXPERIMENT_NAME)
 

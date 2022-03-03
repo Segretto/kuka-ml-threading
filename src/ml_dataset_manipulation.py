@@ -8,10 +8,15 @@ from typing import List
 from sklearn.preprocessing import MinMaxScaler
 
 class DatasetCreator():
-    def __init__(self, raw_data_path: str, datasets_path: str, dataset_name: str=None,
-                 parameters: List[str]=['fx','fy','fz','mx','my','mz'],
-                 inputs: List[str]=None, outputs: List[str]=None, model_name: str=None,
-                 window: int=64, stride: int=32):
+    def __init__(self,  raw_data_path: str,
+                        datasets_path: str,
+                        dataset_name: str=None,
+                        parameters: List[str]=['fx','fy','fz','mx','my','mz'],
+                        inputs: List[str]=None,
+                        outputs: List[str]=None,
+                        model_name: str=None,
+                        window: int=64,
+                        stride: int=32):
         
         self.inputs = inputs
         self.outputs = outputs
@@ -31,16 +36,20 @@ class DatasetCreator():
         self.raw_data_path = Path(raw_data_path)
         self.datasets_dir_path = Path(datasets_path)
 
-        self.X_train = None
-        self.X_test  = None
-        self.y_train = None
-        self.y_test  = None
-
         self.dataset = {
             'X_train':None,
             'X_test':None,
             'y_train':None,
             'y_test':None,
+        }
+
+        self.shapes = {
+            'n_timesteps_input':None,
+            'n_timesteps_output':None,
+            'n_channels_input':None,
+            'n_channels_output':None,
+            'input_shape':None,
+            'output_shape':None
         }
 
         self.scaler = {
@@ -139,11 +148,11 @@ class DatasetCreator():
             return self._padding_in_data(data)
     
     def _padding_in_data(self, data):
-        n_features = len(self.inputs)
+        n_channels = len(self.inputs)
         n_samples = len(data)
-        data_padded = np.zeros((n_samples, self.max_seq_len, n_features))
+        data_padded = np.zeros((n_samples, self.max_seq_len, n_channels))
         for i, sample in enumerate(data):
-            aux_sample = np.zeros((self.max_seq_len, n_features))
+            aux_sample = np.zeros((self.max_seq_len, n_channels))
             aux_sample[:sample.shape[0]] = sample
             data_padded[i] = aux_sample
         return data_padded
@@ -217,6 +226,31 @@ class DatasetCreator():
                 return data.reshape(n_samples, n_timestpes*n_channels)
             else:
                 return data
+    
+    def _get_shapes(self):
+        if self.dataset['X_train'].ndim == 3:
+            _, N_TIMESTEPS_INPUT, N_CHANNELS_INPUT = self.dataset['X_train'].shape
+            _, N_TIMESTEPS_OUTPUT, N_CHANNELS_OUTPUT = self.dataset['y_train'].shape
+            INPUT_SHAPE = (N_TIMESTEPS_INPUT, N_CHANNELS_INPUT)
+            OUTPUT_SHAPE = N_TIMESTEPS_OUTPUT*N_CHANNELS_OUTPUT
+        else:
+            _, N_TIMESTEPS_INPUT = self.dataset['X_train'].shape
+            _, N_TIMESTEPS_OUTPUT = self.dataset['y_train'].shape
+            N_CHANNELS_INPUT = N_TIMESTEPS_INPUT
+            N_CHANNELS_OUTPUT = N_TIMESTEPS_OUTPUT
+            INPUT_SHAPE = N_TIMESTEPS_INPUT
+            OUTPUT_SHAPE = N_TIMESTEPS_OUTPUT
+        
+        self.shapes = {
+            'n_timesteps_input':N_TIMESTEPS_INPUT,
+            'n_timesteps_output':N_TIMESTEPS_OUTPUT,
+            'n_channels_input':N_CHANNELS_INPUT,
+            'n_channels_output':N_CHANNELS_OUTPUT,
+            'input_shape':INPUT_SHAPE,
+            'output_shape':OUTPUT_SHAPE
+        }
+
+        return self.shapes
 
     def _exists_dataset(self) -> bool:
         
