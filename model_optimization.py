@@ -4,7 +4,7 @@ from utils.optuna_utils import OptunaCheckpointing
 
 # THE USER SHOULD MODIFY THESE ONES
 # models_names = ['svr', 'rf', 'mlp', 'cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
-MODELS_NAMES = ['lstm', 'cnn']
+MODELS_NAMES = ['mlp', 'cnn', 'lstm']
 
 N_TRIALS = 100
 TIMEOUT = None
@@ -30,6 +30,10 @@ for inputs in INPUTS:
                 EXPERIMENT_NAME += '_no_vel'
                 DATASET_NAME += '_no_vel'
 
+            if model_name == 'lstm':
+                N_JOBS = 2
+            else:
+                N_JOBS = -1
 
             optuna_checkpoint = OptunaCheckpointing(model_name=model_name,
                                                     experiment_name=EXPERIMENT_NAME)
@@ -48,9 +52,9 @@ for inputs in INPUTS:
             # dataset.slicing(window=window_size, stride=STRIDE)
             # dataset.paa(keys=['X_train', 'X_test'])
             # dataset.padding()
-            # dataset.normalization()
-            dataset.reshape()
             dataset.save_dataset()
+            dataset.normalization()
+            dataset.reshape()
 
             models_build = ModelsBuild(model_name,
                                         metrics=METRICS, 
