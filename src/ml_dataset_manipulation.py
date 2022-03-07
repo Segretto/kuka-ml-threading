@@ -21,7 +21,6 @@ class DatasetCreator():
         self.inputs = inputs
         self.outputs = outputs
         self.parameters = parameters
-        self.max_seq_len = 0
         self.model_name = model_name
         self.dataset_name = dataset_name
         self.window = window
@@ -32,6 +31,8 @@ class DatasetCreator():
         self.NOT_MOUNTED = 2
         self.is_padded = False
         self.is_sliced = False
+        self.is_normalized = False
+        self.max_seq_len = 0
 
         self.raw_data_path = Path(raw_data_path)
         self.datasets_dir_path = Path(datasets_path)
@@ -182,6 +183,7 @@ class DatasetCreator():
 
     def normalization(self, data=None, keys=['X_train', 'X_test', 'y_train', 'y_test']):
         print("Running normalization.")
+        self.is_normalized = True
         if data is None:
             for key in keys:
                 self.dataset[key] = self._data_normalization(self.dataset[key], key=key)
@@ -217,22 +219,23 @@ class DatasetCreator():
             return self._reshape_for_train(data, key)
 
     def _reshape_for_train(self, data, key):
-        n_samples, n_timestpes, n_channels = data.shape
+        n_samples, n_timesteps, n_channels = data.shape
 
         if 'y' in key: # reshaping y means flattening all y
-            return data.reshape(n_samples, n_timestpes*n_channels)
+            return data.reshape(n_samples, n_timesteps*n_channels)
         if 'X' in key: # reshaping X means flattening for rf, svm, and mlp
             if self.model_name == 'rf' or self.model_name == 'svm' or self.model_name == 'mlp':
-                return data.reshape(n_samples, n_timestpes*n_channels)
+                return data.reshape(n_samples, n_timesteps*n_channels)
             else:
                 return data
     
     def _get_shapes(self):
         if self.dataset['X_train'].ndim == 3:
             _, N_TIMESTEPS_INPUT, N_CHANNELS_INPUT = self.dataset['X_train'].shape
-            _, N_TIMESTEPS_OUTPUT, N_CHANNELS_OUTPUT = self.dataset['y_train'].shape
+            _, N_TIMESTEPS_OUTPUT= self.dataset['y_train'].shape
             INPUT_SHAPE = (N_TIMESTEPS_INPUT, N_CHANNELS_INPUT)
-            OUTPUT_SHAPE = N_TIMESTEPS_OUTPUT*N_CHANNELS_OUTPUT
+            OUTPUT_SHAPE = N_TIMESTEPS_OUTPUT
+            N_CHANNELS_OUTPUT = N_TIMESTEPS_OUTPUT
         else:
             _, N_TIMESTEPS_INPUT = self.dataset['X_train'].shape
             _, N_TIMESTEPS_OUTPUT = self.dataset['y_train'].shape
