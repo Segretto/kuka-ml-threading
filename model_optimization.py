@@ -4,7 +4,7 @@ from utils.optuna_utils import OptunaCheckpointing
 
 # THE USER SHOULD MODIFY THESE ONES
 # models_names = ['svr', 'rf', 'mlp', 'cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
-MODELS_NAMES = ['mlp', 'cnn', 'lstm']
+MODELS_NAMES = ['transf']
 
 N_TRIALS = 100
 TIMEOUT = None
@@ -30,7 +30,7 @@ for inputs in INPUTS:
                 EXPERIMENT_NAME += '_no_vel'
                 DATASET_NAME += '_no_vel'
 
-            if model_name == 'lstm':
+            if model_name == 'lstm' or model_name == 'transf':
                 N_JOBS = 2
             else:
                 N_JOBS = -1

@@ -363,7 +363,16 @@ class ModelsBuild:
             model = tf.keras.models.Model(inputs=[inputs], outputs=[Y_outputs])
         return model
 
-    def objective_transformer(self, trial):
+    def objective_transformer(self, params):
+        gan_text = ''
+        if self.model_name == 'gan':
+            if self.is_discriminator:
+                # IS DISCRIMINATOR
+                gan_text = '_disc'
+            else:
+                # IS GENERATOR
+                gan_text = '_gen'
+
         class TransformerBlock(tf.keras.layers.Layer):
             def __init__(self, embed_dim, num_heads, ff_dim):
                 super(TransformerBlock, self).__init__()
@@ -373,10 +382,10 @@ class ModelsBuild:
                     [tf.keras.layers.Dense(ff_dim, activation="relu", name='dense1_' + str(time())),
                      tf.keras.layers.Dense(embed_dim, name='dense2_' + str(time()))]
                 )
-                self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=trial.suggest_uniform('layerNorm_transf1', 1e-7, 1e-5), name='norm1_' + str(time()))
-                self.layernorm2 = tf.keras.layers.LayerNormalization(epsilon=trial.suggest_uniform('layerNorm_transf2', 1e-7, 1e-5), name='norm2_' + str(time()))
-                self.dropout1 = tf.keras.layers.Dropout(trial.suggest_uniform('dropout1_transf_layer', 0, MAX_DROPOUT), name='drop1_' + str(time()))
-                self.dropout2 = tf.keras.layers.Dropout(trial.suggest_uniform('dropout2_transf_layer', 0, MAX_DROPOUT), name='drop2_' + str(time()))
+                self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=params['layerNorm_transf1'+gan_text], name='norm1_' + str(time()))
+                self.layernorm2 = tf.keras.layers.LayerNormalization(epsilon=params['layerNorm_transf2'+gan_text], name='norm2_' + str(time()))
+                self.dropout1 = tf.keras.layers.Dropout(params['dropout1_transf_layer'+gan_text], name='drop1_' + str(time()))
+                self.dropout2 = tf.keras.layers.Dropout(params['dropout2_transf_layer'+gan_text], name='drop2_' + str(time()))
 
             def call(self, inputs, training):
                 attn_output = self.att(inputs, inputs)
@@ -392,10 +401,10 @@ class ModelsBuild:
                 # token_emb
                 self.conv1 = tf.keras.layers.Conv2D(8, (1, 2), activation="relu", padding="same", name='conv2d_' + str(time()))
                 self.norm1 = tf.keras.layers.BatchNormalization(name='batchnorm_' + str(time()))
-                self.pool1 = tf.keras.layers.MaxPooling2D((1, 2), name='maxpool2d_' + str(time()))
+                # self.pool1 = tf.keras.layers.MaxPooling2D((1, 2), name='maxpool2d_' + str(time()))
                 self.conv2 = tf.keras.layers.Conv2D(16, (1, 2), activation="relu", padding="same", name='conv2d_' + str(time()))
                 self.norm2 = tf.keras.layers.BatchNormalization(name='batchnorm_' + str(time()))
-                self.pool2 = tf.keras.layers.MaxPooling2D((1, 2), name='maxpool2d_' + str(time()))
+                # self.pool2 = tf.keras.layers.MaxPooling2D((1, 2), name='maxpool2d_' + str(time()))
                 self.conv3 = tf.keras.layers.Conv2D(embed_dim, (1, 2), activation="relu", padding="same",
                                                     name='convd3_' + str(time()))
                 self.norm3 = tf.keras.layers.BatchNormalization(name='batch3_' + str(time()))
@@ -409,25 +418,23 @@ class ModelsBuild:
                 positions = self.pos_emb(positions)
                 x = self.conv1(x)
                 x = self.norm1(x)
-                x = self.pool1(x)
+                # x = self.pool1(x)
                 x = self.conv2(x)
                 x = self.norm2(x)
-                x = self.pool2(x)
+                # x = self.pool2(x)
                 x = self.conv3(x)
                 x = self.norm3(x)
                 x = self.pool3(x)
                 x = self.reshape(x)
                 return x + positions
 
-        n_channels = self.dataset_handler.dataset['X_train'].shape[1]
-        n_timesteps = self.dataset_handler.dataset['X_train'].shape[2]
-        n_transformer_layers = trial.suggest_int('transformer_layers', 1, 8)
-        maxlen = 96 # Only consider 3 input time points
-        embed_dim = trial.suggest_categorical('embed_dim', [2**n for n in range(3, 5)])  # 16  # Embedding size for each token
-        num_heads = trial.suggest_categorical('num_heads', [2, 4, 6, 8])  # Number of attention heads
-        ff_dim = trial.suggest_categorical('ff_dim', [2**n for n in range(4, 9)])  # Hidden layer size in feed forward network inside transformer
+        n_transformer_layers = params['transformer_layers'+gan_text]
+        maxlen = self.N_TIMESTEPS_INPUT # Only consider 3 input time points
+        embed_dim = params['embed_dim'+gan_text]
+        num_heads = params['num_heads'+gan_text]
+        ff_dim = params['ff_dim'+gan_text]
 
-        inputs = tf.keras.layers.Input(shape=(n_channels, n_timesteps, 1))
+        inputs = tf.keras.layers.Input(shape=(self.N_TIMESTEPS_INPUT, self.N_CHANNELS_INPUTS, 1))
         embedding_layer = TokenAndPositionEmbedding(maxlen, embed_dim)
         x = embedding_layer(inputs)
         for layer in range(n_transformer_layers):
@@ -674,9 +681,13 @@ class ModelsBuild:
         
         if self.model_name == 'mlp':
             params = self._get_trial_mlp(trial)
-            
+        
+        if self.model_name == 'transf':
+            params = self._get_trial_transf(trial)
+        
         if self.model_name != 'gan':
             params['lr'] = trial.suggest_float("lr", 1e-5, 1e-1, log=True)
+
         return params
     
     def _get_trial_cnn(self, trial, gan_text=''):
@@ -738,6 +749,19 @@ class ModelsBuild:
         
 
         return params
+    
+    def _get_trial_transf(self, trial, gan_text=''):
+        params = {}
+        params['layerNorm_transf1'+gan_text] = trial.suggest_uniform('layerNorm_transf1'+gan_text, 1e-7, 1e-5)
+        params['layerNorm_transf2'+gan_text] = trial.suggest_uniform('layerNorm_transf2'+gan_text, 1e-7, 1e-5)
+        params['dropout1_transf_layer'+gan_text] = trial.suggest_uniform('dropout1_transf_layer'+gan_text, 0, MAX_DROPOUT)
+        params['dropout2_transf_layer'+gan_text] = trial.suggest_uniform('dropout2_transf_layer'+gan_text, 0, MAX_DROPOUT)
+        params['transformer_layers'+gan_text] = trial.suggest_int('transformer_layers'+gan_text, 1, 8)
+        params['embed_dim'+gan_text] = trial.suggest_categorical('embed_dim'+gan_text, [2**n for n in range(3, 5)])  # 16  # Embedding size for each token
+        params['num_heads'+gan_text] = trial.suggest_categorical('num_heads'+gan_text, [2, 4, 6, 8])  # Number of attention heads
+        params['ff_dim'+gan_text] = trial.suggest_categorical('ff_dim'+gan_text, [2**n for n in range(4, 9)])  # Hidden layer size in feed forward network inside transformer
+        return params
+
 
     def _model_train(self, trial):
 
