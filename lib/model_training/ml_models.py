@@ -11,6 +11,7 @@ import gc
 import matplotlib.pyplot as plt
 from time import time
 import json
+import pickle
 
 EPOCHS = 100
 MAX_DROPOUT = 0.5
@@ -40,6 +41,9 @@ class ModelsBuild:
         self.N_CHANNELS_INPUTS = shapes['n_channels_input']
         self.N_TIMESTEPS_INPUT = shapes['n_timesteps_input']
         self.N_TIMESTEPS_OUTPUT = shapes['n_timesteps_output']
+
+        with open('output/' + self.experiment_name + '_scaler.pickle', 'wb') as file_dict:
+            pickle.dump(self.dataset_handler.scaler, file_dict)
 
         # # if you are having problems with memory allocation with tensorflow, uncomment below
         # gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -749,8 +753,14 @@ class ModelsBuild:
         y_pred = model.predict(self.dataset_handler.dataset['X_test'])
         if self.model_name == 'gan':
             y_pred = self.dataset_handler.reshape(data=y_pred, key=['y_pred'])
+        
+        # if self.dataset_handler.is_normalized:
+        #     Y_test = self.dataset_handler.dataset['y_test']
+        #     Y_pred = y_pred
+        
+        y_test = self.dataset_handler.dataset['y_test']
 
-        score = mse(self.dataset_handler.dataset['y_test'], y_pred)  # TODO: qual metrica?
+        score = mse(y_test, y_pred)  # TODO: qual metrica?
         del model
 
         trial.set_user_attr('reports', score)
