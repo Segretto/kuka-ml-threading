@@ -73,23 +73,31 @@ class DatasetCreator():
         y = []
 
         data_files = [file for file in (self.datasets_dir_path / self.raw_data_path).iterdir() if '.csv' in file.name]
-        for i, file in enumerate(data_files):
-            aux = pd.read_csv(file, index_col=None)[self.parameters]
-            if is_regression:
+        if is_regression:
+            for i, file in enumerate(data_files):
+                aux = pd.read_csv(file, index_col=None)[self.parameters]
                 aux_slice = self.slicing(aux[self.inputs].values, window=self.window, stride=self.stride, verbose=False)
                 X = np.concatenate([X, aux_slice]) if np.array(X).size else aux_slice
                 aux_slice = self.slicing(aux[self.outputs].values, window=self.window, stride=self.stride, verbose=False)
                 y = np.concatenate([y, aux_slice]) if np.array(y).size else aux_slice
                 # X.append(aux[self.inputs].values)
                 # y.append(aux[self.outputs].values)
-            else:
-                # TODO: REVIEW AND FINISH THIS
-                X = np.concatenate([X, aux[self.inputs].values]) if X.size else aux[self.inputs].values.reshape(1, len(self.inputs), self.window)
-                y = None # TODO: geta from meta.csv the outcomes
-            print("Read i =", i, " in ", len(data_files))
-                
-            if X[-1].shape[0] > self.max_seq_len:
-                self.max_seq_len = X[-1].shape[0]
+                if X[-1].shape[0] > self.max_seq_len:
+                    self.max_seq_len = X[-1].shape[0]
+                print("Read i =", i, " in ", len(data_files))
+        else:
+            meta = pd.read_csv(self.datasets_dir_path / 'meta.csv', index_col=None)
+            meta.replace('Mounted', 0, inplace=True)
+            meta.replace('Not-Mounted', 1, inplace=True)
+            meta.replace('Jammed', 2, inplace=True)
+            y = meta['label'].values
+            for i, file in enumerate(data_files):
+                # TODO: regular + aeronautical?
+                aux = pd.read_csv(file, index_col=None)[self.inputs].values
+                X.append(aux)
+                if X[-1].shape[0] > self.max_seq_len:
+                    self.max_seq_len = X[-1].shape[0]
+                print("Read i =", i, " in ", len(data_files))
         
         print('Read all individual files.')
         
@@ -110,12 +118,15 @@ class DatasetCreator():
     def paa(self, data=None, keys=['X_train', 'X_test']):
         print("Running PAA.")
         if data is None:
+            self.max_seq_len = 0
             for key in keys:
                 self.dataset[key] = self._paa_in_data(self.dataset[key])
+                for sample in self.dataset[key]:
+                    self.max_seq_len = sample.shape[0] if sample.shape[0] > self.max_seq_len else self.max_seq_len
         else:
             return self._paa_in_data(data)
     
-    def _paa_in_data(self, data, window_size=10):
+    def _paa_in_data(self, data, window_size=12):
         paa = PiecewiseAggregateApproximation(window_size=window_size)
         if self.is_sliced or self.is_padded:  # this is only true if we call paa without slicing or padding, so different timesteps
             data_paa = np.array([])
@@ -131,12 +142,7 @@ class DatasetCreator():
             data_paa = []  # TODO: test again
             for i, sample in enumerate(data):
                 sample_aux = paa.transform(sample.T).T
-                if len(data_paa) != 0:
-                    data_paa.append(sample_aux.reshape(1, sample_aux.shape[0], sample_aux.shape[1]))
-                else:
-                    sample_aux.reshape(1, sample_aux.shape[0], sample_aux.shape[1])
-                if i%1000 == 0:
-                    print("PAA iteration ", i)
+                data_paa.append(sample_aux)
         return data_paa
     
     def padding(self, data=None, keys=['X_train', 'X_test']):
@@ -230,19 +236,18 @@ class DatasetCreator():
                 return data
     
     def _get_shapes(self):
+        OUTPUT_SHAPE = 3
         if self.dataset['X_train'].ndim == 3:
             _, N_TIMESTEPS_INPUT, N_CHANNELS_INPUT = self.dataset['X_train'].shape
-            _, N_TIMESTEPS_OUTPUT= self.dataset['y_train'].shape
             INPUT_SHAPE = (N_TIMESTEPS_INPUT, N_CHANNELS_INPUT)
-            OUTPUT_SHAPE = N_TIMESTEPS_OUTPUT
+            N_TIMESTEPS_OUTPUT = OUTPUT_SHAPE
             N_CHANNELS_OUTPUT = N_TIMESTEPS_OUTPUT
         else:
             _, N_TIMESTEPS_INPUT = self.dataset['X_train'].shape
-            _, N_TIMESTEPS_OUTPUT = self.dataset['y_train'].shape
             N_CHANNELS_INPUT = N_TIMESTEPS_INPUT
-            N_CHANNELS_OUTPUT = N_TIMESTEPS_OUTPUT
             INPUT_SHAPE = N_TIMESTEPS_INPUT
-            OUTPUT_SHAPE = N_TIMESTEPS_OUTPUT
+            N_CHANNELS_OUTPUT = OUTPUT_SHAPE
+            N_TIMESTEPS_OUTPUT = OUTPUT_SHAPE
         
         self.shapes = {
             'n_timesteps_input':N_TIMESTEPS_INPUT,
