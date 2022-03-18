@@ -1,3 +1,4 @@
+from sklearn import metrics
 from lib.model_training.ml_models import ModelsBuild
 from src.ml_dataset_manipulation import DatasetCreator
 from utils.optuna_utils import OptunaCheckpointing
@@ -8,11 +9,12 @@ MODELS_NAMES = ['mlp', 'cnn', 'lstm']
 
 N_TRIALS = 100
 TIMEOUT = None
-N_JOBS = -1  # if you have a dedicated machine, change this to -1
-METRICS = 'mse'
-METRICS_DIRECTION = 'minimize'
+N_JOBS = 1  # if you have a dedicated machine, change this to -1
+METRICS_OPTIMIZER = 'accuracy'
+METRICS_DIRECTION = 'maximize'
+METRICS_SCORE = 'mounted'
 PARAMETERS = ['vx', 'vy', 'vz', 'fx', 'fy', 'fz', 'mx', 'my', 'mz']
-INPUTS = [['fx', 'fy', 'fz'], ['vx', 'vy', 'vz', 'fx', 'fy', 'fz']]
+INPUTS = [['vx', 'vy', 'vz', 'fx', 'fy', 'fz', 'mx', 'my', 'mz']]
 OUTPUTS = ['mx', 'my', 'mz']
 WINDOW_SIZE = [64, 128]
 BATCH_SIZE = 512
@@ -20,12 +22,10 @@ RAW_DATA_PATH='data'
 DATASETS_PATH='dataset'
 
 for inputs in INPUTS:
-    for window_size in WINDOW_SIZE:
         for model_name in MODELS_NAMES:
-            STRIDE = int(window_size/2)
-            DATASET_NAME = f'W{window_size}S{STRIDE}'
-            EXPERIMENT_NAME = 'regression_'+model_name+'_W'+str(window_size)
-            
+            DATASET_NAME = f'CLASSFIC'
+            EXPERIMENT_NAME = 'classification_'+model_name
+                        
             if 'vx' not in inputs:
                 EXPERIMENT_NAME += '_no_vel'
                 DATASET_NAME += '_no_vel'
@@ -44,25 +44,25 @@ for inputs in INPUTS:
                                         inputs=inputs,
                                         outputs=OUTPUTS,
                                         parameters=PARAMETERS,
-                                        model_name=model_name,
-                                        window=window_size,
-                                        stride=STRIDE)
+                                        model_name=model_name
+                                        )
 
-            dataset.load_data(is_regression=True)
-            # dataset.slicing(window=window_size, stride=STRIDE)
-            # dataset.paa(keys=['X_train', 'X_test'])
-            # dataset.padding()
+            dataset.load_data(is_regression=False)
+            dataset.paa(keys=['X_train', 'X_test'])
+            dataset.padding()
             dataset.save_dataset()
-            dataset.normalization()
-            dataset.reshape()
+            dataset.normalization(keys=['X_train', 'X_test'])
+            dataset.reshape(keys=['X_train', 'X_test'])
 
             models_build = ModelsBuild(model_name,
-                                        metrics=METRICS, 
+                                        metrics_optimizer=METRICS_OPTIMIZER, 
                                         dataset=dataset,
                                         batch_size=BATCH_SIZE,
-                                        experiment_name=EXPERIMENT_NAME)
+                                        experiment_name=EXPERIMENT_NAME,
+                                        loss_func='sparse_categorical_crossentropy',
+                                        metrics_score = METRICS_SCORE)
 
-            study, n_trials_to_go = optuna_checkpoint.load_study(metrics=METRICS,
+            study, n_trials_to_go = optuna_checkpoint.load_study(metrics=METRICS_OPTIMIZER,
                                                                     n_trials=N_TRIALS,
                                                                     metrics_direction=METRICS_DIRECTION)
 

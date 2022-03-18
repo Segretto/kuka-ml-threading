@@ -40,7 +40,7 @@ for model_name in MODELS_NAMES:
     dataset.save_dataset()
     
     models_build = ModelsBuild(model_name,
-                               metrics=METRICS, 
+                               metrics_optimizer=METRICS, 
                                dataset=dataset,
                                inputs=INPUTS,
                                outputs=OUTPUTS,

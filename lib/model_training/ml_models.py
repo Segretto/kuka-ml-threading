@@ -5,7 +5,7 @@ import os
 from joblib import dump
 from sklearn.metrics import classification_report, confusion_matrix, r2_score
 from sklearn.metrics import mean_squared_error as mse
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, StratifiedShuffleSplit
 import numpy as np
 import gc
 import matplotlib.pyplot as plt
@@ -16,12 +16,19 @@ EPOCHS = 100
 MAX_DROPOUT = 0.5
 
 class ModelsBuild:
-    def __init__(self, model_name='mlp', metrics='mse', dataset=None, 
-                loss_func='mse', batch_size=256, experiment_name=None):
+    def __init__(self, model_name='mlp',
+                       metrics_optimizer='mse',
+                       metrics_score='precision',
+                       dataset=None,
+                       loss_func='mse',
+                       batch_size=256,
+                       experiment_name=None):
+
         self.model_name = model_name
-        self.metrics = metrics
+        self.metrics_optimizer = metrics_optimizer
         self.dataset_handler = dataset
         self.loss_func = loss_func
+        self.metrics_score = metrics_score
 
         self.inputs = self.dataset_handler.inputs
         self.outputs = self.dataset_handler.outputs
@@ -66,7 +73,7 @@ class ModelsBuild:
         tf.keras.backend.reset_uids()
         tf.keras.backend.clear_session()
         print("Training ", self.model_name, " in dataset W", self.N_TIMESTEPS_INPUT)
-        score_mean = self._model_train(trial)
+        score_mean, score_std = self._model_train(trial)
         # self._save_model(trial, model)
         return score_mean
 
@@ -124,7 +131,7 @@ class ModelsBuild:
         if self.is_discriminator:
             model.add(tf.keras.layers.Dense(1, activation='sigmoid', name='dense_'+str(time())))
         else:
-            model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation='linear'))
+            model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation='softmax'))
 
         return model
 
@@ -166,7 +173,7 @@ class ModelsBuild:
         if self.is_discriminator:
             model.add(tf.keras.layers.Dense(1, activation='sigmoid', name='dense_'+str(time())))
         else:
-            model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation='linear'))
+            model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation='softmax'))
 
         return model
 
@@ -204,7 +211,7 @@ class ModelsBuild:
         if self.is_discriminator:
             model.add(tf.keras.layers.Dense(1, activation='sigmoid', name='dense_'+str(time())))
         else:
-            model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation='linear'))
+            model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation='softmax'))
 
         return model
 
@@ -234,7 +241,7 @@ class ModelsBuild:
         if self.is_discriminator:
             model.add(tf.keras.layers.Dense(1, activation='sigmoid', name='dense_'+str(time())))
         else:
-            model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation="linear", name='dense_'+str(time())))
+            model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation="softmax", name='dense_'+str(time())))
 
         return model
 
@@ -298,10 +305,10 @@ class ModelsBuild:
                 # IS GENERATOR
                 # model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(len(self.outputs), activation="linear")))
                 output_generator_shape = self.dataset_handler.dataset['y_train'].shape[1]*self.dataset_handler.dataset['y_train'].shape[2]
-                model.add(tf.keras.layers.Dense(output_generator_shape, activation='linear', name='dense_'+str(time())))
+                model.add(tf.keras.layers.Dense(output_generator_shape, activation='softmax', name='dense_'+str(time())))
                 model.add(tf.keras.layers.Reshape((self.dataset_handler.window, len(self.outputs))))
         else:
-            model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation='linear', name='dense_'+str(time())))
+            model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation='softmax', name='dense_'+str(time())))
         return model
 
     def objective_wavenet(self, trial):
@@ -351,7 +358,7 @@ class ModelsBuild:
         for layer in range(n_layers_dense):
             z = tf.keras.layers.Dense(trial.suggest_int('n_neurons_dense' + str(layer), 1, 2048),
                                             activation='relu', name='dense_'+str(time()))(z)
-        Y_outputs = tf.keras.layers.Dense(units=self.OUTPUT_SHAPE, activation='linear', name='dense_'+str(time()))(z)
+        Y_outputs = tf.keras.layers.Dense(units=self.OUTPUT_SHAPE, activation='softmax', name='dense_'+str(time()))(z)
 
         if self.is_discriminator:
             model.add(tf.keras.layers.Dense(1, activation='sigmoid', name='dense_'+str(time())))
@@ -605,21 +612,12 @@ class ModelsBuild:
 
     def add_optimizer(self, model, params):
         optimizer = tf.keras.optimizers.Adam(learning_rate=params['lr'])
-        model.compile(loss=self.loss_func, optimizer=optimizer, metrics=[self.metrics])
+        model.compile(loss=self.loss_func, optimizer=optimizer, metrics=[self.metrics_optimizer])
         return model
 
     def metrics_report(self, model, get_confusion_matrix=None):
-        # TODO: add new regression metrics. There's no classification_report for regression in sklearn
-        if self.model_name == 'rf' or self.model_name == 'svm' or self.model_name == 'mlp':
-            X_test = self.dataset_handler.dataset['X_test'].reshape((self.dataset_handler.dataset['X_test'].shape[0],
-                                          self.dataset_handler.dataset['X_test'].shape[1] * self.dataset_handler.dataset['X_test'].shape[2]))
-        else:
-            X_test = self.dataset_handler.dataset['X_test']
-
-        if self.model_name == 'rf' or self.model_name == 'svm':
-            y_pred = np.argmax(model.predict(X_test).reshape(X_test.shape[0], 1), axis=1)
-        else:
-            y_pred = np.argmax(model(X_test), axis=1)
+        X_test = self.dataset_handler.dataset['X_test']
+        y_pred = np.argmax(model(X_test), axis=1)
 
         # return recall_score(y_true=self.dataset.dataset['y_test'], y_pred=y_pred, average='macro')
         # TODO: this problem occurs due to the lack of class jammed. I'll gather more data and remove this
@@ -631,17 +629,16 @@ class ModelsBuild:
             # except ValueError:
         else:
             return classification_report(y_true=self.dataset_handler.dataset['y_test'], y_pred=y_pred,
-                                     output_dict=True, target_names=['mounted', 'jammed', 'not mounted'],
-                                     zero_division=0), confusion_matrix(self.dataset_handler.dataset['y_test'], y_pred)
+                                         output_dict=True, target_names=['mounted', 'jammed', 'not mounted'],
+                                         zero_division=0), confusion_matrix(self.dataset_handler.dataset['y_test'], y_pred)
 
     def get_score(self, model):
-        # TODO: add new regression metrics. There's no classification_report for regression in sklearn
         report = self.metrics_report(model)
-        if self.metrics == 'mounted':
+        if self.metrics_optimizer == 'mounted':
             return report['mounted']['precision']
-        if self.metrics == 'jammed':
+        if self.metrics_optimizer == 'jammed':
             return report['jammed']['precision']
-        if self.metrics == 'multi_mounted':
+        if self.metrics_optimizer == 'multi_mounted':
             return report['mounted']['recall'], report['mounted']['precision']
 
     def _save_model(self, model):
@@ -736,30 +733,32 @@ class ModelsBuild:
         return params
 
     def _model_train(self, trial):
-
-        train, val, train_labels, val_labels = train_test_split(self.dataset_handler.dataset['X_train'],
-                                                                self.dataset_handler.dataset['y_train'],
-                                                                test_size=0.10,
-                                                                random_state=42)
+        split = StratifiedShuffleSplit(n_splits=5, test_size=.2)
 
         params = self._get_trial(trial)
-        model = self._get_model(params, self.model_name)
-        model = self._model_fit(train, train_labels, val, val_labels, model)
+        scores = []
+
+        for train, val in split.split(self.dataset_handler.dataset['X_train'], self.dataset_handler.dataset['y_train']):
+            model = self._get_model(params, self.model_name)
+            model = self._model_fit(self.dataset_handler.dataset['X_train'][train],
+                                    self.dataset_handler.dataset['y_train'][train],
+                                    self.dataset_handler.dataset['X_train'][val],
+                                    self.dataset_handler.dataset['y_train'][val],
+                                    model)
+            score = self.get_score(model)
+            scores.append(score)
+            del model
         
-        y_pred = model.predict(self.dataset_handler.dataset['X_test'])
-        if self.model_name == 'gan':
-            y_pred = self.dataset_handler.reshape(data=y_pred, key=['y_pred'])
+        score_mean = np.mean(scores)
+        score_std = np.std(scores)
 
-        score = mse(self.dataset_handler.dataset['y_test'], y_pred)  # TODO: qual metrica?
-        del model
-
-        trial.set_user_attr('reports', score)
-        return score
+        trial.set_user_attr('classification_reports', scores)
+        return score_mean, score_std
 
     def _model_fit(self, X_train, y_train, X_val, y_val, model):
         if self.model_name != 'gan':
             cb_early_stopping =tf.keras.callbacks.EarlyStopping(
-                monitor=self.metrics,
+                monitor=self.metrics_optimizer,
                 min_delta=0.005,
                 patience=10,
                 verbose=0,
