@@ -42,7 +42,7 @@ class ModelsBuild:
         self.N_TIMESTEPS_INPUT = shapes['n_timesteps_input']
         self.N_TIMESTEPS_OUTPUT = shapes['n_timesteps_output']
 
-        with open('output/' + self.experiment_name + '_scaler.pickle', 'wb') as file_dict:
+        with open('output/' + self.experiment_name + '_scaler.pickle', 'wb') as file_dict: #TODO: save this guy INSIDE the folder
             pickle.dump(self.dataset_handler.scaler, file_dict)
 
         # # if you are having problems with memory allocation with tensorflow, uncomment below
@@ -396,7 +396,7 @@ class ModelsBuild:
                 return self.layernorm2(out1 + ffn_output)
 
         class TokenAndPositionEmbedding(tf.keras.layers.Layer):
-            def __init__(self, maxlen, embed_dim):
+            def __init__(self, maxlen, embed_dim, n_channels_input):
                 super(TokenAndPositionEmbedding, self).__init__()
                 # token_emb
                 self.conv1 = tf.keras.layers.Conv2D(8, (1, 2), activation="relu", padding="same", name='conv2d_' + str(time()))
@@ -404,14 +404,15 @@ class ModelsBuild:
                 # self.pool1 = tf.keras.layers.MaxPooling2D((1, 2), name='maxpool2d_' + str(time()))
                 self.conv2 = tf.keras.layers.Conv2D(16, (1, 2), activation="relu", padding="same", name='conv2d_' + str(time()))
                 self.norm2 = tf.keras.layers.BatchNormalization(name='batchnorm_' + str(time()))
-                # self.pool2 = tf.keras.layers.MaxPooling2D((1, 2), name='maxpool2d_' + str(time()))
+                self.pool2 = tf.keras.layers.MaxPooling2D((1, 2), name='maxpool2d_' + str(time()))
                 self.conv3 = tf.keras.layers.Conv2D(embed_dim, (1, 2), activation="relu", padding="same",
                                                     name='convd3_' + str(time()))
                 self.norm3 = tf.keras.layers.BatchNormalization(name='batch3_' + str(time()))
-                self.pool3 = tf.keras.layers.MaxPooling2D((1, 2), name='maxpool2d_' + str(time()))
+                self.pool3 = tf.keras.layers.MaxPooling2D((1, 3), name='maxpool2d_' + str(time()))
                 self.reshape = tf.keras.layers.Reshape((maxlen, embed_dim), name='reshape_' + str(time()))
                 # pos_emb
                 self.pos_emb = tf.keras.layers.Embedding(input_dim=maxlen, output_dim=embed_dim, name='embedding_' + str(time()))
+                self.n_channels_input = n_channels_input
 
             def call(self, x):
                 positions = tf.range(start=0, limit=maxlen, delta=1)
@@ -421,10 +422,11 @@ class ModelsBuild:
                 # x = self.pool1(x)
                 x = self.conv2(x)
                 x = self.norm2(x)
-                # x = self.pool2(x)
+                x = self.pool2(x)
                 x = self.conv3(x)
                 x = self.norm3(x)
-                x = self.pool3(x)
+                if self.n_channels_input == 6:
+                    x = self.pool3(x)
                 x = self.reshape(x)
                 return x + positions
 
@@ -435,7 +437,7 @@ class ModelsBuild:
         ff_dim = params['ff_dim'+gan_text]
 
         inputs = tf.keras.layers.Input(shape=(self.N_TIMESTEPS_INPUT, self.N_CHANNELS_INPUTS, 1))
-        embedding_layer = TokenAndPositionEmbedding(maxlen, embed_dim)
+        embedding_layer = TokenAndPositionEmbedding(maxlen, embed_dim, self.N_CHANNELS_INPUTS)
         x = embedding_layer(inputs)
         for layer in range(n_transformer_layers):
             transformer_block = TransformerBlock(embed_dim, num_heads, ff_dim)
