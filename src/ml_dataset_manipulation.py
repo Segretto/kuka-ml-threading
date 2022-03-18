@@ -1,11 +1,15 @@
 import pandas as pd
 import numpy as np
-import tensorflow as tf
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OneHotEncoder, LabelEncoder
 from .paa import PiecewiseAggregateApproximation
 from pathlib import Path
 from typing import List
 from sklearn.preprocessing import MinMaxScaler
+
+MOUNTED = 0
+JAMMED = 1
+NOT_MOUNTED = 2
 
 class DatasetCreator():
     def __init__(self,  raw_data_path: str,
@@ -26,13 +30,12 @@ class DatasetCreator():
         self.window = window
         self.stride = stride
 
-        self.MOUNTED = 0
-        self.JAMMED = 1
-        self.NOT_MOUNTED = 2
         self.is_padded = False
         self.is_sliced = False
         self.is_normalized = False
         self.max_seq_len = 0
+        self.encoder = OneHotEncoder().fit(np.array([MOUNTED, JAMMED, NOT_MOUNTED]).reshape(-1,1))
+        
 
         self.raw_data_path = Path(raw_data_path)
         self.datasets_dir_path = Path(datasets_path)
@@ -90,7 +93,8 @@ class DatasetCreator():
             meta.replace('Mounted', 0, inplace=True)
             meta.replace('Not-Mounted', 1, inplace=True)
             meta.replace('Jammed', 2, inplace=True)
-            y = meta['label'].values
+            y = meta['label'].values.reshape(-1, 1)
+            y = self.encoder.fit_transform(y).toarray()
             for i, file in enumerate(data_files):
                 # TODO: regular + aeronautical?
                 aux = pd.read_csv(file, index_col=None)[self.inputs].values

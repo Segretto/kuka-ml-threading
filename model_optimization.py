@@ -5,7 +5,7 @@ from utils.optuna_utils import OptunaCheckpointing
 
 # THE USER SHOULD MODIFY THESE ONES
 # models_names = ['svr', 'rf', 'mlp', 'cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
-MODELS_NAMES = ['transf']
+MODELS_NAMES = ['mlp', 'cnn', 'transf']
 
 N_TRIALS = 100
 TIMEOUT = None
@@ -14,16 +14,17 @@ METRICS_OPTIMIZER = 'accuracy'
 METRICS_DIRECTION = 'maximize'
 METRICS_SCORE = 'mounted'
 PARAMETERS = ['vx', 'vy', 'vz', 'fx', 'fy', 'fz', 'mx', 'my', 'mz']
-INPUTS = [['vx', 'vy', 'vz', 'fx', 'fy', 'fz', 'mx', 'my', 'mz']]
+INPUTS = [['vx', 'vy', 'vz', 'fx', 'fy', 'fz', 'mx', 'my', 'mz'], ['fx', 'fy', 'fz', 'mx', 'my', 'mz']]
 OUTPUTS = ['mx', 'my', 'mz']
 WINDOW_SIZE = [64, 128]
 BATCH_SIZE = 512
 RAW_DATA_PATH='data'
 DATASETS_PATH='dataset'
+LOSS_FUNCTION = 'categorical_crossentropy'  # 'sparse_categorical_crossentropy'
 
 for inputs in INPUTS:
         for model_name in MODELS_NAMES:
-            DATASET_NAME = f'CLASSFIC'
+            DATASET_NAME = f'CLASSIFIC'
             EXPERIMENT_NAME = 'classification_'+model_name
                         
             if 'vx' not in inputs:
@@ -49,7 +50,8 @@ for inputs in INPUTS:
 
             dataset.load_data(is_regression=False)
             dataset.paa(keys=['X_train', 'X_test'])
-            dataset.padding()
+            if model_name == 'mlp':
+                dataset.padding(keys=['X_train', 'X_test'])
             dataset.save_dataset()
             dataset.normalization(keys=['X_train', 'X_test'])
             dataset.reshape(keys=['X_train', 'X_test'])
@@ -59,7 +61,7 @@ for inputs in INPUTS:
                                         dataset=dataset,
                                         batch_size=BATCH_SIZE,
                                         experiment_name=EXPERIMENT_NAME,
-                                        loss_func='sparse_categorical_crossentropy',
+                                        loss_func=LOSS_FUNCTION,
                                         metrics_score = METRICS_SCORE)
 
             study, n_trials_to_go = optuna_checkpoint.load_study(metrics=METRICS_OPTIMIZER,

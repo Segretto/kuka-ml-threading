@@ -426,14 +426,13 @@ class ModelsBuild:
                 positions = self.pos_emb(positions)
                 x = self.conv1(x)
                 x = self.norm1(x)
-                # x = self.pool1(x)
+                x = self.pool1(x)
                 x = self.conv2(x)
                 x = self.norm2(x)
                 x = self.pool2(x)
                 x = self.conv3(x)
                 x = self.norm3(x)
-                if self.n_channels_input == 6:
-                    x = self.pool3(x)
+                x = self.pool3(x)
                 x = self.reshape(x)
                 return x + positions
 
@@ -630,28 +629,32 @@ class ModelsBuild:
 
     def metrics_report(self, model, get_confusion_matrix=None):
         X_test = self.dataset_handler.dataset['X_test']
-        y_pred = np.argmax(model(X_test), axis=1)
+        y_pred = self.dataset_handler.encoder.transform(np.argmax(model(X_test), axis=1).reshape(-1, 1)).toarray()
 
         # return recall_score(y_true=self.dataset.dataset['y_test'], y_pred=y_pred, average='macro')
         # TODO: this problem occurs due to the lack of class jammed. I'll gather more data and remove this
         # try:
         if get_confusion_matrix is None:
-            return classification_report(y_true=self.dataset_handler.dataset['y_test'], y_pred=y_pred,
-                                         output_dict=True, target_names=['mounted', 'jammed', 'not mounted'],
+            return classification_report(y_true=self.dataset_handler.dataset['y_test'],
+                                         y_pred=y_pred,
+                                         output_dict=True,
+                                         target_names=['mounted', 'jammed', 'not mounted'],
                                          zero_division=0)
             # except ValueError:
         else:
-            return classification_report(y_true=self.dataset_handler.dataset['y_test'], y_pred=y_pred,
-                                         output_dict=True, target_names=['mounted', 'jammed', 'not mounted'],
+            return classification_report(y_true=self.dataset_handler.dataset['y_test'],
+                                         y_pred=y_pred,
+                                         output_dict=True,
+                                         target_names=['mounted', 'jammed', 'not mounted'],
                                          zero_division=0), confusion_matrix(self.dataset_handler.dataset['y_test'], y_pred)
 
     def get_score(self, model):
         report = self.metrics_report(model)
-        if self.metrics_optimizer == 'mounted':
+        if self.metrics_score == 'mounted':
             return report['mounted']['precision']
-        if self.metrics_optimizer == 'jammed':
+        if self.metrics_score == 'jammed':
             return report['jammed']['precision']
-        if self.metrics_optimizer == 'multi_mounted':
+        if self.metrics_score == 'multi_mounted':
             return report['mounted']['recall'], report['mounted']['precision']
 
     def _save_model(self, model):
@@ -778,14 +781,6 @@ class ModelsBuild:
             score = self.get_score(model)
             scores.append(score)
             del model
-        
-        y_pred = model.predict(self.dataset_handler.dataset['X_test'])
-        if self.model_name == 'gan':
-            y_pred = self.dataset_handler.reshape(data=y_pred, key=['y_pred'])
-        
-        # if self.dataset_handler.is_normalized:
-        #     Y_test = self.dataset_handler.dataset['y_test']
-        #     Y_pred = y_pred
 
         score_mean = np.mean(scores)
         score_std = np.std(scores)
@@ -798,7 +793,7 @@ class ModelsBuild:
             cb_early_stopping =tf.keras.callbacks.EarlyStopping(
                 monitor=self.metrics_optimizer,
                 min_delta=0.005,
-                patience=10,
+                patience=15,
                 verbose=0,
                 mode="auto",
                 baseline=None,
