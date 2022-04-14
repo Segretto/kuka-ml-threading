@@ -3,9 +3,8 @@ from sklearn.svm import SVR
 from sklearn.ensemble import RandomForestRegressor as RFR
 import os
 from joblib import dump
-from sklearn.metrics import classification_report, confusion_matrix, r2_score
-from sklearn.metrics import mean_squared_error as mse
-from sklearn.model_selection import train_test_split, StratifiedShuffleSplit
+from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.model_selection import StratifiedShuffleSplit
 import numpy as np
 import gc
 import matplotlib.pyplot as plt
@@ -49,7 +48,7 @@ class ModelsBuild:
         self.N_TIMESTEPS_INPUT = shapes['n_timesteps_input']
         self.N_TIMESTEPS_OUTPUT = shapes['n_timesteps_output']
 
-        with open('output/' + self.experiment_name + '_scaler.pickle', 'wb') as file_dict: #TODO: save this guy INSIDE the folder
+        with open('output/' + self.experiment_name + '/' + self.experiment_name + '_scaler.pickle', 'wb') as file_dict:
             pickle.dump(self.dataset_handler.scaler, file_dict)
 
         # # if you are having problems with memory allocation with tensorflow, uncomment below
@@ -139,37 +138,37 @@ class ModelsBuild:
 
         return model
 
-    def objective_bidirectional_lstm(self, trial):
+    def objective_bidirectional_lstm(self, params):
         model = tf.keras.models.Sequential()
         # input layer
-        n_hidden = trial.suggest_int('n_hidden', 0, 5)
+        n_hidden = params['n_hidden']
         model.add(tf.keras.layers.Masking(mask_value=0, input_shape=self.INPUT_SHAPE))
         if n_hidden == 0:
-            model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 9),
+            model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units=params['n_input'],
                                                     return_sequences=False,
-                                                    dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT)),
-                                                    merge_mode=trial.suggest_categorical('merge_mode', ['sum', 'mul', 'concat', 'ave', None]),
+                                                    dropout=params['dropout_input']),
+                                                    merge_mode=params['merge_mode'],
                                                     name='bilstm_'+str(time())))
         else:
-            model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units=trial.suggest_int('n_input', 1, 8),
+            model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units=params['n_input'],
                                                     return_sequences=True,
-                                                    dropout=trial.suggest_uniform('dropout_input', 0, MAX_DROPOUT),
-                                                    recurrent_dropout=trial.suggest_uniform('dropout_rec_input', 0, MAX_DROPOUT)),
-                                                    merge_mode=trial.suggest_categorical('merge_mode_' + str(0), ['sum', 'mul', 'concat', 'ave', None]),
+                                                    dropout=params['dropout_input'],
+                                                    recurrent_dropout=params['dropout_rec_input']),
+                                                    merge_mode=params['merge_mode_' + str(0)],
                                                     name='bilstm_'+str(time())))
             if n_hidden >= 1:
                 for layer in range(n_hidden-1):
-                    model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units=trial.suggest_int('n_hidden_' + str(layer + 1), 1, 9),
+                    model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units=params['n_hidden_' + str(layer + 1)],
                                                             return_sequences=True,
-                                                            dropout=trial.suggest_uniform('dropout_' + str(layer + 1), 0, MAX_DROPOUT),
-                                                            recurrent_dropout=trial.suggest_uniform('dropout_rec_' + str(layer + 1), 0, MAX_DROPOUT)),
-                                                            merge_mode=trial.suggest_categorical('merge_mode_' + str(layer + 1), ['sum', 'mul', 'concat', 'ave', None]),
+                                                            dropout=params['dropout_' + str(layer + 1)],
+                                                            recurrent_dropout=params['dropout_rec_' + str(layer + 1)]),
+                                                            merge_mode=params['merge_mode_' + str(layer + 1)],
                                                             name='bilstm_'+str(time())))
                 else:
-                    model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units=trial.suggest_int('n_hidden_' + str(n_hidden + 1), 1, 9),
+                    model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units=params['n_hidden_' + str(n_hidden + 1)],
                                                             return_sequences=False,
-                                                            dropout=trial.suggest_uniform('dropout_' + str(n_hidden + 1), 0, MAX_DROPOUT)),
-                                                            merge_mode=trial.suggest_categorical('merge_mode_' + str(layer + 1), ['sum', 'mul', 'concat', 'ave', None]),
+                                                            dropout=params['dropout_' + str(n_hidden + 1)]),
+                                                            merge_mode=params['merge_mode_' + str(layer + 1)],
                                                             name='bilstm_'+str(time())))
 
         # TODO: change optimizer and add batchNorm in layers
@@ -273,7 +272,8 @@ class ModelsBuild:
             else:
                 # IS GENERATOR
                 input_generator_shape = self.dataset_handler.dataset['X_train'][0].shape
-                model.add(tf.keras.layers.InputLayer(input_shape=input_generator_shape, name='input_' + str(time())))
+                # model.add(tf.keras.layers.InputLayer(input_shape=input_generator_shape, name='input_' + str(time())))
+                model.add(tf.keras.layers.Masking(mask_value=0, input_shape=input_generator_shape, name='input_' + str(time())))
                 gan_text = '_gen'
         else:
             model.add(tf.keras.layers.Masking(mask_value=0, input_shape=self.INPUT_SHAPE, name='mask_' + str(time())))
@@ -408,25 +408,25 @@ class ModelsBuild:
                 # token_emb
                 self.conv1 = tf.keras.layers.Conv2D(8, (1, 2), activation="relu", padding="same", name='conv2d_' + str(time()))
                 self.norm1 = tf.keras.layers.BatchNormalization(name='batchnorm_' + str(time()))
-                # self.pool1 = tf.keras.layers.MaxPooling2D((1, 2), name='maxpool2d_' + str(time()))
+                self.pool1 = tf.keras.layers.MaxPooling2D((1, 2), name='maxpool2d_' + str(time()))
                 self.conv2 = tf.keras.layers.Conv2D(16, (1, 2), activation="relu", padding="same", name='conv2d_' + str(time()))
                 self.norm2 = tf.keras.layers.BatchNormalization(name='batchnorm_' + str(time()))
-                self.pool2 = tf.keras.layers.MaxPooling2D((1, 2), name='maxpool2d_' + str(time()))
+                self.pool2 = tf.keras.layers.MaxPooling2D((1, 3), name='maxpool2d_' + str(time()))
                 self.conv3 = tf.keras.layers.Conv2D(embed_dim, (1, 2), activation="relu", padding="same",
                                                     name='convd3_' + str(time()))
                 self.norm3 = tf.keras.layers.BatchNormalization(name='batch3_' + str(time()))
-                self.pool3 = tf.keras.layers.MaxPooling2D((1, 3), name='maxpool2d_' + str(time()))
+                pooling_final = 3 if n_channels_input == 9 else 2
+                self.pool3 = tf.keras.layers.MaxPooling2D((1, pooling_final), name='maxpool2d_' + str(time()))
                 self.reshape = tf.keras.layers.Reshape((maxlen, embed_dim), name='reshape_' + str(time()))
                 # pos_emb
-                self.pos_emb = tf.keras.layers.Embedding(input_dim=maxlen, output_dim=embed_dim, name='embedding_' + str(time()))
-                self.n_channels_input = n_channels_input
+                self.pos_emb = tf.keras.layers.Embedding(input_dim=maxlen, output_dim=embed_dim, name='embedding_' + str(time()), mask_zero=True)
 
             def call(self, x):
                 positions = tf.range(start=0, limit=maxlen, delta=1)
                 positions = self.pos_emb(positions)
                 x = self.conv1(x)
                 x = self.norm1(x)
-                x = self.pool1(x)
+                # x = self.pool1(x)
                 x = self.conv2(x)
                 x = self.norm2(x)
                 x = self.pool2(x)
@@ -442,7 +442,8 @@ class ModelsBuild:
         num_heads = params['num_heads'+gan_text]
         ff_dim = params['ff_dim'+gan_text]
 
-        inputs = tf.keras.layers.Input(shape=(self.N_TIMESTEPS_INPUT, self.N_CHANNELS_INPUTS, 1))
+        inputs = tf.keras.layers.Input(shape=(maxlen, self.N_CHANNELS_INPUTS, 1))
+        # inputs = tf.keras.layers.Masking(mask_value=0, input_shape=(maxlen, self.N_CHANNELS_INPUTS, 1))
         embedding_layer = TokenAndPositionEmbedding(maxlen, embed_dim, self.N_CHANNELS_INPUTS)
         x = embedding_layer(inputs)
         for layer in range(n_transformer_layers):
@@ -452,12 +453,13 @@ class ModelsBuild:
         x = tf.keras.layers.Dropout(0.5, name='drop1_end_' + str(time()))(x)
         x = tf.keras.layers.Dense(64, activation="relu")(x)
         x = tf.keras.layers.Dropout(0.5, name='drop2_end_' + str(time()))(x)
-        outputs = tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation="linear")(x)
+        outputs = tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation="softmax")(x)
 
-        if self.is_discriminator:
-            model.add(tf.keras.layers.Dense(1, activation='sigmoid', name='dense_'+str(time())))
-        else:
-            model = tf.keras.Model(inputs=inputs, outputs=outputs)
+        # if self.is_discriminator:
+        #     # model.add(tf.keras.layers.Dense(1, activation='sigmoid', name='dense_'+str(time())))
+        #     model.add(tf.keras.layers.Dense(self.OUTPUT_SHAPE, activation='softmax', name='dense_'+str(time())))
+        # else:
+        model = tf.keras.Model(inputs=inputs, outputs=outputs)
 
         return model
 
@@ -629,18 +631,18 @@ class ModelsBuild:
 
     def metrics_report(self, model, get_confusion_matrix=None):
         X_test = self.dataset_handler.dataset['X_test']
-        y_pred = self.dataset_handler.encoder.transform(np.argmax(model(X_test), axis=1).reshape(-1, 1)).toarray()
+        if type(X_test) is not list:
+            y_pred = self.dataset_handler.encoder.transform(np.argmax(model(X_test), axis=1).reshape(-1, 1)).toarray()
+        else:
+            y_pred = np.array([self.dataset_handler.encoder.transform(np.argmax(model(np.array([X_test[i]])), axis=1).reshape(-1, 1)).toarray() for i in range(len(X_test))]).reshape(-1, self.OUTPUT_SHAPE)
 
         # return recall_score(y_true=self.dataset.dataset['y_test'], y_pred=y_pred, average='macro')
-        # TODO: this problem occurs due to the lack of class jammed. I'll gather more data and remove this
-        # try:
         if get_confusion_matrix is None:
             return classification_report(y_true=self.dataset_handler.dataset['y_test'],
                                          y_pred=y_pred,
                                          output_dict=True,
                                          target_names=['mounted', 'jammed', 'not mounted'],
                                          zero_division=0)
-            # except ValueError:
         else:
             return classification_report(y_true=self.dataset_handler.dataset['y_test'],
                                          y_pred=y_pred,
@@ -687,6 +689,9 @@ class ModelsBuild:
         if self.model_name == 'transf':
             params = self._get_trial_transf(trial)
         
+        if self.model_name == 'bidirec_lstm':
+            params = self._get_trial_bidirec_lstm(trial)
+        
         if self.model_name != 'gan':
             params['lr'] = trial.suggest_float("lr", 1e-5, 1e-1, log=True)
 
@@ -694,14 +699,14 @@ class ModelsBuild:
     
     def _get_trial_cnn(self, trial, gan_text=''):
         params = {}
-        params['n_hidden_cnn'+gan_text] = trial.suggest_int('n_hidden_cnn'+gan_text, 1, 8)
+        params['n_hidden_cnn'+gan_text] = trial.suggest_int('n_hidden_cnn'+gan_text, 1, 12)
         for layer in range(params['n_hidden_cnn'+gan_text]):
-            params["filters_" + str(layer)+gan_text]  = trial.suggest_categorical("filters_"+str(layer)+gan_text, [32, 64])
+            params["filters_" + str(layer)+gan_text]  = trial.suggest_categorical("filters_"+str(layer)+gan_text, [16, 32, 64])
             params["kernel_"  + str(layer)+gan_text]  = trial.suggest_categorical("kernel_"+str(layer)+gan_text, [1, 3, 5])
         
-        params["n_layers_dense"+gan_text] = trial.suggest_int('n_layers_dense'+gan_text, 1, 6)
+        params["n_layers_dense"+gan_text] = trial.suggest_int('n_layers_dense'+gan_text, 1, 10)
         for layer in range(params["n_layers_dense"+gan_text]):
-            params['n_neurons_dense' + str(layer)+gan_text] = trial.suggest_int('n_neurons_dense' + str(layer)+gan_text, 1, 2048)
+            params['n_neurons_dense' + str(layer)+gan_text] = trial.suggest_categorical('n_neurons_dense' + str(layer)+gan_text, [2**n for n in range(1, 12)])
             params['regularizer_' + str(layer)+gan_text] = trial.suggest_uniform('regularizer_' + str(layer)+gan_text, 1e-3, 1e-1)
             params['dropout_' + str(layer)+gan_text] = trial.suggest_uniform('dropout_' + str(layer)+gan_text, 0, MAX_DROPOUT)
         return params
@@ -719,6 +724,31 @@ class ModelsBuild:
             else:
                 params['n_hidden_'+gan_text + str(layer+1)] = trial.suggest_int('n_hidden_' + str(layer+1)+gan_text, 1, 9)
                 params['dropout_'+gan_text + str(layer+1)] = trial.suggest_uniform('dropout_' + str(layer+1)+gan_text, 0, MAX_DROPOUT)
+        return params
+    
+    def _get_trial_bidirec_lstm(self, trial, gan_text=''):
+        params={}
+        params['n_hidden'+gan_text] = trial.suggest_int('n_hidden'+gan_text, 0, 5)
+        if params['n_hidden'+gan_text] == 0:
+            params['n_input'+gan_text] = trial.suggest_int('n_input'+gan_text, 1, 9)
+            params['dropout_input'+gan_text] = trial.suggest_uniform('dropout_input'+gan_text, 0, MAX_DROPOUT)
+            params['merge_mode'+gan_text] = trial.suggest_categorical('merge_mode', ['sum', 'mul', 'concat', 'ave', None])
+        else:
+            params['n_input'+gan_text] = trial.suggest_int('n_input'+gan_text, 1, 9)
+            params['dropout_input'+gan_text] = trial.suggest_uniform('dropout_input'+gan_text, 0, MAX_DROPOUT)
+            params['dropout_rec_input'+gan_text] = trial.suggest_uniform('dropout_rec_input'+gan_text, 0, MAX_DROPOUT)
+            params['merge_mode_'+gan_text + str(0)] = trial.suggest_categorical('merge_mode_'+ str(0), ['sum', 'mul', 'concat', 'ave', None])
+            if params['n_hidden'+gan_text] >= 1:
+                for layer in range(params['n_hidden'+gan_text]-1):
+                    params['n_hidden_'+gan_text + str(layer+1)] = trial.suggest_int('n_hidden_' + str(layer)+gan_text, 1, 9)
+                    params['dropout_'+gan_text + str(layer+1)] = trial.suggest_uniform('dropout_' + str(layer)+gan_text, 0, MAX_DROPOUT)
+                    params['dropout_rec_'+gan_text + str(layer+1)] = trial.suggest_uniform('dropout_rec_' + str(layer)+gan_text, 0, MAX_DROPOUT)
+                    params['merge_mode_'+gan_text + str(layer+1)] = trial.suggest_categorical('merge_mode_'+ str(layer), ['sum', 'mul', 'concat', 'ave', None])
+                else:
+                    params['n_hidden_'+gan_text + str(params['n_hidden'+gan_text]+1)] = trial.suggest_int('n_hidden_' + str(params['n_hidden'+gan_text]+1)+gan_text, 1, 9)
+                    params['dropout_'+gan_text + str(params['n_hidden'+gan_text]+1)] = trial.suggest_uniform('dropout_' + str(params['n_hidden'+gan_text]+1)+gan_text, 0, MAX_DROPOUT)
+                    params['dropout_rec_'+gan_text + str(params['n_hidden'+gan_text]+1)] = trial.suggest_uniform('dropout_rec_' + str(params['n_hidden'+gan_text]+1)+gan_text, 0, MAX_DROPOUT)
+                    params['merge_mode_'+gan_text + str(params['n_hidden'+gan_text]+1)] = trial.suggest_categorical('merge_mode_'+ str(params['n_hidden'+gan_text]+1), ['sum', 'mul', 'concat', 'ave', None])
         return params
 
     def _get_trial_gan(self, trial):
@@ -773,11 +803,18 @@ class ModelsBuild:
 
         for train, val in split.split(self.dataset_handler.dataset['X_train'], self.dataset_handler.dataset['y_train']):
             model = self._get_model(params, self.model_name)
-            model = self._model_fit(self.dataset_handler.dataset['X_train'][train],
-                                    self.dataset_handler.dataset['y_train'][train],
-                                    self.dataset_handler.dataset['X_train'][val],
-                                    self.dataset_handler.dataset['y_train'][val],
-                                    model)
+            if self.model_name == 'mlp':
+                model = self._model_fit(self.dataset_handler.dataset['X_train'][train],
+                                        self.dataset_handler.dataset['y_train'][train],
+                                        self.dataset_handler.dataset['X_train'][val],
+                                        self.dataset_handler.dataset['y_train'][val],
+                                        model)
+            else:
+                model = self._model_fit([self.dataset_handler.dataset['X_train'][t].tolist() for t in train],
+                                        [self.dataset_handler.dataset['y_train'][t].tolist() for t in train],
+                                        [self.dataset_handler.dataset['X_train'][v].tolist() for v in val],
+                                        [self.dataset_handler.dataset['y_train'][v].tolist() for v in val],
+                                        model)
             score = self.get_score(model)
             scores.append(score)
             del model
