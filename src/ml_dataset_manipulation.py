@@ -20,7 +20,8 @@ class DatasetCreator():
                         outputs: List[str]=None,
                         model_name: str=None,
                         window: int=64,
-                        stride: int=32):
+                        stride: int=32,
+                        nut_types: List[str]=['regular']):
         
         self.inputs = inputs
         self.outputs = outputs
@@ -29,6 +30,7 @@ class DatasetCreator():
         self.dataset_name = dataset_name
         self.window = window
         self.stride = stride
+        self.nut_types = nut_types
 
         self.is_padded = False
         self.is_sliced = False
@@ -90,18 +92,26 @@ class DatasetCreator():
                 print("Read i =", i, " in ", len(data_files))
         else:
             meta = pd.read_csv(self.datasets_dir_path / 'meta.csv', index_col=None)
-            meta.replace('Mounted', 0, inplace=True)
-            meta.replace('Not-Mounted', 1, inplace=True)
-            meta.replace('Jammed', 2, inplace=True)
+            meta.replace('Mounted', MOUNTED, inplace=True)
+            meta.replace('Not-Mounted', NOT_MOUNTED, inplace=True)
+            meta.replace('Jammed', JAMMED, inplace=True)
+
+            indexes = pd.Series()
+            for nut in self.nut_types:
+                indexes = pd.concat([indexes, (meta['nut_type'] == nut)])
+            indexes = indexes.index[indexes].values
+            meta = meta.iloc[indexes]
+
             y = meta['label'].values.reshape(-1, 1)
             y = self.encoder.fit_transform(y).toarray()
             for i, file in enumerate(data_files):
-                # TODO: regular + aeronautical?
-                aux = pd.read_csv(file, index_col=None)[self.inputs].values
-                X.append(aux)
-                if X[-1].shape[0] > self.max_seq_len:
-                    self.max_seq_len = X[-1].shape[0]
-                print("Read i =", i, " in ", len(data_files))
+                if i in indexes:
+                    # TODO: regular + aeronautical?
+                    aux = pd.read_csv(file, index_col=None)[self.inputs].values
+                    X.append(aux)
+                    if X[-1].shape[0] > self.max_seq_len:
+                        self.max_seq_len = X[-1].shape[0]
+                    print("Read i =", i, " in ", len(data_files))
         
         print('Read all individual files.')
         
@@ -130,7 +140,7 @@ class DatasetCreator():
         else:
             return self._paa_in_data(data)
     
-    def _paa_in_data(self, data, window_size=12):
+    def _paa_in_data(self, data, window_size=10):
         paa = PiecewiseAggregateApproximation(window_size=window_size)
         if self.is_sliced or self.is_padded:  # this is only true if we call paa without slicing or padding, so different timesteps
             data_paa = np.array([])
@@ -143,7 +153,7 @@ class DatasetCreator():
                 if i%10000 == 0:
                     print("PAA iteration ", i)
         else:         
-            data_paa = []  # TODO: test again
+            data_paa = []
             for i, sample in enumerate(data):
                 sample_aux = paa.transform(sample.T).T
                 data_paa.append(sample_aux)
@@ -229,7 +239,9 @@ class DatasetCreator():
             return self._reshape_for_train(data, key)
 
     def _reshape_for_train(self, data, key):
-        n_samples, n_timesteps, n_channels = data.shape
+        n_samples = len(data)
+        n_timesteps = self.max_seq_len
+        n_channels = data[0].shape[-1]
 
         if 'y' in key: # reshaping y means flattening all y
             return data.reshape(n_samples, n_timesteps*n_channels)
@@ -241,13 +253,16 @@ class DatasetCreator():
     
     def _get_shapes(self):
         OUTPUT_SHAPE = 3
-        if self.dataset['X_train'].ndim == 3:
-            _, N_TIMESTEPS_INPUT, N_CHANNELS_INPUT = self.dataset['X_train'].shape
+        if self.dataset['X_train'][0].ndim == 2:
+            N_TIMESTEPS_INPUT, N_CHANNELS_INPUT = self.dataset['X_train'][0].shape
             INPUT_SHAPE = (N_TIMESTEPS_INPUT, N_CHANNELS_INPUT)
             N_TIMESTEPS_OUTPUT = OUTPUT_SHAPE
             N_CHANNELS_OUTPUT = N_TIMESTEPS_OUTPUT
         else:
-            _, N_TIMESTEPS_INPUT = self.dataset['X_train'].shape
+            if self.model_name != 'mlp':
+                N_TIMESTEPS_INPUT = self.dataset['X_train'][0].ndim
+            else:
+                _, N_TIMESTEPS_INPUT = self.dataset['X_train'].shape
             N_CHANNELS_INPUT = N_TIMESTEPS_INPUT
             INPUT_SHAPE = N_TIMESTEPS_INPUT
             N_CHANNELS_OUTPUT = OUTPUT_SHAPE

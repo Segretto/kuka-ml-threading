@@ -5,7 +5,7 @@ from utils.optuna_utils import OptunaCheckpointing
 
 # THE USER SHOULD MODIFY THESE ONES
 # models_names = ['svr', 'rf', 'mlp', 'cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
-MODELS_NAMES = ['mlp', 'cnn', 'transf']
+MODELS_NAMES = ['cnn', 'mlp', 'lstm', 'transf']
 
 N_TRIALS = 100
 TIMEOUT = None
@@ -21,6 +21,7 @@ BATCH_SIZE = 512
 RAW_DATA_PATH='data'
 DATASETS_PATH='dataset'
 LOSS_FUNCTION = 'categorical_crossentropy'  # 'sparse_categorical_crossentropy'
+NUT_TYPES = ['aeronautic']
 
 for inputs in INPUTS:
         for model_name in MODELS_NAMES:
@@ -30,9 +31,13 @@ for inputs in INPUTS:
             if 'vx' not in inputs:
                 EXPERIMENT_NAME += '_no_vel'
                 DATASET_NAME += '_no_vel'
+            
+            for nut_type in NUT_TYPES:
+                EXPERIMENT_NAME += '_' + nut_type
+                DATASET_NAME += '_' + nut_type
 
-            if model_name == 'lstm' or model_name == 'transf':
-                N_JOBS = 2
+            if model_name in ['lstm', 'transf', 'wavenet', 'bidirec_lstm']:
+                N_JOBS = 1
             else:
                 N_JOBS = -1
 
@@ -40,19 +45,19 @@ for inputs in INPUTS:
                                                     experiment_name=EXPERIMENT_NAME)
 
             dataset = DatasetCreator(raw_data_path=RAW_DATA_PATH,
-                                        datasets_path=DATASETS_PATH,
-                                        dataset_name=DATASET_NAME, 
-                                        inputs=inputs,
-                                        outputs=OUTPUTS,
-                                        parameters=PARAMETERS,
-                                        model_name=model_name
-                                        )
+                                     datasets_path=DATASETS_PATH,
+                                     dataset_name=DATASET_NAME, 
+                                     inputs=inputs,
+                                     outputs=OUTPUTS,
+                                     parameters=PARAMETERS,
+                                     nut_types=NUT_TYPES,
+                                     model_name=model_name)
 
             dataset.load_data(is_regression=False)
-            dataset.paa(keys=['X_train', 'X_test'])
-            if model_name == 'mlp':
-                dataset.padding(keys=['X_train', 'X_test'])
             dataset.save_dataset()
+            dataset.paa(keys=['X_train', 'X_test'])
+            # if model_name == 'mlp':
+            dataset.padding(keys=['X_train', 'X_test'])
             dataset.normalization(keys=['X_train', 'X_test'])
             dataset.reshape(keys=['X_train', 'X_test'])
 
