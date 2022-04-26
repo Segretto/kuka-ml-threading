@@ -36,6 +36,17 @@ class ModelsBuild:
         self.path_to_best_trained_models = 'output/models_trained/best/'
         self.objective_iterator = 0
 
+        physical_devices = tf.config.list_physical_devices('GPU')
+        print(physical_devices)
+        try:
+            tf.config.experimental.set_memory_growth(physical_devices[0], True)
+        except:
+            # Invalid device or cannot modify virtual devices once initialized.
+            pass
+
+        tf.keras.backend.reset_uids()
+        tf.keras.backend.clear_session()
+
         # dir creation for logging
         if not os.path.isdir('output'):
             os.mkdir('output')
@@ -581,7 +592,7 @@ class ModelsBuild:
         else:
             return classification_report(y_true=self.dataset.y_test, y_pred=y_pred,
                                      output_dict=True, target_names=['mounted', 'jammed', 'not mounted'],
-                                     zero_division=0), confusion_matrix(self.dataset.y_test, y_pred)
+                                     zero_division=0), confusion_matrix(self.dataset.y_test, y_pred), y_pred
         # except ValueError:
         # except ValueError:
         #     return classification_report(y_true=self.dataset.y_test, y_pred=y_pred,
@@ -690,10 +701,12 @@ class ModelsBuild:
         n_channels = self.dataset.X_train.shape[1] if 'transf' in label else self.dataset.X_train.shape[2]
         n_timesteps = self.dataset.X_train.shape[2] if 'transf' in label else self.dataset.X_train.shape[1]
 
+        print("VAI CARREGAR")
         model = load_model_from_trial(label, trial.params, n_channels, n_timesteps)
+        print("VAI TREINAR")
         model.fit(X_train, y_train, epochs=100)
-        report, conf_matrix = self.metrics_report(model, get_confusion_matrix=True)
-        return report, conf_matrix
+        report, conf_matrix, y_pred = self.metrics_report(model, get_confusion_matrix=True)
+        return report, conf_matrix, y_pred
 
         #trial.set_user_attr('classification_reports', scores)
         #score_mean = np.mean(scores)

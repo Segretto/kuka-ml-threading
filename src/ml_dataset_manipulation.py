@@ -106,7 +106,8 @@ class DatasetManip():
                     data_bs = None if file_bs is None else pd.read_csv(file_bs)
                     data_th = None if file_th is None else pd.read_csv(file_th)
 
-                    data_th['rotx'][data_th['rotx'].argmin() + 1:] = data_th['rotx'][data_th['rotx'].argmin() + 1:] - 360  # offset = 360: maps from 180 to -180
+                    if 'threading' in phases_to_load:
+                        data_th['rotx'][data_th['rotx'].argmin() + 1:] = data_th['rotx'][data_th['rotx'].argmin() + 1:] - 360  # offset = 360: maps from 180 to -180
                     # (data_th['rotx'].argmin() + 1, data_th['rotx'].count() - data_th['rotx'].argmin())
                     # offset = 0
                     # for i, _ in enumerate(data_th.values):
@@ -155,30 +156,41 @@ class DatasetManip():
             if dataset_name == 'quadruplicado':
                 names_X = ['X_train_labels_niveladas_quadruplicado.csv', 'X_test.csv']
                 names_y = ['y_train_labels_niveladas_quadruplicado.csv', 'y_test.csv']
+            
+            print("PASSOU 1")
 
             X = []
             y = []
 
-            for dataset_i in names_X:
+            for i, dataset_i in enumerate(names_X):
+                print("iteracao ", i)
                 # dataframe = pd.read_csv(dir_abs.join([self.path_dataset, dataset_i]), index_col=0)
                 dataframe = pd.read_csv(dir_abs + '/' + self.path_dataset + dataset_i, index_col=0)
                 dataframe = dataframe.iloc[:, dataframe.columns.str.contains(parameters)]
 
                 # @DONE: paa here
+                print("ANTES RESHAPE")
                 X_new = self.reshape_lstm_process(dataframe.values, parameters=parameters)
+                print("DEPOIS RESHAPE")
                 data = []
-                for experiment in X_new:
+                print("ANTES PAA")
+                for i, experiment in enumerate(X_new):
+                    print("Passou PAA", i)
                     aux = paa.transform(X=experiment.T)
+                    print("passou transform", i)
                     data.append(aux.T)
+                print("DEPOIS PAA")
                 data = np.array(data)
                 X.append(data)
 
+            print("PASSOU 2")
             for dataset_i in names_y:
                 # dataframe = pd.read_csv(''.join([self.path_dataset, dataset_i]), index_col=0)
                 dataframe = pd.read_csv(dir_abs + '/' + self.path_dataset + dataset_i, index_col=0)
                 # y.append(np.array(dataframe))
                 y.append(dataframe.values)
-
+            
+            print("PASSOU 3")
             # X[0] = tf.keras.preprocessing.sequence.pad_sequences(X[0], maxlen=max_seq_len, padding='post',
             #                                               dtype='float32')
             # X[1] = tf.keras.preprocessing.sequence.pad_sequences(X[1], maxlen=max_seq_len, padding='post',
