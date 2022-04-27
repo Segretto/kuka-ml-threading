@@ -4,12 +4,13 @@ from utils.optuna_utils import OptunaCheckpointing
 
 # THE USER SHOULD MODIFY THESE ONES
 # models_names = ['svm', 'rf', 'mlp', 'cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
-# models_names = ['cnn', 'rf']
-models_names = ['mlp', 'cnn', 'lstm', 'transf']
+models_names = ['transf']
+# models_names = ['mlp', 'cnn', 'lstm', 'transf']
 # models_names = ['wavenet', 'gru', 'lstm']
 datasets = ['original_novo'] #, 'nivelado', 'quadruplicado'] #, 'original_novo']
 # experiment_name = 'teste_checkpoint'
-phases_to_load_novo = ['insertion', 'backspin']
+phases_to_load_novo = ['insertion', 'backspin', 'threading']
+parameters='fx|fy|fz|mx|my|mz'
 
 N_TRIALS = 100
 TIMEOUT = None
@@ -27,7 +28,7 @@ for dataset_name in datasets:
             if 'threading' not in phases_to_load_novo:
                 experiment_name += '_without_threading'
         optuna_checkpoint = OptunaCheckpointing(model_name=model_name, dataset_name=dataset_name, experiment_name=experiment_name)
-        dataset_handler = DatasetManip(dataset=dataset_name, label=model_name, phases_to_load=phases_to_load_novo)
+        dataset_handler = DatasetManip(dataset=dataset_name, label=model_name, phases_to_load=phases_to_load_novo, parameters=parameters)
         models_build = ModelsBuild(model_name, dataset_name, metrics=METRICS, dataset=dataset_handler)
 
         study, n_trials_to_go = optuna_checkpoint.load_study(metrics=METRICS, n_trials=N_TRIALS)

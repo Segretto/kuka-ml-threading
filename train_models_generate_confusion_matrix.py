@@ -6,10 +6,11 @@ import gc
 class Trial: params = {}
 
 
-models_names = ['cnn']
+models_names = ['transf']
 # models_names = ['wavenet', 'gru', 'lstm']
 # datasets = ['original', 'nivelado', 'quadruplicado', 'original_novo']
 datasets = ['original_novo']
+parameters='fx|fy|fz|mx|my|mz'
 
 N_TRIALS = 100
 TIMEOUT = None
@@ -19,7 +20,7 @@ METRICS = 'mounted'  # or 'jammed' or 'multi' for both
 for dataset_name in datasets:
     for model_name in models_names:
         print("VAI CARREGAR O DATASET")
-        dataset_handler = DatasetManip(dataset=dataset_name, label=model_name)
+        dataset_handler = DatasetManip(dataset=dataset_name, label=model_name, parameters=parameters)
         print("\n\n------------- Starting training for " + model_name + " in dataset " + dataset_name + " without rotz -------------")
 
         file_name = 'output/models_meta_data/'

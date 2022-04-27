@@ -6,12 +6,12 @@ INPUT_SHAPE = 1556
 FEATURES = 6
 OUTPUT_SHAPE = 3
 
-def load_model_from_trial(label, params, n_channels, n_timesteps):
+def load_model_from_trial(label, params, n_channels, n_timesteps, dataset_name):
 
     if label == 'vitransf':
         model = load_model_vitransf(params, n_channels, n_timesteps)
     if label == 'transf':
-        model = load_model_transf(params, n_channels, n_timesteps)
+        model = load_model_transf(params, n_channels, n_timesteps, dataset_name)
     if label == 'mlp':
         model = load_model_mlp(params, n_channels, n_timesteps)
     if label == 'cnn':
@@ -24,7 +24,7 @@ def load_model_from_trial(label, params, n_channels, n_timesteps):
         model = load_model_lstm(params, n_channels, n_timesteps)
     return model
 
-def load_model_transf(params, n_channels, n_timesteps):
+def load_model_transf(params, n_channels, n_timesteps, dataset_name):
     class TransformerBlock(tf.keras.layers.Layer):
         def __init__(self, embed_dim, num_heads, ff_dim):
             super(TransformerBlock, self).__init__()
@@ -52,22 +52,26 @@ def load_model_transf(params, n_channels, n_timesteps):
             return self.layernorm2(out1 + ffn_output)
 
     class TokenAndPositionEmbedding(tf.keras.layers.Layer):
-        def __init__(self, maxlen, embed_dim):
+        def __init__(self, maxlen, embed_dim, dataset_name):
             super(TokenAndPositionEmbedding, self).__init__()
             # token_emb
+            poo11 = 3 if 'original_novo' == dataset_name else 2
+            poo12 = 3 if 'original_novo' == dataset_name else 2
+            poo13 = 5 if 'original_novo' == dataset_name else 2
+
             self.conv1 = tf.keras.layers.Conv2D(8, (1, 2), activation="relu", padding="same",
                                                 name='conv2d_' + str(time()))
             self.norm1 = tf.keras.layers.BatchNormalization(name='batchnorm_' + str(time()))
-            self.pool1 = tf.keras.layers.MaxPooling2D((1, 2), name='maxpool2d_' + str(time()))
-            self.conv2 = tf.keras.layers.Conv2D(32, (1, 2), activation="relu", padding="same",
+            self.pool1 = tf.keras.layers.MaxPooling2D((1, poo11), name='maxpool2d_' + str(time()))
+            self.conv2 = tf.keras.layers.Conv2D(16, (1, 2), activation="relu", padding="same",
                                                 name='conv2d_' + str(time()))
             self.norm2 = tf.keras.layers.BatchNormalization(name='batchnorm_' + str(time()))
-            self.pool2 = tf.keras.layers.MaxPooling2D((1, 2), name='maxpool2d_' + str(time()))
+            self.pool2 = tf.keras.layers.MaxPooling2D((1, poo12), name='maxpool2d_' + str(time()))
             # self.reshape = tf.keras.layers.Reshape((maxlen, embed_dim), name='reshape_' + str(time()))
 
             self.conv3 = tf.keras.layers.Conv2D(embed_dim, (1,2), activation="relu", padding="same", name='convd3_'+str(time()))
             self.norm3 = tf.keras.layers.BatchNormalization(name='batch3_'+str(time()))
-            self.pool3 = tf.keras.layers.MaxPooling2D((1, 2), name='maxpool2d_' + str(time()))
+            self.pool3 = tf.keras.layers.MaxPooling2D((1, poo13), name='maxpool2d_' + str(time()))
             self.reshape = tf.keras.layers.Reshape((maxlen, embed_dim), name='reshape_' + str(time()))
             # pos_emb
             self.pos_emb = tf.keras.layers.Embedding(input_dim=maxlen, output_dim=embed_dim,
@@ -95,7 +99,7 @@ def load_model_transf(params, n_channels, n_timesteps):
     ff_dim = params['ff_dim']
 
     inputs = tf.keras.layers.Input(shape=(n_channels, n_timesteps, 1))
-    embedding_layer = TokenAndPositionEmbedding(maxlen, embed_dim)
+    embedding_layer = TokenAndPositionEmbedding(maxlen, embed_dim, dataset_name=dataset_name)
     x = embedding_layer(inputs)
     for layer in range(n_transformer_layers):
         transformer_block = TransformerBlock(embed_dim, num_heads, ff_dim)

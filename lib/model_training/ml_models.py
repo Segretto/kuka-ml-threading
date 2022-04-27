@@ -370,19 +370,23 @@ class ModelsBuild:
                 return self.layernorm2(out1 + ffn_output)
 
         class TokenAndPositionEmbedding(tf.keras.layers.Layer):
-            def __init__(self, maxlen, embed_dim):
+            def __init__(self, maxlen, embed_dim, dataset_name):
                 super(TokenAndPositionEmbedding, self).__init__()
                 # token_emb
+                poo11 = 3 if 'original_novo' == dataset_name else 2
+                poo12 = 3 if 'original_novo' == dataset_name else 2
+                poo13 = 5 if 'original_novo' == dataset_name else 2
+
                 self.conv1 = tf.keras.layers.Conv2D(8, (1, 2), activation="relu", padding="same", name='conv2d_' + str(time()))
                 self.norm1 = tf.keras.layers.BatchNormalization(name='batchnorm_' + str(time()))
-                self.pool1 = tf.keras.layers.MaxPooling2D((1, 2), name='maxpool2d_' + str(time()))
+                self.pool1 = tf.keras.layers.MaxPooling2D((1, poo11), name='maxpool2d_' + str(time()))
                 self.conv2 = tf.keras.layers.Conv2D(16, (1, 2), activation="relu", padding="same", name='conv2d_' + str(time()))
                 self.norm2 = tf.keras.layers.BatchNormalization(name='batchnorm_' + str(time()))
-                self.pool2 = tf.keras.layers.MaxPooling2D((1, 2), name='maxpool2d_' + str(time()))
+                self.pool2 = tf.keras.layers.MaxPooling2D((1, poo12), name='maxpool2d_' + str(time()))
                 self.conv3 = tf.keras.layers.Conv2D(embed_dim, (1, 2), activation="relu", padding="same",
                                                     name='convd3_' + str(time()))
                 self.norm3 = tf.keras.layers.BatchNormalization(name='batch3_' + str(time()))
-                self.pool3 = tf.keras.layers.MaxPooling2D((1, 2), name='maxpool2d_' + str(time()))
+                self.pool3 = tf.keras.layers.MaxPooling2D((1, poo13), name='maxpool2d_' + str(time()))
                 self.reshape = tf.keras.layers.Reshape((maxlen, embed_dim), name='reshape_' + str(time()))
                 # pos_emb
                 self.pos_emb = tf.keras.layers.Embedding(input_dim=maxlen, output_dim=embed_dim, name='embedding_' + str(time()))
@@ -411,7 +415,7 @@ class ModelsBuild:
         ff_dim = trial.suggest_categorical('ff_dim', [2**n for n in range(4, 9)])  # Hidden layer size in feed forward network inside transformer
 
         inputs = tf.keras.layers.Input(shape=(n_channels, n_timesteps, 1))
-        embedding_layer = TokenAndPositionEmbedding(maxlen, embed_dim)
+        embedding_layer = TokenAndPositionEmbedding(maxlen, embed_dim, dataset_name=self.dataset_name)
         x = embedding_layer(inputs)
         for layer in range(n_transformer_layers):
             transformer_block = TransformerBlock(embed_dim, num_heads, ff_dim)
@@ -656,14 +660,14 @@ class ModelsBuild:
         scores = []
 
         self.get_model(trial, label)
-        n_channels = self.dataset.X_train.shape[1] if 'transf' in label else self.dataset.X_train.shape[2]
-        n_timesteps = self.dataset.X_train.shape[2] if 'transf' in label else self.dataset.X_train.shape[1]
+        n_channels = self.dataset.X_train.shape[1] # if 'transf' in label else self.dataset.X_train.shape[2]
+        n_timesteps = self.dataset.X_train.shape[2] # if 'transf' in label else self.dataset.X_train.shape[1]
 
         # @TODO: should we change to StratifiedKFold? https://stackoverflow.com/questions/45969390/difference-between-stratifiedkfold-and-stratifiedshufflesplit-in-sklearn
 
         for train, val in split.split(X_train, self.dataset.y_train):
             # each training must have a new model
-            model = load_model_from_trial(label, trial.params, n_channels, n_timesteps)
+            model = load_model_from_trial(label, trial.params, n_channels, n_timesteps, self.dataset_name)
             model = self._model_fit(X_train, self.dataset.y_train, train, val, model)
             score = self.get_score(model)
             scores.append(score)
@@ -702,7 +706,7 @@ class ModelsBuild:
         n_timesteps = self.dataset.X_train.shape[2] if 'transf' in model_name else self.dataset.X_train.shape[1]
 
         print("VAI CARREGAR")
-        model = load_model_from_trial(model_name, trial.params, n_channels, n_timesteps)
+        model = load_model_from_trial(model_name, trial.params, n_channels, n_timesteps, self.dataset_name)
         print("VAI TREINAR")
         model.fit(X_train, y_train, epochs=100)
         report, conf_matrix, y_pred = self.metrics_report(model, get_confusion_matrix=True)
