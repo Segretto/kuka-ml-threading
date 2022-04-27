@@ -6,7 +6,7 @@ import gc
 class Trial: params = {}
 
 
-models_names = ['transf']
+models_names = ['cnn']
 # models_names = ['wavenet', 'gru', 'lstm']
 # datasets = ['original', 'nivelado', 'quadruplicado', 'original_novo']
 datasets = ['original_novo']
@@ -53,8 +53,10 @@ for dataset_name in datasets:
 
         #model = load_model_from_trial(model_name, params=trial.params, n_channels=n_channels, n_timesteps=n_timesteps)
         #print('model params = ', model.count_params())
-        report, conf_matrix, y_pred = models_build._model_train_no_validation(trial, model_name)
-        file_json = {'report': report, 'confusion_matrix': conf_matrix, 'y_pred': y_pred.reshape(-1, 1), 'y_test': dataset_handler.y_test}
+        report, conf_matrix, y_pred, model = models_build._model_train_no_validation(trial, model_name, dataset_name)
+        y_timesteps = models_build._model_evaluate_each_timestep(model)
+        file_json = {'report': report, 'confusion_matrix': conf_matrix, 'y_pred': y_pred.reshape(-1, 1), 'y_test': dataset_handler.y_test,
+                    'y_timesteps': y_timesteps}
 
         file_name_save = 'output/models_meta_data/'
 

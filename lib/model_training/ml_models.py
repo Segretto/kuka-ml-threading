@@ -695,24 +695,39 @@ class ModelsBuild:
                 verbose=False)
         return model
 
-    def _model_train_no_validation(self, trial, label):
-        X_train, y_train = self._reshape_X_for_train(label)
+    def _model_train_no_validation(self, trial, model_name, dataset_name):
+        X_train, y_train = self._reshape_X_for_train(model_name)
 
-        n_channels = self.dataset.X_train.shape[1] if 'transf' in label else self.dataset.X_train.shape[2]
-        n_timesteps = self.dataset.X_train.shape[2] if 'transf' in label else self.dataset.X_train.shape[1]
+        n_channels = self.dataset.X_train.shape[1] if 'transf' in model_name else self.dataset.X_train.shape[2]
+        n_timesteps = self.dataset.X_train.shape[2] if 'transf' in model_name else self.dataset.X_train.shape[1]
 
         print("VAI CARREGAR")
-        model = load_model_from_trial(label, trial.params, n_channels, n_timesteps)
+        model = load_model_from_trial(model_name, trial.params, n_channels, n_timesteps)
         print("VAI TREINAR")
         model.fit(X_train, y_train, epochs=100)
         report, conf_matrix, y_pred = self.metrics_report(model, get_confusion_matrix=True)
-        return report, conf_matrix, y_pred
+        model_save_name = 'output/models_trained/' + model_name + '_' + dataset_name
+        model.save(model_save_name)
+        model_save_name += '_weights'
+        model.save_weights(model_save_name)
+        return report, conf_matrix, y_pred, model
 
         #trial.set_user_attr('classification_reports', scores)
         #score_mean = np.mean(scores)
         #score_std = np.std(scores)
         #return score_mean, score_std
+    
+    def _model_evaluate_each_timestep(self, model):
+        y_timesteps = [[] for _ in self.dataset.X_test]
+        step = 1
+        for xi, X_test in enumerate(self.dataset.X_test):
+            for i in range(0, len(X_test), step):
+                input = np.vstack([X_test[:i], np.zeros_like(X_test[i:])]).reshape(1, -1, X_test.shape[1])
+                yi = np.argmax(model.predict(input))
+                y_timesteps[xi].append(yi)
+            print("Finished iteraction", xi)
 
+        return y_timesteps
 
 if __name__ == '__main__':
     print("uhul")
