@@ -5,7 +5,7 @@ from sklearn.model_selection import train_test_split
 import os
 # from pyts.approximation import PiecewiseAggregateApproximation
 from .paa import PiecewiseAggregateApproximation
-
+import matplotlib.pyplot as plt
 
 class DatasetManip():
     def __init__(self, label='mlp', dataset='original', load_models=True, parameters='fx|fy|fz|mx|my|mz|rotx',
@@ -63,7 +63,7 @@ class DatasetManip():
         dir_new_dataset = dir_abs + '/dataset/dataset_new_iros21/'
         # here we get all folders. We will have also with angular error and angular/linear error
         dir_all_trials = [dir_new_dataset + dir_ for dir_ in os.listdir(dir_new_dataset)]
-        paa = PiecewiseAggregateApproximation(window_size=12)
+        paa = PiecewiseAggregateApproximation(window_size=10)
 
         if 'novo' in dataset_name:
             all_data = []
@@ -148,14 +148,14 @@ class DatasetManip():
         else:
             parameters = 'fx|fy|fz|mx|my|mz'
             if dataset_name == 'original':
-                names_X = ['X_train.csv', 'X_test.csv']
+                names_X = ['X_train.npy', 'X_test.npy']
                 names_y = ['y_train.csv', 'y_test.csv']
             if dataset_name == 'nivelado':
-                names_X = ['X_train_labels_niveladas.csv','X_test.csv']
-                names_y = ['y_train_labels_niveladas.csv', 'y_test.csv']
+                names_X = ['X_train_nivelado.npy','X_test.npy']
+                names_y = ['y_train_nivelado.csv', 'y_test.csv']
             if dataset_name == 'quadruplicado':
-                names_X = ['X_train_labels_niveladas_quadruplicado.csv', 'X_test.csv']
-                names_y = ['y_train_labels_niveladas_quadruplicado.csv', 'y_test.csv']
+                names_X = ['X_train_quadruplicado.npy', 'X_test.npy']
+                names_y = ['y_train_quadruplicado.csv', 'y_test.csv']
             
             print("PASSOU 1")
 
@@ -165,32 +165,34 @@ class DatasetManip():
             for i, dataset_i in enumerate(names_X):
                 print("iteracao ", i)
                 # dataframe = pd.read_csv(dir_abs.join([self.path_dataset, dataset_i]), index_col=0)
-                dataframe = pd.read_csv(dir_abs + '/' + self.path_dataset + dataset_i, index_col=0)
-                dataframe = dataframe.iloc[:, dataframe.columns.str.contains(parameters)]
+                # dataframe = pd.read_csv(dir_abs + '/' + self.path_dataset + dataset_i, index_col=0)
+                # dataframe = dataframe.iloc[:, dataframe.columns.str.contains(parameters)]
+                dataframe = np.load(dir_abs + '/' + self.path_dataset + dataset_i)
+                n_params = parameters.count('|')+1
+                if n_params == 6:
+                    dataframe = dataframe[:,6:]
+                dataframe = np.transpose(dataframe, (0, 2, 1))
+                
 
                 # @DONE: paa here
-                print("ANTES RESHAPE")
-                X_new = self.reshape_lstm_process(dataframe.values, parameters=parameters)
-                print("DEPOIS RESHAPE")
+                # print("ANTES RESHAPE")
+                # X_new = self.reshape_lstm_process(dataframe.values, parameters=parameters)
+                # print("DEPOIS RESHAPE")
                 data = []
-                print("ANTES PAA")
-                for i, experiment in enumerate(X_new):
+                for i, experiment in enumerate(dataframe):
                     print("Passou PAA", i)
                     aux = paa.transform(X=experiment.T)
                     print("passou transform", i)
                     data.append(aux.T)
-                print("DEPOIS PAA")
                 data = np.array(data)
                 X.append(data)
 
-            print("PASSOU 2")
             for dataset_i in names_y:
                 # dataframe = pd.read_csv(''.join([self.path_dataset, dataset_i]), index_col=0)
-                dataframe = pd.read_csv(dir_abs + '/' + self.path_dataset + dataset_i, index_col=0)
+                dataframe = pd.read_csv(dir_abs + '/' + self.path_dataset + dataset_i)
                 # y.append(np.array(dataframe))
                 y.append(dataframe.values)
             
-            print("PASSOU 3")
             # X[0] = tf.keras.preprocessing.sequence.pad_sequences(X[0], maxlen=max_seq_len, padding='post',
             #                                               dtype='float32')
             # X[1] = tf.keras.preprocessing.sequence.pad_sequences(X[1], maxlen=max_seq_len, padding='post',
@@ -200,9 +202,6 @@ class DatasetManip():
             print('Shape X_test : ', np.shape(X[1]))
             print('Shape y_train: ', np.shape(y[0]))
             print('Shape y_test : ', np.shape(y[1]))
-
-            y[0] = y[0] - 1
-            y[1] = y[1] - 1
 
             return X[0], X[1], y[0], y[1]  # X_train, X_test, y_train, y_test
 
