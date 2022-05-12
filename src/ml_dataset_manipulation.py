@@ -20,9 +20,6 @@ class DatasetManip():
                                                                                   phases_to_load=phases_to_load)
 
             # self.X_train, self.X_test = self.reshape_for_lstm(self.X_train, self.X_test, 6)  # eu sei que não precisa passar por argumento #semtempoirmão
-            if 'transf' in label:
-                self.X_train = np.transpose(self.X_train, (0, 2, 1))
-                self.X_test = np.transpose(self.X_test, (0, 2, 1))
 
             if apply_normalization:
                 self.X_train, self.X_test = self.data_normalization(self.X_train, self.X_test, dataset_name=dataset)
@@ -189,7 +186,7 @@ class DatasetManip():
 
             for dataset_i in names_y:
                 # dataframe = pd.read_csv(''.join([self.path_dataset, dataset_i]), index_col=0)
-                dataframe = pd.read_csv(dir_abs + '/' + self.path_dataset + dataset_i)
+                dataframe = pd.read_csv(dir_abs + '/' + self.path_dataset + dataset_i)['label']
                 # y.append(np.array(dataframe))
                 y.append(dataframe.values)
             

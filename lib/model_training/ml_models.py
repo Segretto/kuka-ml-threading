@@ -374,19 +374,19 @@ class ModelsBuild:
                 super(TokenAndPositionEmbedding, self).__init__()
                 # token_emb
                 poo11 = 3 if 'original_novo' == dataset_name else 2
-                poo12 = 3 if 'original_novo' == dataset_name else 2
-                poo13 = 5 if 'original_novo' == dataset_name else 2
+                poo12 = 3 if 'original_novo' == dataset_name else 3
+                poo13 = 5 if 'original_novo' == dataset_name else 3
 
-                self.conv1 = tf.keras.layers.Conv2D(8, (1, 2), activation="relu", padding="same", name='conv2d_' + str(time()))
+                self.conv1 = tf.keras.layers.Conv2D(8, (2, 1), activation="relu", padding="same", name='conv2d_' + str(time()))
                 self.norm1 = tf.keras.layers.BatchNormalization(name='batchnorm_' + str(time()))
-                self.pool1 = tf.keras.layers.MaxPooling2D((1, poo11), name='maxpool2d_' + str(time()))
-                self.conv2 = tf.keras.layers.Conv2D(16, (1, 2), activation="relu", padding="same", name='conv2d_' + str(time()))
+                self.pool1 = tf.keras.layers.MaxPooling2D((poo11, 1), name='maxpool2d_1_' + str(time()))
+                self.conv2 = tf.keras.layers.Conv2D(16, (2, 1), activation="relu", padding="same", name='conv2d_' + str(time()))
                 self.norm2 = tf.keras.layers.BatchNormalization(name='batchnorm_' + str(time()))
-                self.pool2 = tf.keras.layers.MaxPooling2D((1, poo12), name='maxpool2d_' + str(time()))
-                self.conv3 = tf.keras.layers.Conv2D(embed_dim, (1, 2), activation="relu", padding="same",
+                self.pool2 = tf.keras.layers.MaxPooling2D((poo12, 1), name='maxpool2d_2_' + str(time()))
+                self.conv3 = tf.keras.layers.Conv2D(embed_dim, (2, 1), activation="relu", padding="same",
                                                     name='convd3_' + str(time()))
                 self.norm3 = tf.keras.layers.BatchNormalization(name='batch3_' + str(time()))
-                self.pool3 = tf.keras.layers.MaxPooling2D((1, poo13), name='maxpool2d_' + str(time()))
+                self.pool3 = tf.keras.layers.MaxPooling2D((poo13, 1), name='maxpool2d_3_' + str(time()))
                 self.reshape = tf.keras.layers.Reshape((maxlen, embed_dim), name='reshape_' + str(time()))
                 # pos_emb
                 self.pos_emb = tf.keras.layers.Embedding(input_dim=maxlen, output_dim=embed_dim, name='embedding_' + str(time()))
@@ -406,15 +406,15 @@ class ModelsBuild:
                 x = self.reshape(x)
                 return x + positions
 
-        n_channels = self.dataset.X_train.shape[1]
-        n_timesteps = self.dataset.X_train.shape[2]
+        n_timesteps = self.dataset.X_train.shape[1]
+        n_channels = self.dataset.X_train.shape[2]
         n_transformer_layers = trial.suggest_int('transformer_layers', 1, 8)
         maxlen = 96 # Only consider 3 input time points
         embed_dim = trial.suggest_categorical('embed_dim', [2**n for n in range(3, 5)])  # 16  # Embedding size for each token
         num_heads = trial.suggest_categorical('num_heads', [2, 4, 6, 8])  # Number of attention heads
         ff_dim = trial.suggest_categorical('ff_dim', [2**n for n in range(4, 9)])  # Hidden layer size in feed forward network inside transformer
 
-        inputs = tf.keras.layers.Input(shape=(n_channels, n_timesteps, 1))
+        inputs = tf.keras.layers.Input(shape=(n_timesteps, n_channels, 1))
         embedding_layer = TokenAndPositionEmbedding(maxlen, embed_dim, dataset_name=self.dataset_name)
         x = embedding_layer(inputs)
         for layer in range(n_transformer_layers):
@@ -660,8 +660,8 @@ class ModelsBuild:
         scores = []
 
         self.get_model(trial, label)
-        n_channels = self.dataset.X_train.shape[1] # if 'transf' in label else self.dataset.X_train.shape[2]
-        n_timesteps = self.dataset.X_train.shape[2] # if 'transf' in label else self.dataset.X_train.shape[1]
+        n_timesteps = self.dataset.X_train.shape[1]
+        n_channels = self.dataset.X_train.shape[2]
 
         # @TODO: should we change to StratifiedKFold? https://stackoverflow.com/questions/45969390/difference-between-stratifiedkfold-and-stratifiedshufflesplit-in-sklearn
 
@@ -702,13 +702,13 @@ class ModelsBuild:
     def _model_train_no_validation(self, trial, model_name, dataset_name):
         X_train, y_train = self._reshape_X_for_train(model_name)
 
-        n_channels = self.dataset.X_train.shape[1] if 'transf' in model_name else self.dataset.X_train.shape[2]
-        n_timesteps = self.dataset.X_train.shape[2] if 'transf' in model_name else self.dataset.X_train.shape[1]
+        n_timesteps = self.dataset.X_train.shape[1]
+        n_channels = self.dataset.X_train.shape[2]
 
         print("VAI CARREGAR")
         model = load_model_from_trial(model_name, trial.params, n_channels, n_timesteps, self.dataset_name)
         print("VAI TREINAR")
-        model.fit(X_train, y_train, epochs=100)
+        model.fit(X_train, y_train, epochs=200)
         report, conf_matrix, y_pred = self.metrics_report(model, get_confusion_matrix=True)
         model_save_name = 'output/models_trained/' + model_name + '_' + dataset_name
         model.save(model_save_name)
@@ -721,15 +721,15 @@ class ModelsBuild:
         #score_std = np.std(scores)
         #return score_mean, score_std
     
-    def _model_evaluate_each_timestep(self, model):
+    def _model_evaluate_each_timestep(self, model, model_name):
         y_timesteps = [[] for _ in self.dataset.X_test]
         step = 1
         for xi, X_test in enumerate(self.dataset.X_test):
             for i in range(0, len(X_test), step):
                 input = np.vstack([X_test[:i], np.zeros_like(X_test[i:])]).reshape(1, -1, X_test.shape[1])
-                yi = np.argmax(model.predict(input))
+                yi = np.argmax(model.predict(input)) if model_name != 'mlp' else np.argmax(model.predict(input.reshape(input.shape[0], input.shape[1]*input.shape[2])))
                 y_timesteps[xi].append(yi)
-            print("Finished iteraction", xi)
+            print("Finished iteraction ", xi, " in dataset ", self.dataset_name, " with model ", model_name)
 
         return y_timesteps
 

@@ -56,22 +56,22 @@ def load_model_transf(params, n_channels, n_timesteps, dataset_name):
             super(TokenAndPositionEmbedding, self).__init__()
             # token_emb
             poo11 = 3 if 'original_novo' == dataset_name else 2
-            poo12 = 3 if 'original_novo' == dataset_name else 2
-            poo13 = 5 if 'original_novo' == dataset_name else 2
+            poo12 = 3 if 'original_novo' == dataset_name else 3
+            poo13 = 5 if 'original_novo' == dataset_name else 3
 
-            self.conv1 = tf.keras.layers.Conv2D(8, (1, 2), activation="relu", padding="same",
+            self.conv1 = tf.keras.layers.Conv2D(8, (2, 1), activation="relu", padding="same",
                                                 name='conv2d_' + str(time()))
             self.norm1 = tf.keras.layers.BatchNormalization(name='batchnorm_' + str(time()))
-            self.pool1 = tf.keras.layers.MaxPooling2D((1, poo11), name='maxpool2d_' + str(time()))
-            self.conv2 = tf.keras.layers.Conv2D(16, (1, 2), activation="relu", padding="same",
+            self.pool1 = tf.keras.layers.MaxPooling2D((poo11, 1), name='maxpool2d_' + str(time()))
+            self.conv2 = tf.keras.layers.Conv2D(16, (2, 1), activation="relu", padding="same",
                                                 name='conv2d_' + str(time()))
             self.norm2 = tf.keras.layers.BatchNormalization(name='batchnorm_' + str(time()))
-            self.pool2 = tf.keras.layers.MaxPooling2D((1, poo12), name='maxpool2d_' + str(time()))
+            self.pool2 = tf.keras.layers.MaxPooling2D((poo12, 1), name='maxpool2d_' + str(time()))
             # self.reshape = tf.keras.layers.Reshape((maxlen, embed_dim), name='reshape_' + str(time()))
 
-            self.conv3 = tf.keras.layers.Conv2D(embed_dim, (1,2), activation="relu", padding="same", name='convd3_'+str(time()))
+            self.conv3 = tf.keras.layers.Conv2D(embed_dim, (2, 1), activation="relu", padding="same", name='convd3_'+str(time()))
             self.norm3 = tf.keras.layers.BatchNormalization(name='batch3_'+str(time()))
-            self.pool3 = tf.keras.layers.MaxPooling2D((1, poo13), name='maxpool2d_' + str(time()))
+            self.pool3 = tf.keras.layers.MaxPooling2D((poo13, 1), name='maxpool2d_' + str(time()))
             self.reshape = tf.keras.layers.Reshape((maxlen, embed_dim), name='reshape_' + str(time()))
             # pos_emb
             self.pos_emb = tf.keras.layers.Embedding(input_dim=maxlen, output_dim=embed_dim,
@@ -98,7 +98,7 @@ def load_model_transf(params, n_channels, n_timesteps, dataset_name):
     num_heads = params['num_heads']
     ff_dim = params['ff_dim']
 
-    inputs = tf.keras.layers.Input(shape=(n_channels, n_timesteps, 1))
+    inputs = tf.keras.layers.Input(shape=(n_timesteps, n_channels, 1))
     embedding_layer = TokenAndPositionEmbedding(maxlen, embed_dim, dataset_name=dataset_name)
     x = embedding_layer(inputs)
     for layer in range(n_transformer_layers):
@@ -398,18 +398,18 @@ def load_model_lstm(params, n_channels, n_timesteps):
     n_hidden = params['n_hidden']
     model.add(tf.keras.layers.Masking(mask_value=0, input_shape=(n_timesteps, n_channels)))
     if n_hidden == 0:
-        model.add(tf.keras.layers.LSTM(units=params['n_input'],
+        model.add(tf.keras.layers.LSTM(int(units=params['n_input']),
                                        return_sequences=False,
                                        dropout=params['dropout_input'],
                                        name='lstm_' + str(time())))
     else:
-        model.add(tf.keras.layers.LSTM(units=params['n_input'],
+        model.add(tf.keras.layers.LSTM(units=int(params['n_input']),
                                        return_sequences=True,
                                        dropout=params['dropout_input'],
                                        name='lstm_' + str(time())))
         if n_hidden >= 1:
             for layer in range(n_hidden - 1):
-                model.add(tf.keras.layers.LSTM(units=params['n_hidden_' + str(layer + 1)],
+                model.add(tf.keras.layers.LSTM(units=int(params['n_hidden_' + str(layer + 1)]),
                                                return_sequences=True,
                                                dropout=params['dropout_' + str(layer + 1)],
                                                name='lstm_' + str(time())))
