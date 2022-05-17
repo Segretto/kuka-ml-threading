@@ -27,7 +27,7 @@ for dataset_name in datasets:
                 experiment_name += '_without_threading'
         
         optuna_checkpoint = OptunaCheckpointing(model_name=model_name, dataset_name=dataset_name, experiment_name=experiment_name)
-        dataset_handler = DatasetManip(dataset=dataset_name, label=model_name, phases_to_load=phases_to_load_novo, parameters=parameters)
+        dataset_handler = DatasetManip(dataset=dataset_name, model_name=model_name, phases_to_load=phases_to_load_novo, parameters=parameters)
         models_build = ModelsBuild(model_name, dataset_name, metrics=METRICS, dataset=dataset_handler)
 
         study, n_trials_to_go = optuna_checkpoint.load_study(metrics=METRICS, n_trials=N_TRIALS)

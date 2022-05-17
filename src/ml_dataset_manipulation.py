@@ -8,26 +8,29 @@ from .paa import PiecewiseAggregateApproximation
 import matplotlib.pyplot as plt
 
 class DatasetManip():
-    def __init__(self, label='mlp', dataset='original', load_models=True, parameters='fx|fy|fz|mx|my|mz|rotx',
-                 apply_normalization=True, phases_to_load=['insertion', 'backspin', 'threading']):
-        self.label = label
+    def __init__(self,
+                 model_name='mlp',
+                 dataset='original',
+                 parameters='fx|fy|fz|mx|my|mz|rotx',
+                 apply_normalization=True,
+                 phases_to_load=['insertion', 'backspin', 'threading']):
+
+        self.model_name = model_name
         print('Loading data')
         self.path_dataset, self.path_model, self.path_meta_data, self.path_model_meta_data = self.load_paths()
         self.scaler = None
-        if load_models:
+
+        if dataset != 'all':
             self.X_train, self.X_test, self.y_train, self.y_test = self.load_data(parameters=parameters,
                                                                                   dataset_name=dataset,
                                                                                   phases_to_load=phases_to_load)
+        else:
+            X_train, X_test, y_train, y_test = self.load_data(parameters=parameters,
+                                                              dataset_name=dataset,
+                                                              phases_to_load=phases_to_load)
 
-            # self.X_train, self.X_test = self.reshape_for_lstm(self.X_train, self.X_test, 6)  # eu sei que não precisa passar por argumento #semtempoirmão
-
-            if apply_normalization:
-                self.X_train, self.X_test = self.data_normalization(self.X_train, self.X_test, dataset_name=dataset)
-            # if 'novo' not in dataset:
-            #     self.X_train = self.X_train.values
-            #     self.X_test = self.X_test.values
-            #     self.y_train = self.y_train.values
-            #     self.y_test = self.y_test.values
+        if apply_normalization:
+            self.X_train, self.X_test = self.data_normalization(self.X_train, self.X_test, dataset_name=dataset)
 
         print('Loading data done')
 
@@ -105,14 +108,6 @@ class DatasetManip():
 
                     if 'threading' in phases_to_load:
                         data_th['rotx'][data_th['rotx'].argmin() + 1:] = data_th['rotx'][data_th['rotx'].argmin() + 1:] - 360  # offset = 360: maps from 180 to -180
-                    # (data_th['rotx'].argmin() + 1, data_th['rotx'].count() - data_th['rotx'].argmin())
-                    # offset = 0
-                    # for i, _ in enumerate(data_th.values):
-                    #     if i>0 and np.sign(data_th['rotx'][i]) != np.sign(data_th['rotx'][i - 1]) and data_th['rotx'][i] > 100:
-                    #     # print(data_th['rotx'][i])
-                    #     # if i>0 and data_th['rotx'][i] > 150:
-                    #         offset = -360
-                    #     data_th.at[i, 'rotx'] = data_th['rotx'][i] + offset
 
                     data = pd.concat([data_in, data_bs, data_th])
                     data.reset_index(inplace=True)  # reset indexes
@@ -129,8 +124,6 @@ class DatasetManip():
                     # all_data.append(data[forces + vel].values)
                     all_data.append(data[[parameters.split('|')]].values)
 
-            # all_data = tf.keras.preprocessing.sequence.pad_sequences(all_data, maxlen=max_seq_len, padding='post',
-            #                                                         dtype='float32')
             all_data = self.my_padding(all_data, max_seq_len, parameters)
 
             labels = None
@@ -189,11 +182,6 @@ class DatasetManip():
                 dataframe = pd.read_csv(dir_abs + '/' + self.path_dataset + dataset_i)['label']
                 # y.append(np.array(dataframe))
                 y.append(dataframe.values)
-            
-            # X[0] = tf.keras.preprocessing.sequence.pad_sequences(X[0], maxlen=max_seq_len, padding='post',
-            #                                               dtype='float32')
-            # X[1] = tf.keras.preprocessing.sequence.pad_sequences(X[1], maxlen=max_seq_len, padding='post',
-            #                                                      dtype='float32')
 
             print('Shape X_train: ', np.shape(X[0]))
             print('Shape X_test : ', np.shape(X[1]))

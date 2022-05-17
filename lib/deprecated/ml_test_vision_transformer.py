@@ -7,7 +7,7 @@ from src.ml_dataset_manipulation import DatasetManip
 import numpy as np
 
 
-dataset_handler = DatasetManip(label='transformer')
+dataset_handler = DatasetManip(model_name='transformer')
 X_train = dataset_handler.X_train
 X_test = dataset_handler.X_test
 y_train = dataset_handler.y_train
