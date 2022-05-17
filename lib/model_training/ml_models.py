@@ -665,10 +665,10 @@ class ModelsBuild:
 
         # @TODO: should we change to StratifiedKFold? https://stackoverflow.com/questions/45969390/difference-between-stratifiedkfold-and-stratifiedshufflesplit-in-sklearn
 
-        for train, val in split.split(X_train, self.dataset.y_train):
+        for train, val in split.split(X_train, y_train):
             # each training must have a new model
             model = load_model_from_trial(label, trial.params, n_channels, n_timesteps, self.dataset_name)
-            model = self._model_fit(X_train, self.dataset.y_train, train, val, model)
+            model = self._model_fit(X_train, y_train, train, val, model)
             score = self.get_score(model)
             scores.append(score)
             del model
@@ -677,7 +677,6 @@ class ModelsBuild:
         score_mean = np.mean(scores)
         score_std = np.std(scores)
         return score_mean, score_std
-
 
     def _model_fit(self, X_train, y_train, train, val, model):
         X_train_vl = np.asarray(X_train)[train].copy()
@@ -699,7 +698,7 @@ class ModelsBuild:
                 verbose=False)
         return model
 
-    def _model_train_no_validation(self, trial, model_name, dataset_name):
+    def _model_train_no_validation(self, trial, model_name, dataset_name, n_epochs=100):
         X_train, y_train = self._reshape_X_for_train(model_name)
 
         n_timesteps = self.dataset.X_train.shape[1]
@@ -708,7 +707,7 @@ class ModelsBuild:
         print("VAI CARREGAR")
         model = load_model_from_trial(model_name, trial.params, n_channels, n_timesteps, self.dataset_name)
         print("VAI TREINAR")
-        model.fit(X_train, y_train, epochs=200)
+        model.fit(X_train, y_train, epochs=n_epochs, batch_size=BATCH_SIZE)
         report, conf_matrix, y_pred = self.metrics_report(model, get_confusion_matrix=True)
         model_save_name = 'output/models_trained/' + model_name + '_' + dataset_name
         model.save(model_save_name)
@@ -728,7 +727,7 @@ class ModelsBuild:
             for i in range(0, len(X_test), step):
                 input = np.vstack([X_test[:i], np.zeros_like(X_test[i:])]).reshape(1, -1, X_test.shape[1])
                 yi = np.argmax(model.predict(input)) if model_name != 'mlp' else np.argmax(model.predict(input.reshape(input.shape[0], input.shape[1]*input.shape[2])))
-                y_timesteps[xi].append(yi)
+                y_timesteps[xi].append(yi.tolist())
             print("Finished iteraction ", xi, " in dataset ", self.dataset_name, " with model ", model_name)
 
         return y_timesteps

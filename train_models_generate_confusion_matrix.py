@@ -2,6 +2,7 @@ from lib.model_training.ml_models import ModelsBuild
 from src.ml_dataset_manipulation import DatasetManip
 import json
 import gc
+import numpy as np
 
 class Trial: params = {}
 
@@ -16,6 +17,7 @@ N_TRIALS = 100
 TIMEOUT = None
 n_jobs = -1
 METRICS = 'mounted'  # or 'jammed' or 'multi' for both
+EPOCHS = 200
 
 for dataset_name in datasets:
     for model_name in models_names:
@@ -54,10 +56,14 @@ for dataset_name in datasets:
 
         #model = load_model_from_trial(model_name, params=trial.params, n_channels=n_channels, n_timesteps=n_timesteps)
         #print('model params = ', model.count_params())
-        report, conf_matrix, y_pred, model = models_build._model_train_no_validation(trial, model_name, dataset_name)
+        report, conf_matrix, y_pred, model = models_build._model_train_no_validation(trial, model_name, dataset_name, n_epochs=EPOCHS)
         y_timesteps = models_build._model_evaluate_each_timestep(model, model_name)
-        file_json = {'report': report, 'confusion_matrix': conf_matrix, 'y_pred': y_pred.reshape(-1, 1), 'y_test': dataset_handler.y_test,
-                    'y_timesteps': y_timesteps}
+        # y_timesteps = np.zeros((50, 290, 6))
+        file_json = json.dumps({'report': report,
+                                'confusion_matrix': conf_matrix.tolist(),
+                                'y_pred': y_pred.reshape(-1, 1).tolist(),
+                                'y_test': dataset_handler.y_test.tolist(),
+                                'y_timesteps': y_timesteps})
 
         file_name_save = 'output/models_meta_data/'
 
@@ -70,7 +76,7 @@ for dataset_name in datasets:
         
         print("Finished training model " + model_name + " with dataset " + dataset_name)
         with open(file_name_save, 'w') as f:
-            f.write(file_json.__str__())
+            f.write(file_json)
 
         del dataset_handler
         del models_build
