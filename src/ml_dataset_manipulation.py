@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 class DatasetManip():
     def __init__(self,
                  model_name='mlp',
-                 dataset='original',
+                 dataset_name='original',
                  parameters='fx|fy|fz|mx|my|mz|rotx',
                  apply_normalization=True,
                  phases_to_load=['insertion', 'backspin', 'threading']):
@@ -20,17 +20,17 @@ class DatasetManip():
         self.path_dataset, self.path_model, self.path_meta_data, self.path_model_meta_data = self.load_paths()
         self.scaler = None
 
-        if dataset != 'all':
+        if 'all' not in dataset_name:
             self.X_train, self.X_test, self.y_train, self.y_test = self.load_data(parameters=parameters,
-                                                                                  dataset_name=dataset,
+                                                                                  dataset_name=dataset_name,
                                                                                   phases_to_load=phases_to_load)
         else:
             X_train, X_test, y_train, y_test = self.load_data(parameters=parameters,
-                                                              dataset_name=dataset,
+                                                              dataset_name=dataset_name,
                                                               phases_to_load=phases_to_load)
 
         if apply_normalization:
-            self.X_train, self.X_test = self.data_normalization(self.X_train, self.X_test, dataset_name=dataset)
+            self.X_train, self.X_test = self.data_normalization(self.X_train, self.X_test, dataset_name=dataset_name)
 
         print('Loading data done')
 

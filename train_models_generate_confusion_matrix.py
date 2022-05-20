@@ -22,25 +22,25 @@ EPOCHS = 200
 for dataset_name in datasets:
     for model_name in models_names:
         print("VAI CARREGAR O DATASET")
-        dataset_handler = DatasetManip(dataset=dataset_name, model_name=model_name, parameters=parameters)
-        print("\n\n------------- Starting training for " + model_name + " in dataset " + dataset_name + " without rotz -------------")
+        dataset_handler = DatasetManip(dataset_name=dataset_name, model_name=model_name, parameters=parameters)
+        print("\n\n------------- Starting training for " + model_name + " in dataset " + dataset_name + " -------------")
 
-        file_name = 'output/'  # /models_meta_data/'
+        file_name_load = 'output/'  # /models_meta_data/'
         
         if 'novo' in dataset_name:
             # file_name += 'models_meta_data/regular_full/best_'
-            file_name += 'models_meta_data/backup_with_rotz/best_'
-            file_name += model_name + '_' + dataset_name
+            file_name_load += 'models_meta_data/backup_with_rotz/best_'
+            file_name_load += model_name + '_' + dataset_name
         else:
-            file_name += 'aeronautical_full/best_'
-            file_name += model_name + '_' + dataset_name + '/best_' + model_name + '_' + dataset_name
+            file_name_load += 'aeronautical_full/best_'
+            file_name_load += model_name + '_' + dataset_name + '/best_' + model_name + '_' + dataset_name
 
         if 'novo' in dataset_name:
-            file_name += '_rotz.json'
+            file_name_load += '_rotz.json'
         else:
-            file_name += '.json'
+            file_name_load += '.json'
 
-        with open(file_name, 'r') as f:
+        with open(file_name_load, 'r') as f:
             hyperparameters = json.load(f)
 
         print("VAI CARREGAR O MODELO")

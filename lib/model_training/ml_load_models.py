@@ -398,7 +398,7 @@ def load_model_lstm(params, n_channels, n_timesteps):
     n_hidden = params['n_hidden']
     model.add(tf.keras.layers.Masking(mask_value=0, input_shape=(n_timesteps, n_channels)))
     if n_hidden == 0:
-        model.add(tf.keras.layers.LSTM(int(units=params['n_input']),
+        model.add(tf.keras.layers.LSTM(units=int(params['n_input']),
                                        return_sequences=False,
                                        dropout=params['dropout_input'],
                                        name='lstm_' + str(time())))

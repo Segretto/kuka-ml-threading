@@ -17,7 +17,7 @@ METRICS = 'mounted'  # or 'jammed' or 'multi' for both
 
 for dataset_name in datasets:
     for model_name in models_names:
-        dataset_handler = DatasetManip(dataset=dataset_treino, model_name=model_name)
+        dataset_handler = DatasetManip(dataset_name=dataset_treino, model_name=model_name)
         print("\n\n------------- Starting training for " + model_name + " in dataset " + dataset_name + " without rotz -------------")
 
         file_name = 'output/models_meta_data/backup_without_rotz/best_' + model_name + '_' + dataset_name + '.json'

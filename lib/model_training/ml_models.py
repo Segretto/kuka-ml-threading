@@ -15,7 +15,6 @@ from time import time
 
 BATCH_SIZE = 64
 BATCHSIZE_RECURRENT = int(BATCH_SIZE / 4)
-EPOCHS = 100
 OUTPUT_SHAPE = 3
 INPUT_SHAPE = 156
 INPUT_SHAPE_CNN_RNN = None
@@ -26,15 +25,15 @@ TEST_SPLIT_SIZE = 0.2
 
 
 class ModelsBuild:
-    def __init__(self, label='mlp', dataset_name='original', metrics='recall', dataset=None):
-        self.label = label
+    def __init__(self, model_name='mlp', dataset_name='original', metrics='recall', dataset=None, n_epochs=100):
+        self.model_name = model_name
         self.dataset_name = dataset_name
         self.metrics = metrics
         self.dataset = dataset
         self.path_to_models_meta_data = 'output/models_meta_data/'
-        self.path_to_temp_trained_models = 'output/models_trained/temp/'
-        self.path_to_best_trained_models = 'output/models_trained/best/'
+        self.path_to_trained_models = 'output/models_trained/'
         self.objective_iterator = 0
+        self.n_epochs = n_epochs
 
         physical_devices = tf.config.list_physical_devices('GPU')
         print(physical_devices)
@@ -52,19 +51,17 @@ class ModelsBuild:
             os.mkdir('output')
         if not os.path.isdir('output/models_trained'):
             os.mkdir('output/models_trained')
-        if not os.path.isdir(self.path_to_temp_trained_models):
-            os.mkdir(self.path_to_temp_trained_models)
-        if not os.path.isdir(self.path_to_best_trained_models):
-            os.mkdir(self.path_to_best_trained_models)
+        if not os.path.isdir(self.path_to_trained_models):
+            os.mkdir(self.path_to_trained_models)
         if not os.path.isdir(self.path_to_models_meta_data):
             os.mkdir(self.path_to_models_meta_data)
 
-    def objective(self, trial, label=None, experiment=None):
+    def objective(self, trial):
         tf.keras.backend.reset_uids()
         tf.keras.backend.clear_session()
-        print("Training ", self.label, " in dataset ", self.dataset_name)
+        print("Training ", self.model_name, " in dataset ", self.dataset_name)
         # model = self.get_model(trial, self.label)
-        score_mean, score_std = self._model_train(trial, self.label)
+        score_mean, score_std = self._model_train(trial, self.model_name)
         # self._save_model(trial, model)
         return score_mean
 
@@ -574,13 +571,13 @@ class ModelsBuild:
 
 
     def metrics_report(self, model, get_confusion_matrix=None):
-        if self.label == 'rf' or self.label == 'svm' or self.label == 'mlp':
+        if self.model_name == 'rf' or self.model_name == 'svm' or self.model_name == 'mlp':
             X_test = self.dataset.X_test.reshape((self.dataset.X_test.shape[0],
                                           self.dataset.X_test.shape[1] * self.dataset.X_test.shape[2]))
         else:
             X_test = self.dataset.X_test
 
-        if self.label == 'rf' or self.label == 'svm':
+        if self.model_name == 'rf' or self.model_name == 'svm':
             y_pred = np.argmax(model.predict(X_test).reshape(X_test.shape[0], 1), axis=1)
         else:
             y_pred = np.argmax(model(X_test), axis=1)
@@ -611,31 +608,10 @@ class ModelsBuild:
         if self.metrics == 'multi_mounted':
             return report['mounted']['recall'], report['mounted']['precision']
 
-    def save_best_model(self, study, dataset=None, label=None):
-        # 1 get paths
-        # temp_files = os.listdir(self.path_to_temp_trained_models)
-        old_path = self.path_to_temp_trained_models + str(study.best_trial.number) + '_temp_' + label + '_' + dataset
-        new_path = self.path_to_best_trained_models + 'best_' + label + '_' + dataset
-
-        if label == 'svm' or label == 'rf':
-            old_path += '.joblib'
-            new_path += '.joblib'
-        else:
-            old_path += '.h5'
-            new_path += '.h5'
-
-        # 2 move it to the "best" folder
-        move(old_path, new_path)
-
-        # 3 delete all files from "temp" folder
-        folder_list = os.listdir(self.path_to_temp_trained_models)
-        for file in folder_list:
-            os.remove(self.path_to_temp_trained_models + file)
-
     def _save_model(self, trial, model):
-        model_path = self.path_to_temp_trained_models + \
-                     str(trial.number) + '_temp_' + self.label + '_' + self.dataset_name
-        if self.label == 'svm' or self.label == 'rf':
+        model_path = self.path_to_trained_models + \
+                     str(trial.number) + '_temp_' + self.model_name + '_' + self.dataset_name
+        if self.model_name == 'svm' or self.model_name == 'rf':
             # sklearn
             model_path += '.joblib'
             dump(model, model_path)
@@ -685,7 +661,7 @@ class ModelsBuild:
         y_train_vl = y_train[train].copy()
         y_val = y_train[val].copy()
 
-        if self.label == 'svm' or self.label == 'rf':
+        if self.model_name == 'svm' or self.model_name == 'rf':
             # TODO: do these guys use X_val?
             model.fit(X_train_vl, y_train_vl.reshape((len(y_train_vl, ))))
         else:
@@ -694,7 +670,7 @@ class ModelsBuild:
                 validation_data=(X_val, y_val),
                 shuffle=False,
                 batch_size=BATCH_SIZE,
-                epochs=EPOCHS,
+                epochs=self.n_epochs,
                 verbose=False)
         return model
 

@@ -1,7 +1,7 @@
 from src.ml_dataset_manipulation import DatasetManip
 import matplotlib.pyplot as plt
 
-data = DatasetManip(dataset='novo', apply_normalization=False, phases_to_load=['insertion', 'backspin', 'threading'])
+data = DatasetManip(dataset_name='novo', apply_normalization=False, phases_to_load=['insertion', 'backspin', 'threading'])
 
 fig_0, ax_0 = plt.subplots()
 fig_2, ax_2 = plt.subplots()
