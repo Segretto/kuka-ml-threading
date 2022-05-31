@@ -80,11 +80,10 @@ class DatasetManip():
             if 'novo' in dataset_name:
                 train, test, train_labels, test_labels = self.load_data_novo(dataset_name, dir_abs, paa, phases_to_load, parameters)
             else:
-                train, test, train_labels, test_labels = self.load_data_original(dataset_name, dir_abs, paa)
+                train, test, train_labels, test_labels = self.load_data_original(dataset_name, dir_abs, paa, parameters)
         return train, test, train_labels, test_labels
 
-    def load_data_original(self, dataset_name, dir_abs, paa):
-        parameters = 'fx|fy|fz|mx|my|mz'
+    def load_data_original(self, dataset_name, dir_abs, paa, parameters):
         if dataset_name == 'original':
             names_X = ['X_train.npy', 'X_test.npy']
             names_y = ['y_train.csv', 'y_test.csv']
@@ -109,9 +108,15 @@ class DatasetManip():
             n_params = parameters.count('|')+1
             if n_params == 6:
                 dataframe = dataframe[:,6:]
-            dataframe = np.transpose(dataframe, (0, 2, 1))
+            if n_params == 7:
+                dataframe = np.concatenate([dataframe[:, 6:], dataframe[:, 3].reshape(dataframe[:, 3].shape[0], 1, dataframe[:, 3].shape[1])], axis=1)
+                # args_min_rotx = np.argmin(dataframe, axis=1)[:, -1]
+                # dataframe = np.transpose(dataframe, (0, 2, 1))
+                # for i_sample, sample in enumerate(zip(dataframe, args_min_rotx)):
+                #     x, i_min = sample
+                #     dataframe[i_sample][-1][i_min + 1:] = x[-1][i_min + 1:]
             
-
+            dataframe = np.transpose(dataframe, (0, 2, 1))
             # @DONE: paa here
             # print("ANTES RESHAPE")
             # X_new = self.reshape_lstm_process(dataframe.values, parameters=parameters)
