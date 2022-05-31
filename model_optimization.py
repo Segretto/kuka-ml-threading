@@ -9,7 +9,7 @@ models_names = ['mlp', 'cnn', 'lstm', 'transf'] #
 # original, original_nivelado, original_quadruplicado
 # novo, novo_nivelado, novo_quadruplicado
 # all, all_nivelado, all_quadruplicado
-datasets = ['original', 'nivelado', 'quadruplicado', 'novo']
+datasets = ['original', 'nivelado', 'quadruplicado']#, 'novo']
 # experiment_name = 'teste_checkpoint'
 phases_to_load_novo = ['insertion', 'backspin', 'threading']
 parameters='fx|fy|fz|mx|my|mz'
@@ -52,7 +52,7 @@ for n_epochs in EPOCHS:
             study, n_trials_to_go = optuna_checkpoint.load_study(metrics=METRICS, n_trials=N_TRIALS)
 
             print("\n\n------------- Starting training experiment " + experiment_name + " in dataset " + dataset_name +
-                "and model " + model_name + ". " + str(n_trials_to_go) + " until the end -------------\n\n")
+                " and model " + model_name + ". " + str(n_trials_to_go) + " until the end -------------\n\n")
             study.optimize(lambda trial: models_build.objective(trial),
                         timeout=TIMEOUT,
                         n_trials=n_trials_to_go,
