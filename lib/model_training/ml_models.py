@@ -685,7 +685,7 @@ class ModelsBuild:
         print("VAI TREINAR")
         model.fit(X_train, y_train, epochs=n_epochs, batch_size=BATCH_SIZE)
         report, conf_matrix, y_pred = self.metrics_report(model, get_confusion_matrix=True)
-        model_save_name = 'output/models_trained/' + model_name + '_' + dataset_name
+        model_save_name = 'output/models_trained/' + model_name + '_' + dataset_name + '/' + model_name + '_' + dataset_name
         model.save(model_save_name)
         model_save_name += '_weights'
         model.save_weights(model_save_name)

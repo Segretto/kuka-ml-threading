@@ -11,7 +11,7 @@ class DatasetManip():
     def __init__(self,
                  model_name='mlp',
                  dataset_name='original',
-                 parameters='fx|fy|fz|mx|my|mz|rotx',
+                 parameters='fx|fy|fz|mx|my|mz',
                  apply_normalization=True,
                  phases_to_load=['insertion', 'backspin', 'threading']):
 
