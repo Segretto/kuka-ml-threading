@@ -62,10 +62,25 @@ class DatasetManip():
         dir_abs = os.getcwd()
         paa = PiecewiseAggregateApproximation(window_size=10)
 
-        if 'novo' in dataset_name:
-            train, test, train_labels, test_labels = self.load_data_novo(dataset_name, dir_abs, paa, phases_to_load, parameters)
+        if 'all' in dataset_name:
+            train_no, test_no, train_labels_no, test_labels_no = self.load_data_novo(dataset_name, dir_abs, paa, phases_to_load, parameters)
+            train_or, test_or, train_labels_or, test_labels_or = self.load_data_original(dataset_name, dir_abs, paa)
+            max_seq_len = max(train_no.shape[1], train_or.shape[1])
+            if max_seq_len == train_no.shape[1]:
+                train_no = self.my_padding(train_no, max_seq_len, parameters)
+                test_no = self.my_padding(test_no, max_seq_len, parameters)
+            else:
+                train_or = self.my_padding(train_or, max_seq_len, parameters)
+                test_or = self.my_padding(test_or, max_seq_len, parameters)
+            train = np.concatenate([np.array(train_no), np.array(train_or)], axis=0)
+            test  = np.concatenate([np.array(test_no),  np.array(test_or)],  axis=0)
+            train_labels  = np.concatenate([np.array(train_labels_no),  np.array(train_labels_or)],  axis=0)
+            test_labels  = np.concatenate([np.array(test_labels_no),  np.array(test_labels_or)],  axis=0)
         else:
-            train, test, train_labels, test_labels = self.load_data_original(dataset_name, dir_abs, paa)
+            if 'novo' in dataset_name:
+                train, test, train_labels, test_labels = self.load_data_novo(dataset_name, dir_abs, paa, phases_to_load, parameters)
+            else:
+                train, test, train_labels, test_labels = self.load_data_original(dataset_name, dir_abs, paa)
         return train, test, train_labels, test_labels
 
     def load_data_original(self, dataset_name, dir_abs, paa):
