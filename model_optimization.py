@@ -4,7 +4,7 @@ from utils.optuna_utils import OptunaCheckpointing
 
 # THE USER SHOULD MODIFY THESE ONES
 # models_names = ['svm', 'rf', 'mlp', 'cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
-models_names = ['mlp', 'cnn', 'lstm', 'transf'] # 
+models_names = ['mlp'] # 
 # datasets
 # original, original_nivelado, original_quadruplicado
 # novo, novo_nivelado, novo_quadruplicado
@@ -12,12 +12,12 @@ models_names = ['mlp', 'cnn', 'lstm', 'transf'] #
 datasets = ['original', 'nivelado', 'quadruplicado']#, 'novo']
 # experiment_name = 'teste_checkpoint'
 phases_to_load_novo = ['insertion', 'backspin', 'threading']
-parameters='fx|fy|fz|mx|my|mz'
+parameters='rotx|fx|fy|fz|mx|my|mz'
 
 N_TRIALS = 100
 TIMEOUT = None
 METRICS = 'mounted'  # or 'jammed' or 'multi' for both
-EPOCHS = [100, 200]
+EPOCHS = [100]
 
 for n_epochs in EPOCHS:
     for dataset_name in datasets:
@@ -33,6 +33,9 @@ for n_epochs in EPOCHS:
                     experiment_name += '_without_threading'
             
             experiment_name += '_' + str(n_epochs) + '_epochs'
+
+            if 'rot' in parameters:
+                experiment_name += '_with_rot'
             
             optuna_checkpoint = OptunaCheckpointing(model_name=model_name,
                                                     dataset_name=dataset_name,
