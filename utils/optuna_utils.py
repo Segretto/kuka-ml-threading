@@ -8,10 +8,14 @@ class OptunaCheckpointing:
         self.model_name=model_name
         self.dataset_name=dataset_name
         self.experiment_name=experiment_name
-        self.path_to_models_meta_data = 'output/models_meta_data/'
+        abs_path = os.getcwd()
+        output_path = abs_path + '/output/'
+        if not os.path.isdir(output_path):
+            os.mkdir(output_path)
+        self.path_to_models_meta_data = abs_path + '/output/models_meta_data/'
         if not os.path.isdir(self.path_to_models_meta_data):
             os.mkdir(self.path_to_models_meta_data)
-        self.experiment_folder = './output/models_meta_data/' + self.experiment_name + '/'
+        self.experiment_folder = abs_path + '/output/models_meta_data/' + self.experiment_name + '/'
         self.n_trials_to_checkpoint = n_trials_to_checkpoint
         if not os.path.isdir(self.experiment_folder):
             os.mkdir(self.experiment_folder)

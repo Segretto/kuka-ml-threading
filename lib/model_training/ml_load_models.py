@@ -55,9 +55,13 @@ def load_model_transf(params, n_channels, n_timesteps, dataset_name):
         def __init__(self, maxlen, embed_dim, dataset_name):
             super(TokenAndPositionEmbedding, self).__init__()
             # token_emb
-            poo11 = 3 if 'original_novo' == dataset_name else 2
-            poo12 = 3 if 'original_novo' == dataset_name else 3
-            poo13 = 5 if 'original_novo' == dataset_name else 3
+            # poo11 = 3 if 'original_novo' == dataset_name else 2
+            # poo12 = 3 if 'original_novo' == dataset_name else 3
+            # poo13 = 5 if 'original_novo' == dataset_name else 3
+
+            poo11 = 3
+            poo12 = 3
+            poo13 = 2
 
             self.conv1 = tf.keras.layers.Conv2D(8, (2, 1), activation="relu", padding="same",
                                                 name='conv2d_' + str(time()))
@@ -93,7 +97,7 @@ def load_model_transf(params, n_channels, n_timesteps, dataset_name):
             return x + positions
 
     n_transformer_layers = params['transformer_layers']
-    maxlen = 96
+    maxlen = 112
     embed_dim = params['embed_dim']
     num_heads = params['num_heads']
     ff_dim = params['ff_dim']

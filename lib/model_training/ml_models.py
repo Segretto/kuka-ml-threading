@@ -370,9 +370,13 @@ class ModelsBuild:
             def __init__(self, maxlen, embed_dim, dataset_name):
                 super(TokenAndPositionEmbedding, self).__init__()
                 # token_emb
-                poo11 = 3 if 'original_novo' == dataset_name else 2
-                poo12 = 3 if 'original_novo' == dataset_name else 3
-                poo13 = 5 if 'original_novo' == dataset_name else 3
+                # poo11 = 3 if 'original_novo' == dataset_name else 2
+                # poo12 = 3 if 'original_novo' == dataset_name else 3
+                # poo13 = 5 if 'original_novo' == dataset_name else 3
+
+                poo11 = 3
+                poo12 = 3
+                poo13 = 2
 
                 self.conv1 = tf.keras.layers.Conv2D(8, (2, 1), activation="relu", padding="same", name='conv2d_' + str(time()))
                 self.norm1 = tf.keras.layers.BatchNormalization(name='batchnorm_' + str(time()))
@@ -406,7 +410,7 @@ class ModelsBuild:
         n_timesteps = self.dataset.X_train.shape[1]
         n_channels = self.dataset.X_train.shape[2]
         n_transformer_layers = trial.suggest_int('transformer_layers', 1, 8)
-        maxlen = 96 # Only consider 3 input time points
+        maxlen = 112 # Only consider 3 input time points
         embed_dim = trial.suggest_categorical('embed_dim', [2**n for n in range(3, 5)])  # 16  # Embedding size for each token
         num_heads = trial.suggest_categorical('num_heads', [2, 4, 6, 8])  # Number of attention heads
         ff_dim = trial.suggest_categorical('ff_dim', [2**n for n in range(4, 9)])  # Hidden layer size in feed forward network inside transformer
