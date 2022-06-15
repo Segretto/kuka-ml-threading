@@ -612,17 +612,20 @@ class ModelsBuild:
         if self.metrics == 'multi_mounted':
             return report['mounted']['recall'], report['mounted']['precision']
 
-    def _save_model(self, trial, model):
-        model_path = self.path_to_trained_models + \
-                     str(trial.number) + '_temp_' + self.model_name + '_' + self.dataset_name
+    def _save_model(self, model, model_save_name, model_save_name_folder):
         if self.model_name == 'svm' or self.model_name == 'rf':
             # sklearn
-            model_path += '.joblib'
-            dump(model, model_path)
+            if not os.path.isdir(model_save_name_folder):
+                os.makedirs(model_save_name_folder)
+            model_save_name += '.joblib'
+            dump(model, model_save_name)
         else:
             # keras models
-            model_path += '.h5'
-            tf.keras.models.save_model(model, model_path)
+            if not os.path.isdir(model_save_name_folder):
+                os.makedirs(model_save_name_folder)
+            model.save(model_save_name)
+            model_save_name += '_weights'
+            model.save_weights(model_save_name)
 
     def _reshape_X_for_train(self, label):
         if label == 'rf' or label == 'svm' or label == 'mlp':
@@ -631,7 +634,6 @@ class ModelsBuild:
         else:
             X_train = self.dataset.X_train
         return X_train, self.dataset.y_train
-
 
     def _model_train(self, trial, label):
         X_train, y_train = self._reshape_X_for_train(label)
@@ -678,21 +680,25 @@ class ModelsBuild:
                 verbose=False)
         return model
 
-    def _model_train_no_validation(self, trial, model_name, dataset_name, n_epochs=100):
+    def _model_train_no_validation(self, trial, model_name, dataset_name, parameters, n_epochs=100):
         X_train, y_train = self._reshape_X_for_train(model_name)
 
         n_timesteps = self.dataset.X_train.shape[1]
         n_channels = self.dataset.X_train.shape[2]
 
-        print("VAI CARREGAR")
         model = load_model_from_trial(model_name, trial.params, n_channels, n_timesteps, self.dataset_name)
-        print("VAI TREINAR")
-        model.fit(X_train, y_train, epochs=n_epochs, batch_size=BATCH_SIZE)
+        if model_name != 'rf':
+            model.fit(X_train, y_train, epochs=n_epochs, batch_size=BATCH_SIZE)
+        else:
+            model.fit(X_train, y_train.reshape((len(y_train, ))))
         report, conf_matrix, y_pred = self.metrics_report(model, get_confusion_matrix=True)
-        model_save_name = 'output/models_trained/' + model_name + '_' + dataset_name + '/' + model_name + '_' + dataset_name
-        model.save(model_save_name)
-        model_save_name += '_weights'
-        model.save_weights(model_save_name)
+        
+        model_save_name_folder = 'output/models_trained/' + model_name + '_' + dataset_name + '_' + str(n_epochs) + '_epochs'
+        model_save_name_folder += '_with_rot/' if 'rot' in parameters else '/'
+
+        model_save_name = model_save_name_folder + model_name + '_' + dataset_name + '_' + str(n_epochs) + '_epochs'
+        model_save_name += '_with_rot' if 'rot' in parameters else ''
+        self._save_model(model, model_save_name, model_save_name_folder)
         return report, conf_matrix, y_pred, model
 
         #trial.set_user_attr('classification_reports', scores)
@@ -700,15 +706,16 @@ class ModelsBuild:
         #score_std = np.std(scores)
         #return score_mean, score_std
     
-    def _model_evaluate_each_timestep(self, model, model_name):
+    def _model_evaluate_each_timestep(self, model, model_name, epoch, parameters):
         y_timesteps = [[] for _ in self.dataset.X_test]
         step = 1
         for xi, X_test in enumerate(self.dataset.X_test):
             for i in range(0, len(X_test), step):
                 input = np.vstack([X_test[:i], np.zeros_like(X_test[i:])]).reshape(1, -1, X_test.shape[1])
-                yi = np.argmax(model.predict(input)) if model_name != 'mlp' else np.argmax(model.predict(input.reshape(input.shape[0], input.shape[1]*input.shape[2])))
+                yi = np.argmax(model.predict(input)) if model_name != 'mlp' and model_name != 'rf' else np.argmax(model.predict(input.reshape(input.shape[0], input.shape[1]*input.shape[2])))
                 y_timesteps[xi].append(yi.tolist())
-            print("Finished iteraction ", xi, " in dataset ", self.dataset_name, " with model ", model_name)
+            rot_msg = ' with rot' if 'rot' in parameters else ''
+            print("Finished iteraction ", xi, " in dataset ", self.dataset_name, " with model ", model_name, " epochs ", epoch, rot_msg)
 
         return y_timesteps
 
