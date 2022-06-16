@@ -19,9 +19,8 @@ for epoch in EPOCHS:
     for parameters in PARAMETERS:
         for dataset_name in DATASETS:
             for model_name in MODELS_NAMES:
-                print("VAI CARREGAR O DATASET")
+                print("Loading dataset")
                 dataset_handler = DatasetManip(dataset_name=dataset_name, model_name=model_name, parameters=parameters)
-                print("\n\n------------- Starting training for " + model_name + " in dataset " + dataset_name + " -------------")
 
                 folder_name = 'output/models_meta_data/'
 
@@ -34,7 +33,7 @@ for epoch in EPOCHS:
                 with open(file_name_load, 'r') as f:
                     hyperparameters = json.load(f)
 
-                print("VAI CARREGAR O MODELO")
+                print("Loading model")
                 models_build = ModelsBuild(model_name, dataset_name, metrics=METRICS, dataset=dataset_handler)
                 trial = Trial()
 
@@ -42,7 +41,9 @@ for epoch in EPOCHS:
                     if 'params_' in key:
                         if value is not None:
                             trial.params[key[7:]] = value
-
+                
+                print("\n\n------------- Starting training for " + model_name + " in dataset " + dataset_name + " -------------")
+                
                 report, conf_matrix, y_pred, model = models_build._model_train_no_validation(trial, model_name, dataset_name, parameters, n_epochs=epoch)
                 y_timesteps = models_build._model_evaluate_each_timestep(model, model_name, epoch, parameters)
 
