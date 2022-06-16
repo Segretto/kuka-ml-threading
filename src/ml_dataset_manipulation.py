@@ -93,14 +93,11 @@ class DatasetManip():
         if dataset_name == 'quadruplicado':
             names_X = ['X_train_quadruplicado.npy', 'X_test.npy']
             names_y = ['y_train_quadruplicado.csv', 'y_test.csv']
-        
-        print("PASSOU 1")
 
         X = []
         y = []
 
         for i, dataset_i in enumerate(names_X):
-            print("iteracao ", i)
             # dataframe = pd.read_csv(dir_abs.join([self.path_dataset, dataset_i]), index_col=0)
             # dataframe = pd.read_csv(dir_abs + '/' + self.path_dataset + dataset_i, index_col=0)
             # dataframe = dataframe.iloc[:, dataframe.columns.str.contains(parameters)]
@@ -123,9 +120,7 @@ class DatasetManip():
             # print("DEPOIS RESHAPE")
             data = []
             for i, experiment in enumerate(dataframe):
-                print("Passou PAA", i)
                 aux = paa.transform(X=experiment.T)
-                print("passou transform", i)
                 data.append(aux.T)
             data = np.array(data)
             X.append(data)

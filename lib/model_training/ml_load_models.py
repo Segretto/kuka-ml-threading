@@ -1,6 +1,7 @@
 import json
 import tensorflow as tf
 from time import time
+from sklearn.ensemble import RandomForestClassifier as RF
 
 INPUT_SHAPE = 1556
 FEATURES = 6
@@ -22,6 +23,8 @@ def load_model_from_trial(label, params, n_channels, n_timesteps, dataset_name):
         model = load_model_wavenet(params, n_channels, n_timesteps)
     if label == 'lstm':
         model = load_model_lstm(params, n_channels, n_timesteps)
+    if label == 'rf':
+        model = load_model_rf(params, n_channels, n_timesteps)
     return model
 
 def load_model_transf(params, n_channels, n_timesteps, dataset_name):
@@ -429,6 +432,14 @@ def load_model_lstm(params, n_channels, n_timesteps):
     optimizer = tf.keras.optimizers.Adam(learning_rate=params['lr'])
     model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
+    return model
+
+
+def load_model_rf(params, n_channels, n_timesteps):
+    model = RF(n_estimators=int(params['rf_n_estimators']),
+                max_depth=int(params['rf_max_depth']),
+                max_leaf_nodes=params['rf_max_leaf'],
+                min_samples_split=params['rf_min_samples_split'])
     return model
 
 # def load_model_from_file(path_model_weights, path_model_hyperparam, label, dataset, random_weights=False):
