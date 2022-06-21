@@ -1,0 +1,24 @@
+BootStrap: docker
+From: tensorflow/tensorflow:2.7.0
+
+# %files
+#     ./kuka-ml-threading/ /work/ggiardini/
+
+%post
+    pip3 install optuna==2.8.0
+    pip3 install -U scikit-learn==1.0.2
+    pip3 install pandas
+    pip3 install numba
+    pip3 install matplotlib
+    apt install nano
+    apt update
+
+%runscript
+    python3 "${@}"
+
+%test
+    python3 -c 'import sys; print(sys.version)'
+    python3 -c 'import tensorflow as tf; print("tf version = ", tf.__version__)'
+
+%environment
+    export LC_ALL=C
