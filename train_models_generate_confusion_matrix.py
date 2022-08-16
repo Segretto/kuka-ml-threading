@@ -5,15 +5,15 @@ import gc
 
 class Trial: params = {}
 
-MODELS_NAMES = ['rf'] #'mlp', 'cnn', 'lstm', 'transf']
+MODELS_NAMES = ['mlp', 'cnn', 'lstm', 'transf']
 DATASETS = ['original', 'nivelado', 'quadruplicado']
-PARAMETERS=['rotx|fx|fy|fz|mx|my|mz']
+PARAMETERS=['fx|fy|fz|mx|my|mz', 'rotx|fx|fy|fz|mx|my|mz']
 
 N_TRIALS = 100
 TIMEOUT = None
 n_jobs = -1
 METRICS = 'mounted'  # or 'jammed' or 'multi' for both
-EPOCHS = [100, 200] # 100, 200
+EPOCHS = [100]
 
 for epoch in EPOCHS:
     for parameters in PARAMETERS:
@@ -22,7 +22,7 @@ for epoch in EPOCHS:
                 print("Loading dataset")
                 dataset_handler = DatasetManip(dataset_name=dataset_name, model_name=model_name, parameters=parameters)
 
-                folder_name = 'output/models_meta_data/'
+                folder_name = '/home/ggiardini/kuka-ml-threading/output/models_meta_data/'
 
                 folder_name += model_name + '_' + dataset_name + '_' + str(epoch) + '_epochs' 
 

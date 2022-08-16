@@ -30,8 +30,6 @@ class ModelsBuild:
         self.dataset_name = dataset_name
         self.metrics = metrics
         self.dataset = dataset
-        self.path_to_models_meta_data = 'output/models_meta_data/'
-        self.path_to_trained_models = 'output/models_trained/'
         self.objective_iterator = 0
         self.n_epochs = n_epochs
 
@@ -51,10 +49,6 @@ class ModelsBuild:
             os.mkdir('output')
         if not os.path.isdir('output/models_trained'):
             os.mkdir('output/models_trained')
-        if not os.path.isdir(self.path_to_trained_models):
-            os.mkdir(self.path_to_trained_models)
-        if not os.path.isdir(self.path_to_models_meta_data):
-            os.mkdir(self.path_to_models_meta_data)
 
     def objective(self, trial):
         tf.keras.backend.reset_uids()
