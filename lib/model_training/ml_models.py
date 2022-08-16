@@ -1,6 +1,7 @@
 import tensorflow as tf
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier as RF
+from sklearn.utils import class_weight
 import os
 from joblib import dump
 from sklearn.metrics import f1_score, precision_score, recall_score, classification_report, confusion_matrix
@@ -32,6 +33,7 @@ class ModelsBuild:
         self.dataset = dataset
         self.objective_iterator = 0
         self.n_epochs = n_epochs
+        self.class_weight = class_weight.compute_class_weight(class_weight='balanced', classes=np.unique(self.dataset.y_train), y=self.dataset.y_train)
 
         physical_devices = tf.config.list_physical_devices('GPU')
         print(physical_devices)
@@ -45,10 +47,14 @@ class ModelsBuild:
         tf.keras.backend.clear_session()
 
         # dir creation for logging
-        if not os.path.isdir('output'):
-            os.mkdir('output')
-        if not os.path.isdir('output/models_trained'):
-            os.mkdir('output/models_trained')
+        print(os.getcwd())
+        dir_abs = '/work/ggiardini/kuka-ml-threading'
+        output_dir = dir_abs + '/output'
+        if not os.path.isdir(output_dir):
+            os.mkdir(output_dir)
+        models_trained_dir = output_dir + '/models_trained'
+        if not os.path.isdir(models_trained_dir):
+            os.mkdir(models_trained_dir)
 
     def objective(self, trial):
         tf.keras.backend.reset_uids()
@@ -404,7 +410,7 @@ class ModelsBuild:
         n_timesteps = self.dataset.X_train.shape[1]
         n_channels = self.dataset.X_train.shape[2]
         n_transformer_layers = trial.suggest_int('transformer_layers', 1, 8)
-        maxlen = 112 # Only consider 3 input time points
+        maxlen = 112 if n_channels==7 else 96 # Only consider 3 input time points
         embed_dim = trial.suggest_categorical('embed_dim', [2**n for n in range(3, 5)])  # 16  # Embedding size for each token
         num_heads = trial.suggest_categorical('num_heads', [2, 4, 6, 8])  # Number of attention heads
         ff_dim = trial.suggest_categorical('ff_dim', [2**n for n in range(4, 9)])  # Hidden layer size in feed forward network inside transformer
@@ -429,10 +435,10 @@ class ModelsBuild:
         return model
 
     def objective_vitransformer(self, trial):
-        n_channels = self.dataset.X_train.shape[1]
-        n_timesteps = self.dataset.X_train.shape[2]
+        n_channels = self.dataset.X_train.shape[2]
+        n_timesteps = self.dataset.X_train.shape[1]
         n_samples = self.dataset.X_train.shape[0]
-        input_shape = (n_channels, n_timesteps, 1)
+        input_shape = (n_timesteps, n_channels, 1)
         patch_size = trial.suggest_int('patch_size', 1, 3)  # 2  # OPTUNA 1, 2, 3
         image_size = 6
         num_patches = (image_size // patch_size) ** 2
@@ -443,25 +449,25 @@ class ModelsBuild:
 
         token_emb = tf.keras.Sequential(
             [
-                tf.keras.layers.Conv2D(16, (1, 3), activation="relu", padding="same", strides=1,
-                                       input_shape=[n_channels, n_timesteps, 1], name='conv2d_' + str(time())),
+                tf.keras.layers.Conv2D(16, (2, 1), activation="relu", padding="same", strides=1,
+                                       input_shape=[n_timesteps, n_channels, 1], name='conv2d_' + str(time())),
                 tf.keras.layers.BatchNormalization(name='batchNorm_' + str(time())),
-                tf.keras.layers.MaxPooling2D(pool_size=(1, 2), name='maxpool2d_' + str(time())),
+                tf.keras.layers.MaxPooling2D(pool_size=(3, 1), name='maxpool2d_' + str(time())),
 
-                tf.keras.layers.Conv2D(32, (1, 2), activation="relu", padding="valid", name='conv2d_' + str(time())),
+                tf.keras.layers.Conv2D(32, (2, 1), activation="relu", padding="valid", name='conv2d_' + str(time())),
                 tf.keras.layers.BatchNormalization(name='batchNorm_' + str(time())),
-                tf.keras.layers.MaxPooling2D(pool_size=(1, 2), name='maxpool2d_' + str(time())),
+                tf.keras.layers.MaxPooling2D(pool_size=(3, 1), name='maxpool2d_' + str(time())),
 
-                tf.keras.layers.Conv2D(64, (1, 2), activation="relu", padding="valid", name='conv2d_' + str(time())),
+                tf.keras.layers.Conv2D(64, (2, 1), activation="relu", padding="valid", name='conv2d_' + str(time())),
                 tf.keras.layers.BatchNormalization(name='batchNorm_' + str(time())),
-                tf.keras.layers.MaxPooling2D(pool_size=(1, 2), name='maxpool2d_' + str(time())),
+                tf.keras.layers.MaxPooling2D(pool_size=(2, 1), name='maxpool2d_' + str(time())),
 
-                tf.keras.layers.Conv2D(64, (1, 2), activation="relu", padding="same", name='conv2d_' + str(time())),
-                tf.keras.layers.BatchNormalization(name='batchNorm_' + str(time())),
-                tf.keras.layers.MaxPooling2D(pool_size=(1, 3), name='maxpool2d_' + str(time())),
+                # tf.keras.layers.Conv2D(64, (1, 2), activation="relu", padding="same", name='conv2d_' + str(time())),
+                # tf.keras.layers.BatchNormalization(name='batchNorm_' + str(time())),
+                # tf.keras.layers.MaxPooling2D(pool_size=(1, 3), name='maxpool2d_' + str(time())),
 
-                tf.keras.layers.Conv2D(64, (2, 2), activation="relu", padding="same", name='conv2d_' + str(time())),
-                tf.keras.layers.BatchNormalization(name='batchNorm_' + str(time())),
+                # tf.keras.layers.Conv2D(64, (2, 2), activation="relu", padding="same", name='conv2d_' + str(time())),
+                # tf.keras.layers.BatchNormalization(name='batchNorm_' + str(time())),
             ],
             name="token_emb",
         )
@@ -665,13 +671,15 @@ class ModelsBuild:
             # TODO: do these guys use X_val?
             model.fit(X_train_vl, y_train_vl.reshape((len(y_train_vl, ))))
         else:
+            cw = {i: self.class_weight[i] for i in range(len(self.class_weight))} if 'cw' in self.dataset_name else None            
             model.fit(
                 X_train_vl, y_train_vl,
                 validation_data=(X_val, y_val),
                 shuffle=False,
                 batch_size=BATCH_SIZE,
                 epochs=self.n_epochs,
-                verbose=False)
+                verbose=False,
+                class_weight=cw)
         return model
 
     def _model_train_no_validation(self, trial, model_name, dataset_name, parameters, n_epochs=100):
@@ -687,7 +695,7 @@ class ModelsBuild:
             model.fit(X_train, y_train.reshape((len(y_train, ))))
         report, conf_matrix, y_pred = self.metrics_report(model, get_confusion_matrix=True)
         
-        model_save_name_folder = 'output/models_trained/' + model_name + '_' + dataset_name + '_' + str(n_epochs) + '_epochs'
+        model_save_name_folder = '/work/ggiardini/kuka-ml-threading/output/models_trained/' + model_name + '_' + dataset_name + '_' + str(n_epochs) + '_epochs'
         model_save_name_folder += '_with_rot/' if 'rot' in parameters else '/'
 
         model_save_name = model_save_name_folder + model_name + '_' + dataset_name + '_' + str(n_epochs) + '_epochs'

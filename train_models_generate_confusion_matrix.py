@@ -5,7 +5,7 @@ import gc
 
 class Trial: params = {}
 
-MODELS_NAMES = ['mlp', 'cnn', 'lstm', 'transf']
+MODELS_NAMES = ['mlp']
 DATASETS = ['original', 'nivelado', 'quadruplicado']
 PARAMETERS=['fx|fy|fz|mx|my|mz', 'rotx|fx|fy|fz|mx|my|mz']
 
@@ -22,7 +22,7 @@ for epoch in EPOCHS:
                 print("Loading dataset")
                 dataset_handler = DatasetManip(dataset_name=dataset_name, model_name=model_name, parameters=parameters)
 
-                folder_name = '/home/ggiardini/kuka-ml-threading/output/models_meta_data/'
+                folder_name = '/work/ggiardini/kuka-ml-threading/output/models_meta_data/'
 
                 folder_name += model_name + '_' + dataset_name + '_' + str(epoch) + '_epochs' 
 
