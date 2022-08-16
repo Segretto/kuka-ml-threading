@@ -8,6 +8,7 @@ class OptunaCheckpointing:
         self.model_name=model_name
         self.dataset_name=dataset_name
         self.experiment_name=experiment_name
+        os.chdir('/work/ggiardini/kuka-ml-threading')
         abs_path = os.getcwd()
         output_path = abs_path + '/output/'
         if not os.path.isdir(output_path):

@@ -20,6 +20,10 @@ class DatasetManip():
         self.path_dataset, self.path_model, self.path_meta_data, self.path_model_meta_data = self.load_paths()
         self.scaler = None
 
+        print("\n\n\n\n PRINTS \n\n\n\n")
+        print(dataset_name)
+        print('original' in dataset_name)
+
         if 'all' not in dataset_name:
             self.X_train, self.X_test, self.y_train, self.y_test = self.load_data(parameters=parameters,
                                                                                   dataset_name=dataset_name,
@@ -59,7 +63,10 @@ class DatasetManip():
                   phases_to_load=['insertion', 'backspin', 'threading']):
         print("Loading data with all components")
         # dir_abs = '/home/glahr/kuka-ml-threading'
+        os.chdir('/work/ggiardini')
         dir_abs = os.getcwd()
+        print("DIR ABS = ", dir_abs)
+        dir_abs += '/kuka-ml-threading' if 'kuka' not in dir_abs else ''
         paa = PiecewiseAggregateApproximation(window_size=10)
 
         if 'all' in dataset_name:
@@ -84,7 +91,10 @@ class DatasetManip():
         return train, test, train_labels, test_labels
 
     def load_data_original(self, dataset_name, dir_abs, paa, parameters):
-        if dataset_name == 'original':
+        print("\n\n\n\n PRINTS \n\n\n\n")
+        print(dataset_name)
+        print('original' in dataset_name)
+        if 'original' in dataset_name:
             names_X = ['X_train.npy', 'X_test.npy']
             names_y = ['y_train.csv', 'y_test.csv']
         if dataset_name == 'nivelado':
