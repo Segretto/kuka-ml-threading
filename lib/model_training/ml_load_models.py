@@ -127,8 +127,9 @@ def load_model_transf(params, n_channels, n_timesteps, dataset_name):
 def load_model_vitransf(params, n_channels, n_timesteps):
     input_shape = (n_timesteps, n_channels, 1)
     patch_size = params['patch_size']
-    image_size = 6
-    num_patches = (image_size // patch_size) ** 2
+    image_size1 = n_channels  # number of channels
+    image_size2 = 72  # number of timesteps resized
+    num_patches = (image_size1 // patch_size) * (image_size2 // patch_size)
     projection_dim = 64
     num_heads = params['num_heads']
     transformer_units = [projection_dim * 2, projection_dim]
@@ -139,15 +140,15 @@ def load_model_vitransf(params, n_channels, n_timesteps):
             tf.keras.layers.Conv2D(16, (2, 1), activation="relu", padding="same", strides=1,
                                    input_shape=[n_timesteps, n_channels, 1], name='conv2d_' + str(time())),
             tf.keras.layers.BatchNormalization(name='batchNorm_' + str(time())),
-            tf.keras.layers.MaxPooling2D(pool_size=(3, 1), name='maxpool2d1_' + str(time())),
+            tf.keras.layers.MaxPooling2D(pool_size=(2, 1), name='maxpool2d1_' + str(time())),
 
-            tf.keras.layers.Conv2D(32, (2, 1), activation="relu", padding="valid", name='conv2d_' + str(time())),
+            tf.keras.layers.Conv2D(32, (2, 1), activation="relu", padding="same", name='conv2d_' + str(time())),
             tf.keras.layers.BatchNormalization(name='batchNorm_' + str(time())),
-            tf.keras.layers.MaxPooling2D(pool_size=(3, 1), name='maxpool2d2_' + str(time())),
+            tf.keras.layers.MaxPooling2D(pool_size=(2, 1), name='maxpool2d2_' + str(time())),
 
-            tf.keras.layers.Conv2D(64, (2, 1), activation="relu", padding="valid", name='conv2d_' + str(time())),
+            tf.keras.layers.Conv2D(projection_dim, (2, 1), activation="relu", padding="same", name='conv2d_' + str(time())),
             tf.keras.layers.BatchNormalization(name='batchNorm_' + str(time())),
-            tf.keras.layers.MaxPooling2D(pool_size=(2, 1), name='maxpool2d3_' + str(time())),
+            # tf.keras.layers.MaxPooling2D(pool_size=(2, 1), name='maxpool2d3_' + str(time())),
 
             # tf.keras.layers.Conv2D(64, (1, 2), activation="relu", padding="same", name='conv2d_' + str(time())),
             # tf.keras.layers.BatchNormalization(name='batchNorm_' + str(time())),
