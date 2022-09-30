@@ -20,10 +20,6 @@ class DatasetManip():
         self.path_dataset, self.path_model, self.path_meta_data, self.path_model_meta_data = self.load_paths()
         self.scaler = None
 
-        print("\n\n\n\n PRINTS \n\n\n\n")
-        print(dataset_name)
-        print('original' in dataset_name)
-
         if 'all' not in dataset_name:
             self.X_train, self.X_test, self.y_train, self.y_test = self.load_data(parameters=parameters,
                                                                                   dataset_name=dataset_name,
@@ -91,9 +87,6 @@ class DatasetManip():
         return train, test, train_labels, test_labels
 
     def load_data_original(self, dataset_name, dir_abs, paa, parameters):
-        print("\n\n\n\n PRINTS \n\n\n\n")
-        print(dataset_name)
-        print('original' in dataset_name)
         if 'original' in dataset_name:
             names_X = ['X_train.npy', 'X_test.npy']
             names_y = ['y_train.csv', 'y_test.csv']
