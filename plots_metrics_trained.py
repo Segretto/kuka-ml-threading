@@ -1,12 +1,13 @@
 import json
-import os
-from typing import Counter
+import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
 models = ['mlp', 'cnn', 'lstm', 'transf']
 models_ticks = ['MLP', 'CNN', 'LSTM', 'Transformer']
 datasets = ['original', 'nivelado', 'quadruplicado']
+classes = ['mounted', 'not mounted', 'jammed']
+metrics = ['precision', 'recall', 'f1-score']
 # datasets_ticks = ['Original', 'Balanced', 'Augmented']
 datasets_ticks = ['Ori.', 'Bal.', 'Aug.']
 N_EPOCHS=100
@@ -18,9 +19,13 @@ fig, ax = plt.subplots(1, 1)
 my_xticks = []
 ctr = 0
 
+data_metrics = {dataset: {model: {class_name: {metric: 0 for metric in metrics} for class_name in classes} for model in models} for dataset in datasets}
+
+
 for parameters in PARAMETERS:
     for idx_model, model_name in enumerate(models):
         for idx_dataset, dataset_name in enumerate(datasets):
+
 
             experiment_name = model_name + '_' + dataset_name
             experiment_name += '_' + str(N_EPOCHS) + '_epochs'
@@ -39,6 +44,10 @@ for parameters in PARAMETERS:
             # dir_abs = r'/home/glahr/git/kuka-ml-threading/output/models_trained/'
             # with open(dir_abs + file_name, 'r') as f:
             #     data = json.load(f)
+
+            for class_name in classes:
+                for metric in metrics:
+                    data_metrics[dataset_name][model_name][class_name][metric] = data['report'][class_name][metric]
 
             prec = np.mean(data['report']['mounted']['precision'])
             if idx_dataset == 0:
@@ -64,6 +73,14 @@ for parameters in PARAMETERS:
 #         ax[idx_model].set_yticklabels([])
 #     ax[idx_model].grid(visible=True, axis='y')
 
+with open('metrics.csv', 'w') as f:
+    f.write('dataset,model,class,metric,value\n')
+    for dataset_name in datasets:
+        for model_name in models:
+            for class_name in classes:
+                for metric in metrics:
+                    msg = dataset_name + ',' + model_name  + ',' + class_name + ',' + metric + ',' + str(data_metrics[dataset_name][model_name][class_name][metric]) + '\n'
+                    f.write(msg)
 
 my_xtickslabels = len(models)*datasets_ticks
 ax.set_xticks(my_xticks)
