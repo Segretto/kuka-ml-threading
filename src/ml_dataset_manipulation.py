@@ -6,6 +6,7 @@ import os
 # from pyts.approximation import PiecewiseAggregateApproximation
 from .paa import PiecewiseAggregateApproximation
 import matplotlib.pyplot as plt
+from pathlib import Path
 
 class DatasetManip():
     def __init__(self,
@@ -59,7 +60,8 @@ class DatasetManip():
                   phases_to_load=['insertion', 'backspin', 'threading']):
         print("Loading data with all components")
         # dir_abs = '/home/glahr/kuka-ml-threading'
-        os.chdir('/work/ggiardini')
+        if Path.exists(Path('/work/ggiardini')):
+            os.chdir('/work/ggiardini')
         dir_abs = os.getcwd()
         print("DIR ABS = ", dir_abs)
         dir_abs += '/kuka-ml-threading' if 'kuka' not in dir_abs else ''
