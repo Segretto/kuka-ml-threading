@@ -4,12 +4,12 @@ from utils.optuna_utils import OptunaCheckpointing
 
 # THE USER SHOULD MODIFY THESE ONES
 # models_names = ['svm', 'rf', 'mlp', 'cnn', 'gru', 'lstm', 'bidirec_lstm', 'wavenet']
-MODELS_NAMES = ['cnn', 'mlp'] # 
+MODELS_NAMES = ['lstm', 'transf', 'vit'] # 
 # datasets
 # original, original_nivelado, original_quadruplicado
 # novo, novo_nivelado, novo_quadruplicado
 # all, all_nivelado, all_quadruplicado
-DATASETS = ['original_cw']#, 'novo']
+DATASETS = ['original_cw']#, 'nivelado_cw', 'quadruplicado_cw']#, 'novo']
 # experiment_name = 'teste_checkpoint'
 phases_to_load_novo = ['insertion', 'backspin', 'threading']
 PARAMETERS=['fx|fy|fz|mx|my|mz', 'rotx|fx|fy|fz|mx|my|mz']
@@ -23,7 +23,7 @@ for n_epochs in EPOCHS:
     for parameters in PARAMETERS:
         for dataset_name in DATASETS:
             for model_name in MODELS_NAMES:
-                if model_name == 'transf' or model_name == 'lstm':
+                if model_name == 'transf' or model_name == 'lstm' or model_name == 'vit':
                     n_jobs = 1
                 else:
                     n_jobs = 5
