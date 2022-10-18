@@ -4,7 +4,7 @@ from sklearn.ensemble import RandomForestClassifier as RF
 from sklearn.utils import class_weight
 import os
 from joblib import dump
-from sklearn.metrics import f1_score, precision_score, recall_score, classification_report, confusion_matrix
+from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.model_selection import StratifiedShuffleSplit
 from lib.model_training.ml_load_models import load_model_from_trial
 import numpy as np
@@ -24,6 +24,15 @@ MAX_DROPOUT = 0.5
 N_SPLITS = 10
 TEST_SPLIT_SIZE = 0.2
 
+def precision(y_true, y_pred):
+    y_pred = np.argmax(y_pred.numpy(), axis=1).reshape(-1, 1)
+    rep = classification_report(y_true.numpy(), y_pred,
+                                output_dict=True,
+                                target_names=['mounted', 'jammed', 'not mounted'],
+                                labels=[0, 1, 2],
+                                zero_division=0)
+    prec = rep['mounted']['precision']
+    return prec
 
 class ModelsBuild:
     def __init__(self, model_name='mlp', dataset_name='original', metrics='recall', dataset=None, n_epochs=100):
@@ -118,8 +127,8 @@ class ModelsBuild:
         # TODO: change optimizer and add batchNorm in layers. It is taking too long to train
         # output layer
         model.add(tf.keras.layers.Dense(OUTPUT_SHAPE, activation='softmax'))
-        optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
-        model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+        # optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+        # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
         return model
 
@@ -159,8 +168,8 @@ class ModelsBuild:
         # TODO: change optimizer and add batchNorm in layers
         # output layer
         model.add(tf.keras.layers.Dense(OUTPUT_SHAPE, activation='softmax'))
-        optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
-        model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+        # optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+        # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
         return model
 
@@ -196,8 +205,8 @@ class ModelsBuild:
         # TODO: change optimizer and add batchNorm in layers
         # output layer
         model.add(tf.keras.layers.Dense(OUTPUT_SHAPE, activation='softmax'))
-        optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
-        model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+        # optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+        # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
         return model
 
@@ -216,8 +225,8 @@ class ModelsBuild:
             model.add(tf.keras.layers.Dropout(trial.suggest_uniform('dropout_' + str(layer), 0, MAX_DROPOUT), name='dropout_'+str(time())))
 
         model.add(tf.keras.layers.Dense(OUTPUT_SHAPE, activation="softmax", name='dense_'+str(time())))
-        optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
-        model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+        # optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+        # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
         return model
 
     def objective_svm(self, trial):
@@ -262,8 +271,8 @@ class ModelsBuild:
 
         model.add(tf.keras.layers.Dense(units=OUTPUT_SHAPE, activation='softmax', name='dense_'+str(time())))
 
-        optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
-        model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+        # optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+        # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
         return model
 
@@ -338,8 +347,8 @@ class ModelsBuild:
         #                                     activation='relu'))
         # model.add(tf.keras.layers.Dense(units=OUTPUT_SHAPE, activation='softmax'))
 
-        optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
-        model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+        # optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+        # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
         return model
 
@@ -429,9 +438,8 @@ class ModelsBuild:
 
         model = tf.keras.Model(inputs=inputs, outputs=outputs)
 
-        opt = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
-
-        model.compile(loss='sparse_categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
+        # optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+        # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
         return model
 
     def objective_vitransformer(self, trial):
@@ -570,8 +578,8 @@ class ModelsBuild:
         logits = tf.keras.layers.Dense(3, activation="softmax", name='dense_' + str(time()))(features)
         # Create the Keras model.
         model = tf.keras.Model(inputs=inputs, outputs=logits)
-        opt = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
-        model.compile(loss='sparse_categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
+        # optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+        # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
         return model
 
 
@@ -651,7 +659,7 @@ class ModelsBuild:
         for train, val in split.split(X_train, y_train):
             # each training must have a new model
             model = load_model_from_trial(label, trial.params, n_channels, n_timesteps, self.dataset_name)
-            model = self._model_fit(X_train, y_train, train, val, model)
+            model = self._model_fit(X_train, y_train, train, val, model, trial)
             score = self.get_score(model)
             scores.append(score)
             del model
@@ -661,7 +669,7 @@ class ModelsBuild:
         score_std = np.std(scores)
         return score_mean, score_std
 
-    def _model_fit(self, X_train, y_train, train, val, model):
+    def _model_fit(self, X_train, y_train, train, val, model, trial):
         X_train_vl = np.asarray(X_train)[train].copy()
         X_val = np.asarray(X_train)[val].copy()
 
@@ -672,15 +680,26 @@ class ModelsBuild:
             # TODO: do these guys use X_val?
             model.fit(X_train_vl, y_train_vl.reshape((len(y_train_vl, ))))
         else:
-            cw = {i: self.class_weight[i] for i in range(len(self.class_weight))} if 'cw' in self.dataset_name else None            
+            cw = {i: self.class_weight[i] for i in range(len(self.class_weight))} if 'cw' in self.dataset_name else None
+            my_cb = tf.keras.callbacks.EarlyStopping(monitor='val_precision',
+                                                 min_delta=0,
+                                                 patience=20,
+                                                 verbose=0,
+                                                 mode="auto",
+                                                 baseline=None,
+                                                 restore_best_weights=False,
+                                                )
+            optimizer = tf.keras.optimizers.Adam(learning_rate=trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+            model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy', precision], run_eagerly=True)
             model.fit(
                 X_train_vl, y_train_vl,
                 validation_data=(X_val, y_val),
                 shuffle=False,
                 batch_size=BATCH_SIZE,
                 epochs=self.n_epochs,
-                verbose=1,
-                class_weight=cw)
+                verbose=0,
+                class_weight=cw,
+                callbacks=[my_cb])
         return model
 
     def _model_train_no_validation(self, trial, model_name, dataset_name, parameters, n_epochs=100):

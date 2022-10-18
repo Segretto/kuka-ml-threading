@@ -119,9 +119,9 @@ def load_model_transf(params, n_channels, n_timesteps, dataset_name):
 
     model = tf.keras.Model(inputs=inputs, outputs=outputs)
 
-    opt = tf.keras.optimizers.Adam(learning_rate=params['lr'])
+    # opt = tf.keras.optimizers.Adam(learning_rate=params['lr'])
 
-    model.compile(loss='sparse_categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
+    # model.compile(loss='sparse_categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
     return model
 
 def load_model_vitransf(params, n_channels, n_timesteps):
@@ -257,8 +257,8 @@ def load_model_vitransf(params, n_channels, n_timesteps):
     logits = tf.keras.layers.Dense(3, activation="softmax", name='dense_' + str(time()))(features)
     # Create the Keras model.
     model = tf.keras.Model(inputs=inputs, outputs=logits)
-    opt = tf.keras.optimizers.Adam(learning_rate=params['lr']) # trial.suggest_float("lr", 1e-5, 1e-1, log=True))
-    model.compile(loss='sparse_categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
+    # opt = tf.keras.optimizers.Adam(learning_rate=params['lr']) # trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+    # model.compile(loss='sparse_categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
     return model
 
 def load_model_mlp(params, n_channels, n_timesteps):
@@ -274,8 +274,8 @@ def load_model_mlp(params, n_channels, n_timesteps):
                                           name='dropout_' + str(time())))
 
     model.add(tf.keras.layers.Dense(OUTPUT_SHAPE, activation="softmax", name='dense_' + str(time())))
-    optimizer = tf.keras.optimizers.Adam(learning_rate=params['lr'])
-    model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+    # optimizer = tf.keras.optimizers.Adam(learning_rate=params['lr'])
+    # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
     return model
 
 def load_model_cnn(params, n_channels, n_timesteps):
@@ -309,8 +309,8 @@ def load_model_cnn(params, n_channels, n_timesteps):
 
     model.add(tf.keras.layers.Dense(units=OUTPUT_SHAPE, activation='softmax', name='dense_' + str(time())))
 
-    optimizer = tf.keras.optimizers.Adam(learning_rate=params['lr']) #trial.suggest_float("lr", 1e-5, 1e-1, log=True))
-    model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+    # optimizer = tf.keras.optimizers.Adam(learning_rate=params['lr']) #trial.suggest_float("lr", 1e-5, 1e-1, log=True))
+    # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
     return model
 
@@ -344,8 +344,8 @@ def load_model_gru(params, n_channels, n_timesteps):
     # TODO: change optimizer and add batchNorm in layers
     # output layer
     model.add(tf.keras.layers.Dense(OUTPUT_SHAPE, activation='softmax'))
-    optimizer = tf.keras.optimizers.Adam(learning_rate=params['lr'])
-    model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+    # optimizer = tf.keras.optimizers.Adam(learning_rate=params['lr'])
+    # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
     return model
 
@@ -395,8 +395,8 @@ def load_model_wavenet(params, n_channels, n_timesteps):
 
     model = tf.keras.models.Model(inputs=[inputs], outputs=[Y_outputs])
 
-    optimizer = tf.keras.optimizers.Adam(learning_rate=params['lr'])
-    model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+    # optimizer = tf.keras.optimizers.Adam(learning_rate=params['lr'])
+    # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
     return model
 
@@ -430,8 +430,8 @@ def load_model_lstm(params, n_channels, n_timesteps):
     # TODO: change optimizer and add batchNorm in layers. It is taking too long to train
     # output layer
     model.add(tf.keras.layers.Dense(OUTPUT_SHAPE, activation='softmax'))
-    optimizer = tf.keras.optimizers.Adam(learning_rate=params['lr'])
-    model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+    # optimizer = tf.keras.optimizers.Adam(learning_rate=params['lr'])
+    # model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
     return model
 
