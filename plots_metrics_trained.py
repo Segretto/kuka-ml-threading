@@ -13,6 +13,7 @@ datasets_ticks = ['Ori.', 'Bal.', 'Aug.']
 N_EPOCHS=100
 plt.style.use(r'/home/glahr/git/kuka-ml-threading/plot_style.txt')
 PARAMETERS=['fx|fy|fz|mx|my|mz']#, 'rotx|fx|fy|fz|mx|my|mz']
+metric_plot = 'recall'
 
 # training
 fig, ax = plt.subplots(1, 1)
@@ -49,7 +50,7 @@ for parameters in PARAMETERS:
                 for metric in metrics:
                     data_metrics[dataset_name][model_name][class_name][metric] = data['report'][class_name][metric]
 
-            prec = np.mean(data['report']['mounted']['precision'])
+            prec = np.mean(data['report']['mounted'][metric_plot])
             if idx_dataset == 0:
                 color = '#bc80bd'
             if idx_dataset == 1:
@@ -99,8 +100,9 @@ ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.grid(visible=True, axis='y')
 title = 'With rotation' if 'rotx' in PARAMETERS[0] else 'Without rotation'
-ax.set_title(title)
-ax.set_ylabel('Precision [-]', fontsize=14)
+# ax.set_title(title)
+ax.set_ylabel(metric_plot.capitalize() + ' [-]', fontsize=14)
 fig.autofmt_xdate(rotation=30)
 plt.tight_layout()
-plt.show()
+# plt.show()
+plt.savefig('output/figures/models_trained_'+metric_plot+'.png')
