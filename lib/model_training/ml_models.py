@@ -615,11 +615,11 @@ class ModelsBuild:
     def get_score(self, model):
         report = self.metrics_report(model)
         if self.metrics == 'mounted':
-            return report['mounted']['precision']
+            return report['mounted']['precision'], report
         if self.metrics == 'jammed':
-            return report['jammed']['precision']
+            return report['jammed']['recall'], report
         if self.metrics == 'multi_mounted':
-            return report['mounted']['recall'], report['mounted']['precision']
+            return report['mounted']['recall'], report['mounted']['precision'], report
 
     def _save_model(self, model, model_save_name, model_save_name_folder):
         if self.model_name == 'svm' or self.model_name == 'rf':
@@ -649,22 +649,28 @@ class ModelsBuild:
 
         split = StratifiedShuffleSplit(n_splits=N_SPLITS, test_size=TEST_SPLIT_SIZE)
         scores = []
+        reports = []
 
         self.get_model(trial, label)
         n_timesteps = self.dataset.X_train.shape[1]
         n_channels = self.dataset.X_train.shape[2]
+        count_idx = 0
 
         # @TODO: should we change to StratifiedKFold? https://stackoverflow.com/questions/45969390/difference-between-stratifiedkfold-and-stratifiedshufflesplit-in-sklearn
 
         for train, val in split.split(X_train, y_train):
             # each training must have a new model
+            print('Training fold ', str(count_idx), ' for model ', self.model_name)
             model = load_model_from_trial(label, trial.params, n_channels, n_timesteps, self.dataset_name)
             model = self._model_fit(X_train, y_train, train, val, model, trial)
-            score = self.get_score(model)
+            score, report = self.get_score(model)
             scores.append(score)
+            reports.append(report)
+            count_idx += 1
             del model
 
-        trial.set_user_attr('classification_reports', scores)
+        trial.set_user_attr('classification_reports', reports)
+        trial.set_user_attr('classification_scores', scores)
         score_mean = np.mean(scores)
         score_std = np.std(scores)
         return score_mean, score_std
