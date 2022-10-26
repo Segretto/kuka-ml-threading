@@ -93,7 +93,7 @@ class ModelsBuild:
             model = self.objective_rf(trial)
         if label == 'transf':
             model = self.objective_transformer(trial)
-        if label == 'vitransf':
+        if label == 'vit':
             model = self.objective_vitransformer(trial)
         return model
 
