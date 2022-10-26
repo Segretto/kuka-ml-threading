@@ -60,7 +60,7 @@ class DatasetManip():
                   phases_to_load=['insertion', 'backspin', 'threading']):
         print("Loading data with all components")
         # dir_abs = '/home/glahr/kuka-ml-threading'
-        if Path.exists(Path('/work/ggiardini')):
+        if Path.exists(Path('/work/ggiardini')): # TODO: add path as input in python file
             os.chdir('/work/ggiardini')
         dir_abs = os.getcwd()
         print("DIR ABS = ", dir_abs)
