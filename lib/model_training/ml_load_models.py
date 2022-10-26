@@ -9,7 +9,7 @@ OUTPUT_SHAPE = 3
 
 def load_model_from_trial(label, params, n_channels, n_timesteps, dataset_name):
 
-    if label == 'vitransf':
+    if label == 'vit':
         model = load_model_vitransf(params, n_channels, n_timesteps)
     if label == 'transf':
         model = load_model_transf(params, n_channels, n_timesteps, dataset_name)
