@@ -13,7 +13,7 @@ datasets_ticks = ['Ori.', 'Bal.', 'Aug.']
 N_EPOCHS=100
 plt.style.use(r'/home/glahr/git/kuka-ml-threading/plot_style.txt')
 PARAMETERS=['fx|fy|fz|mx|my|mz']#, 'rotx|fx|fy|fz|mx|my|mz']
-metric_plot = 'recall'
+metric_plot = 'f1-score'
 
 # training
 fig, ax = plt.subplots(1, 1)
@@ -104,5 +104,5 @@ title = 'With rotation' if 'rotx' in PARAMETERS[0] else 'Without rotation'
 ax.set_ylabel(metric_plot.capitalize() + ' [-]', fontsize=14)
 fig.autofmt_xdate(rotation=30)
 plt.tight_layout()
-# plt.show()
-plt.savefig('output/figures/models_trained_'+metric_plot+'.png')
+plt.show()
+# plt.savefig('output/figures/models_trained_'+metric_plot+'.png')

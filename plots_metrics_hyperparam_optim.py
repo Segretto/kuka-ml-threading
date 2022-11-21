@@ -1,14 +1,12 @@
 import json
-import os
-from typing import Counter
 import matplotlib.pyplot as plt
 import numpy as np
 
 models = ['mlp', 'cnn', 'lstm', 'transf']
 models_ticks = ['MLP', 'CNN', 'LSTM', 'Transformer']
-datasets = ['original', 'nivelado', 'quadruplicado']
+datasets = ['original', 'original_cw', 'nivelado', 'quadruplicado']
 # datasets_ticks = ['Original', 'Balanced', 'Augmented']
-datasets_ticks = ['Ori.', 'Bal.', 'Aug.']
+datasets_ticks = ['Ori.', 'Ori.CW', 'Bal.', 'Aug.']
 PARAMETERS=['fx|fy|fz|mx|my|mz']#, 'rotx|fx|fy|fz|mx|my|mz']
 N_EPOCHS=100
 
@@ -32,8 +30,10 @@ for parameters in PARAMETERS:
             with open(dir_abs + file_name, 'r') as f:
                 hyperparameters = json.load(f)
 
-            mean = np.mean(hyperparameters['user_attrs_classification_reports'])
-            std = np.std(hyperparameters['user_attrs_classification_reports'])
+            # mean = np.mean([hyperparameters['user_attrs_classification_reports'][i][class_desired][metric_desired] for i in range(len(hyperparameters['user_attrs_classification_reports']))])
+            mean = np.mean([hyperparameters['user_attrs_classification_reports'][i] for i in range(len(hyperparameters['user_attrs_classification_reports']))]) if 'cw' not in dataset_name else np.mean([hyperparameters['user_attrs_classification_reports'][i]['mounted']['precision'] for i in range(len(hyperparameters['user_attrs_classification_reports']))])
+            # std = np.std([hyperparameters['user_attrs_classification_reports'][i][class_desired][metric_desired] for i in range(len(hyperparameters['user_attrs_classification_reports']))])
+            std = np.std([hyperparameters['user_attrs_classification_reports'][i] for i in range(len(hyperparameters['user_attrs_classification_reports']))]) if 'cw' not in dataset_name else np.mean([hyperparameters['user_attrs_classification_reports'][i]['mounted']['precision'] for i in range(len(hyperparameters['user_attrs_classification_reports']))])
             # ax[idx_model].bar(idx_dataset, mean, yerr=std, width=0.6)
             if idx_dataset == 0:
                 color = '#bc80bd'
@@ -41,9 +41,11 @@ for parameters in PARAMETERS:
                 color = '#fb8072'
             if idx_dataset == 2:
                 color = '#b3de69'
+            if idx_dataset == 3:
+                color = '#59bfff'
             ax.bar(ctr+idx_dataset, mean, yerr=std, width=0.6, color=color)
             my_xticks.append(ctr+idx_dataset)
-        ctr += 4
+        ctr += 4.5
 
 # for idx_model in range(len(models)):
 #     ax[idx_model].set_xticks([i for i in range(len(datasets))])    
@@ -66,17 +68,17 @@ ax.set_axisbelow(True)
 ax.set_yticks([0, 0.25, 0.5, .6, 0.7, .8, .9, 1.0])
 ax.set_yticklabels([0, 0.25, 0.5, .6, 0.7, .8, .9, 1.0], fontsize=9)
 ytext = 1.15
-ax.text(.5, ytext, models_ticks[0])
-ax.text(4.5, ytext, models_ticks[1])
-ax.text(8.5, ytext, models_ticks[2])
-ax.text(11.8, ytext, models_ticks[3])
-ax.set_ylim([0.5, 1.1])
+ax.text(1, ytext, models_ticks[0])
+ax.text(5.5, ytext, models_ticks[1])
+ax.text(9.75, ytext, models_ticks[2])
+ax.text(13.75, ytext, models_ticks[3])
+ax.set_ylim([0., 1.1])
 ax.set_xlim([-1, my_xticks[-1]+1])
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.grid(visible=True, axis='y')
 title = 'With rotation' if 'rotx' in PARAMETERS[0] else 'Without rotation'
-ax.set_title(title)
+ax.set_title(title, loc='center', pad=16)
 ax.set_ylabel('Precision [-]', fontsize=14)
 fig.autofmt_xdate(rotation=30)
 plt.tight_layout()
