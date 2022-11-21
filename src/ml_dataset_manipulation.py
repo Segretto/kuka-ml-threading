@@ -14,7 +14,8 @@ class DatasetManip():
                  dataset_name='original',
                  parameters='fx|fy|fz|mx|my|mz',
                  apply_normalization=True,
-                 phases_to_load=['insertion', 'backspin', 'threading']):
+                 phases_to_load=['insertion', 'backspin', 'threading'],
+                 apply_paa=True):
 
         self.model_name = model_name
         print('Loading data')
@@ -24,11 +25,13 @@ class DatasetManip():
         if 'all' not in dataset_name:
             self.X_train, self.X_test, self.y_train, self.y_test = self.load_data(parameters=parameters,
                                                                                   dataset_name=dataset_name,
-                                                                                  phases_to_load=phases_to_load)
+                                                                                  phases_to_load=phases_to_load,
+                                                                                  apply_paa=apply_paa)
         else:
             X_train, X_test, y_train, y_test = self.load_data(parameters=parameters,
                                                               dataset_name=dataset_name,
-                                                              phases_to_load=phases_to_load)
+                                                              phases_to_load=phases_to_load,
+                                                              apply_paa=apply_paa)
 
         if apply_normalization:
             self.X_train, self.X_test = self.data_normalization(self.X_train, self.X_test, dataset_name=dataset_name)
@@ -54,10 +57,7 @@ class DatasetManip():
             aux_all_data[i] = aux_sample
         return aux_all_data
 
-    def load_data(self, 
-                  parameters,
-                  dataset_name='original',
-                  phases_to_load=['insertion', 'backspin', 'threading']):
+    def load_data(self, parameters, dataset_name, phases_to_load, apply_paa):
         print("Loading data with all components")
         # dir_abs = '/home/glahr/kuka-ml-threading'
         if Path.exists(Path('/work/ggiardini')): # TODO: add path as input in python file
@@ -69,7 +69,7 @@ class DatasetManip():
 
         if 'all' in dataset_name:
             train_no, test_no, train_labels_no, test_labels_no = self.load_data_novo(dataset_name, dir_abs, paa, phases_to_load, parameters)
-            train_or, test_or, train_labels_or, test_labels_or = self.load_data_original(dataset_name, dir_abs, paa)
+            train_or, test_or, train_labels_or, test_labels_or = self.load_data_original(dataset_name, dir_abs, paa, apply_paa)
             max_seq_len = max(train_no.shape[1], train_or.shape[1])
             if max_seq_len == train_no.shape[1]:
                 train_no = self.my_padding(train_no, max_seq_len, parameters)
@@ -85,10 +85,10 @@ class DatasetManip():
             if 'novo' in dataset_name:
                 train, test, train_labels, test_labels = self.load_data_novo(dataset_name, dir_abs, paa, phases_to_load, parameters)
             else:
-                train, test, train_labels, test_labels = self.load_data_original(dataset_name, dir_abs, paa, parameters)
+                train, test, train_labels, test_labels = self.load_data_original(dataset_name, dir_abs, paa, parameters, apply_paa)
         return train, test, train_labels, test_labels
 
-    def load_data_original(self, dataset_name, dir_abs, paa, parameters):
+    def load_data_original(self, dataset_name, dir_abs, paa, parameters, apply_paa):
         if 'original' in dataset_name:
             names_X = ['X_train.npy', 'X_test.npy']
             names_y = ['y_train.csv', 'y_test.csv']
@@ -124,11 +124,14 @@ class DatasetManip():
             # X_new = self.reshape_lstm_process(dataframe.values, parameters=parameters)
             # print("DEPOIS RESHAPE")
             data = []
-            for i, experiment in enumerate(dataframe):
-                aux = paa.transform(X=experiment.T)
-                data.append(aux.T)
-            data = np.array(data)
-            X.append(data)
+            if apply_paa:
+                for i, experiment in enumerate(dataframe):
+                    aux = paa.transform(X=experiment.T)
+                    data.append(aux.T)
+                data = np.array(data)
+                X.append(data)
+            else:
+                X.append(dataframe)
 
         for dataset_i in names_y:
             # dataframe = pd.read_csv(''.join([self.path_dataset, dataset_i]), index_col=0)
