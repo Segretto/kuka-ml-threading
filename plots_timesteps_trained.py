@@ -1,6 +1,5 @@
 import json
 import os
-from typing import Counter
 import matplotlib.pyplot as plt
 import numpy as np
 from src.ml_dataset_manipulation import DatasetManip
@@ -15,13 +14,16 @@ states_colors = ['g', 'r', 'b']
 PARAMETERS=['fx|fy|fz|mx|my|mz']#, 'rotx|fx|fy|fz|mx|my|mz']
 N_EPOCHS=100
 
-plt.style.use(r'/home/glahr/git/kuka-ml-threading/plot_style.txt')
+plt.style.use('plot_style.txt')
 
 idx_timesteps = np.random.randint(96)
 print(idx_timesteps)
 
 # training
 fig, ax = plt.subplots(1, 1)
+
+dir_abs = os.getcwd()
+dir_abs += '/kuka-ml-threading/output/models_meta_data/' if 'kuka' not in dir_abs else '/output/models_meta_data/'
 
 for parameters in PARAMETERS:
     for idx_model, model_name in enumerate(models):
@@ -33,8 +35,6 @@ for parameters in PARAMETERS:
             file_name = experiment_name + '/' + model_name + '_' + dataset_name + '_' + str(N_EPOCHS) + '_epochs'
             file_name += '_with_rot' if 'rot' in parameters else ''
             file_name += '_trained.json' if True else ''
-            # dir_abs = os.getcwd()
-            dir_abs = r'/home/glahr/git/kuka-ml-threading/output/models_meta_data/'
             with open(dir_abs + file_name, 'r') as f:
                 data = json.load(f)
             

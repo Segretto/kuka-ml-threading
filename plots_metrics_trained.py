@@ -2,6 +2,7 @@ import json
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 
 models = ['mlp', 'cnn', 'lstm', 'transf']
 models_ticks = ['MLP', 'CNN', 'LSTM', 'Transformer']
@@ -11,7 +12,7 @@ metrics = ['precision', 'recall', 'f1-score']
 # datasets_ticks = ['Original', 'Balanced', 'Augmented']
 datasets_ticks = ['Ori.', 'Bal.', 'Aug.']
 N_EPOCHS=100
-plt.style.use(r'/home/glahr/git/kuka-ml-threading/plot_style.txt')
+plt.style.use('plot_style.txt')
 PARAMETERS=['fx|fy|fz|mx|my|mz']#, 'rotx|fx|fy|fz|mx|my|mz']
 metric_plot = 'f1-score'
 
@@ -22,6 +23,8 @@ ctr = 0
 
 data_metrics = {dataset: {model: {class_name: {metric: 0 for metric in metrics} for class_name in classes} for model in models} for dataset in datasets}
 
+dir_abs = os.getcwd()
+dir_abs += '/kuka-ml-threading/output/models_meta_data/' if 'kuka' not in dir_abs else '/output/models_meta_data/'
 
 for parameters in PARAMETERS:
     for idx_model, model_name in enumerate(models):
@@ -34,8 +37,6 @@ for parameters in PARAMETERS:
             file_name = experiment_name + '/' + model_name + '_' + dataset_name + '_' + str(N_EPOCHS) + '_epochs'
             file_name += '_with_rot' if 'rot' in parameters else ''
             file_name += '_trained.json' if True else ''
-            # dir_abs = os.getcwd()
-            dir_abs = r'/home/glahr/git/kuka-ml-threading/output/models_meta_data/'
             with open(dir_abs + file_name, 'r') as f:
                 data = json.load(f)
 

@@ -1,6 +1,7 @@
 import json
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 
 models = ['mlp', 'cnn', 'lstm', 'transf']
 models_ticks = ['MLP', 'CNN', 'LSTM', 'Transformer']
@@ -16,6 +17,9 @@ fig, ax = plt.subplots(1, 1)
 my_xticks = []
 ctr = 0
 
+dir_abs = os.getcwd()
+dir_abs += '/kuka-ml-threading/output/models_meta_data/' if 'kuka' not in dir_abs else '/output/models_meta_data/'
+
 for parameters in PARAMETERS:
     for idx_model, model_name in enumerate(models):
         for idx_dataset, dataset_name in enumerate(datasets):
@@ -25,8 +29,6 @@ for parameters in PARAMETERS:
             if 'rot' in parameters:
                 experiment_name += '_with_rot'
             file_name = experiment_name + '/best_' + model_name + '_' + dataset_name + '.json'
-            # dir_abs = os.getcwd()
-            dir_abs = r'/home/glahr/git/kuka-ml-threading/output/models_meta_data/'
             with open(dir_abs + file_name, 'r') as f:
                 hyperparameters = json.load(f)
 
