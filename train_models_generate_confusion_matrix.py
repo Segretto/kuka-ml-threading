@@ -2,18 +2,26 @@ from lib.model_training.ml_models import ModelsBuild
 from src.ml_dataset_manipulation import DatasetManip
 import json
 import gc
+import os
 
 class Trial: params = {}
 
-MODELS_NAMES = ['mlp']
-DATASETS = ['original', 'nivelado', 'quadruplicado']
-PARAMETERS=['fx|fy|fz|mx|my|mz', 'rotx|fx|fy|fz|mx|my|mz']
+MODELS_NAMES = ['transf']
+DATASETS = ['quadruplicado']#, 'original_cw', 'nivelado', 'quadruplicado']
+PARAMETERS=['fx|fy|fz|mx|my|mz']#, 'rotx|fx|fy|fz|mx|my|mz']
 
 N_TRIALS = 100
 TIMEOUT = None
 n_jobs = -1
 METRICS = 'mounted'  # or 'jammed' or 'multi' for both
 EPOCHS = [100]
+
+user = os.environ['USER']
+if 'PBS_O_WORKDIR' in os.environ or 'WORKDIR' in os.environ:
+    workdir = '/work/'
+else:
+    workdir = '/home/'
+workdir += user + '/git'
 
 for epoch in EPOCHS:
     for parameters in PARAMETERS:
@@ -22,7 +30,7 @@ for epoch in EPOCHS:
                 print("Loading dataset")
                 dataset_handler = DatasetManip(dataset_name=dataset_name, model_name=model_name, parameters=parameters)
 
-                folder_name = '/work/ggiardini/kuka-ml-threading/output/models_meta_data/'
+                folder_name = workdir+'/kuka-ml-threading/output/models_meta_data/'
 
                 folder_name += model_name + '_' + dataset_name + '_' + str(epoch) + '_epochs' 
 

@@ -57,7 +57,15 @@ class ModelsBuild:
 
         # dir creation for logging
         print(os.getcwd())
-        dir_abs = '/work/ggiardini/kuka-ml-threading'
+        # dir_abs = '/work/ggiardini/kuka-ml-threading'
+
+        user = os.environ['USER']
+        if 'PBS_O_WORKDIR' in os.environ or 'WORKDIR' in os.environ:
+            dir_abs = '/work/'
+        else:
+            dir_abs = '/home/'
+        dir_abs += user + '/git/kuka-ml-threading'
+
         output_dir = dir_abs + '/output'
         if not os.path.isdir(output_dir):
             os.mkdir(output_dir)
@@ -720,8 +728,15 @@ class ModelsBuild:
         else:
             model.fit(X_train, y_train.reshape((len(y_train, ))))
         report, conf_matrix, y_pred = self.metrics_report(model, get_confusion_matrix=True)
+
+        user = os.environ['USER']
+        if 'PBS_O_WORKDIR' in os.environ or 'WORKDIR' in os.environ:
+            workdir = '/work/'
+        else:
+            workdir = '/home/'
+        workdir += user + '/git'
         
-        model_save_name_folder = '/work/ggiardini/kuka-ml-threading/output/models_trained/' + model_name + '_' + dataset_name + '_' + str(n_epochs) + '_epochs'
+        model_save_name_folder = workdir+'/kuka-ml-threading/output/models_trained/' + model_name + '_' + dataset_name + '_' + str(n_epochs) + '_epochs'
         model_save_name_folder += '_with_rot/' if 'rot' in parameters else '/'
 
         model_save_name = model_save_name_folder + model_name + '_' + dataset_name + '_' + str(n_epochs) + '_epochs'
@@ -737,13 +752,14 @@ class ModelsBuild:
     def _model_evaluate_each_timestep(self, model, model_name, epoch, parameters):
         y_timesteps = [[] for _ in self.dataset.X_test]
         step = 1
+        n_total = len(self.dataset.X_test)
         for xi, X_test in enumerate(self.dataset.X_test):
             for i in range(0, len(X_test), step):
                 input = np.vstack([X_test[:i], np.zeros_like(X_test[i:])]).reshape(1, -1, X_test.shape[1])
                 yi = np.argmax(model.predict(input)) if model_name != 'mlp' and model_name != 'rf' else np.argmax(model.predict(input.reshape(input.shape[0], input.shape[1]*input.shape[2])))
                 y_timesteps[xi].append(yi.tolist())
             rot_msg = ' with rot' if 'rot' in parameters else ''
-            print("Finished iteraction ", xi, " in dataset ", self.dataset_name, " with model ", model_name, " epochs ", epoch, rot_msg)
+            print("Finished iteraction ", xi, '/', n_total, " in dataset ", self.dataset_name, " with model ", model_name, " epochs ", epoch, rot_msg)
 
         return y_timesteps
 

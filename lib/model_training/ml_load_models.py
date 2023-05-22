@@ -25,6 +25,8 @@ def load_model_from_trial(label, params, n_channels, n_timesteps, dataset_name):
         model = load_model_lstm(params, n_channels, n_timesteps)
     if label == 'rf':
         model = load_model_rf(params, n_channels, n_timesteps)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=params['lr'])
+    model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
     return model
 
 def load_model_transf(params, n_channels, n_timesteps, dataset_name):

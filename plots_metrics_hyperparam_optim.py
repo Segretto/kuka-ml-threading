@@ -3,12 +3,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
-models = ['mlp', 'cnn', 'lstm', 'transf']
-models_ticks = ['MLP', 'CNN', 'LSTM', 'Transformer']
+models = ['mlp', 'cnn', 'lstm', 'transf', 'vit']
+models_ticks = ['MLP', 'CNN', 'LSTM', 'Transformer', 'ViT']
 datasets = ['original', 'original_cw', 'nivelado', 'quadruplicado']
 # datasets_ticks = ['Original', 'Balanced', 'Augmented']
-datasets_ticks = ['Ori.', 'Ori.CW', 'Bal.', 'Aug.']
-PARAMETERS=['fx|fy|fz|mx|my|mz']#, 'rotx|fx|fy|fz|mx|my|mz']
+datasets_ticks = ['Ori.', 'CW', 'Bal.', 'Aug.']
+PARAMETERS=['fx|fy|fz|mx|my|mz']
+# PARAMETERS=['rotx|fx|fy|fz|mx|my|mz']
 N_EPOCHS=100
 
 plt.style.use('plot_style.txt')
@@ -33,9 +34,9 @@ for parameters in PARAMETERS:
                 hyperparameters = json.load(f)
 
             # mean = np.mean([hyperparameters['user_attrs_classification_reports'][i][class_desired][metric_desired] for i in range(len(hyperparameters['user_attrs_classification_reports']))])
-            mean = np.mean([hyperparameters['user_attrs_classification_reports'][i] for i in range(len(hyperparameters['user_attrs_classification_reports']))]) if 'cw' not in dataset_name else np.mean([hyperparameters['user_attrs_classification_reports'][i]['mounted']['precision'] for i in range(len(hyperparameters['user_attrs_classification_reports']))])
+            mean = np.mean([hyperparameters['user_attrs_classification_reports'][i] for i in range(len(hyperparameters['user_attrs_classification_reports']))]) if 'cw' not in dataset_name and 'vit' not in model_name else np.mean([hyperparameters['user_attrs_classification_reports'][i]['mounted']['precision'] for i in range(len(hyperparameters['user_attrs_classification_reports']))])
             # std = np.std([hyperparameters['user_attrs_classification_reports'][i][class_desired][metric_desired] for i in range(len(hyperparameters['user_attrs_classification_reports']))])
-            std = np.std([hyperparameters['user_attrs_classification_reports'][i] for i in range(len(hyperparameters['user_attrs_classification_reports']))]) if 'cw' not in dataset_name else np.mean([hyperparameters['user_attrs_classification_reports'][i]['mounted']['precision'] for i in range(len(hyperparameters['user_attrs_classification_reports']))])
+            std = np.std([hyperparameters['user_attrs_classification_reports'][i] for i in range(len(hyperparameters['user_attrs_classification_reports']))]) if 'cw' not in dataset_name and 'vit' not in  model_name else np.mean([hyperparameters['user_attrs_classification_reports'][i]['mounted']['precision'] for i in range(len(hyperparameters['user_attrs_classification_reports']))])
             # ax[idx_model].bar(idx_dataset, mean, yerr=std, width=0.6)
             if idx_dataset == 0:
                 color = '#bc80bd'
@@ -49,18 +50,18 @@ for parameters in PARAMETERS:
             my_xticks.append(ctr+idx_dataset)
         ctr += 4.5
 
-# for idx_model in range(len(models)):
-#     ax[idx_model].set_xticks([i for i in range(len(datasets))])    
-#     ax[idx_model].set_xticklabels(datasets_ticks, fontsize=12)
-#     ax[idx_model].set_axisbelow(True)
-#     ax[idx_model].set_title(models_ticks[idx_model])
-#     ax[idx_model].set_ylim([0, 1.1])
-#     ax[idx_model].spines['right'].set_visible(False)
-#     ax[idx_model].spines['top'].set_visible(False)
-#     if idx_model != 0:
-#         ax[idx_model].spines['left'].set_visible(False)
-#         ax[idx_model].set_yticklabels([])
-#     ax[idx_model].grid(visible=True, axis='y')
+    # for idx_model in range(len(models)):
+    #     ax[idx_model].set_xticks([i for i in range(len(datasets))])    
+    #     ax[idx_model].set_xticklabels(datasets_ticks, fontsize=12)
+    #     ax[idx_model].set_axisbelow(True)
+    #     ax[idx_model].set_title(models_ticks[idx_model])
+    #     ax[idx_model].set_ylim([0, 1.1])
+    #     ax[idx_model].spines['right'].set_visible(False)
+    #     ax[idx_model].spines['top'].set_visible(False)
+    #     if idx_model != 0:
+    #         ax[idx_model].spines['left'].set_visible(False)
+    #         ax[idx_model].set_yticklabels([])
+    #     ax[idx_model].grid(visible=True, axis='y')
 
 
 my_xtickslabels = len(models)*datasets_ticks
@@ -74,6 +75,7 @@ ax.text(1, ytext, models_ticks[0])
 ax.text(5.5, ytext, models_ticks[1])
 ax.text(9.75, ytext, models_ticks[2])
 ax.text(13.75, ytext, models_ticks[3])
+ax.text(19, ytext, models_ticks[4])
 ax.set_ylim([0., 1.1])
 ax.set_xlim([-1, my_xticks[-1]+1])
 ax.spines['right'].set_visible(False)
@@ -85,3 +87,4 @@ ax.set_ylabel('Precision [-]', fontsize=14)
 fig.autofmt_xdate(rotation=30)
 plt.tight_layout()
 plt.show()
+fig.savefig(title+'_optim.png', dpi=300)
