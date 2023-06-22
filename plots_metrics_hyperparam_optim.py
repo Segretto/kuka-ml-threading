@@ -8,7 +8,7 @@ models_ticks = ['MLP', 'CNN', 'LSTM', 'Transformer', 'ViT']
 datasets = ['original', 'original_cw', 'nivelado', 'quadruplicado']
 # datasets_ticks = ['Original', 'Balanced', 'Augmented']
 datasets_ticks = ['Ori.', 'CW', 'Bal.', 'Aug.']
-PARAMETERS=['fx|fy|fz|mx|my|mz']
+PARAMETERS=['rotx|fx|fy|fz|mx|my|mz']
 # PARAMETERS=['rotx|fx|fy|fz|mx|my|mz']
 N_EPOCHS=100
 

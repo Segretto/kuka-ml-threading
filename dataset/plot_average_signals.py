@@ -46,7 +46,7 @@ not_mounted_aeronautic_sample = pd.read_csv(data_folder.joinpath(not_mounted_aer
 %matplotlib inline
 # %%
 
-dataset = 'regular'  # regular, aeronautic
+dataset = 'aeronautic'  # regular, aeronautic
 feature = 'mz'
 colors = ['b', 'y', 'r']
 titles = ['Mounted', 'Jammed', 'Not-Mounted']

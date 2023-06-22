@@ -103,6 +103,7 @@ class ModelsBuild:
             model = self.objective_transformer(trial)
         if label == 'vit':
             model = self.objective_vitransformer(trial)
+        
         return model
 
     def objective_lstm(self, trial):

@@ -4,17 +4,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
-models = ['mlp', 'cnn', 'lstm', 'transf']
-models_ticks = ['MLP', 'CNN', 'LSTM', 'Transformer']
-datasets = ['original', 'nivelado', 'quadruplicado']
+models = ['mlp', 'cnn', 'lstm', 'transf', 'vit']
+models_ticks = ['MLP', 'CNN', 'LSTM', 'Transformer', 'ViT']
+datasets = ['original', 'original_cw', 'nivelado', 'quadruplicado']
 classes = ['mounted', 'not mounted', 'jammed']
 metrics = ['precision', 'recall', 'f1-score']
 # datasets_ticks = ['Original', 'Balanced', 'Augmented']
-datasets_ticks = ['Ori.', 'Bal.', 'Aug.']
+datasets_ticks = ['Ori.', 'Ori.CW', 'Bal.', 'Aug.']
 N_EPOCHS=100
 plt.style.use('plot_style.txt')
-PARAMETERS=['fx|fy|fz|mx|my|mz']#, 'rotx|fx|fy|fz|mx|my|mz']
-metric_plot = 'f1-score'
+PARAMETERS=['rotx|fx|fy|fz|mx|my|mz']#, 'rotx|fx|fy|fz|mx|my|mz']
+class_ = 'mounted'
+metric_plot = 'precision'
 
 # training
 fig, ax = plt.subplots(1, 1)
@@ -51,16 +52,18 @@ for parameters in PARAMETERS:
                 for metric in metrics:
                     data_metrics[dataset_name][model_name][class_name][metric] = data['report'][class_name][metric]
 
-            prec = np.mean(data['report']['mounted'][metric_plot])
+            prec = np.mean(data['report'][class_][metric_plot])
             if idx_dataset == 0:
                 color = '#bc80bd'
             if idx_dataset == 1:
                 color = '#fb8072'
             if idx_dataset == 2:
                 color = '#b3de69'
+            if idx_dataset == 3:
+                color = '#59bfff'
             ax.bar(ctr+idx_dataset, prec, width=0.6, color=color)
             my_xticks.append(ctr+idx_dataset)
-        ctr += 4
+        ctr += 5
 
 # for idx_model in range(len(models)):
 #     ax[idx_model].set_xticks([i for i in range(len(datasets))])    
@@ -92,9 +95,10 @@ ax.set_yticks([0, 0.25, 0.5, 0.75, 1.0])
 ax.set_yticklabels([0, 0.25, 0.5, 0.75, 1.0], fontsize=9)
 ytext = 1.15
 ax.text(.5, ytext, models_ticks[0])
-ax.text(4.5, ytext, models_ticks[1])
-ax.text(8.5, ytext, models_ticks[2])
-ax.text(11.8, ytext, models_ticks[3])
+ax.text(5.5, ytext, models_ticks[1])
+ax.text(10.5, ytext, models_ticks[2])
+ax.text(14.8, ytext, models_ticks[3])
+ax.text(20.8, ytext, models_ticks[4])
 ax.set_ylim([0, 1.1])
 ax.set_xlim([-1, my_xticks[-1]+1])
 ax.spines['right'].set_visible(False)

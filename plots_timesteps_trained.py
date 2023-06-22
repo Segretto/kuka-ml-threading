@@ -72,3 +72,4 @@ for parameters in PARAMETERS:
             # ax.set_yticklabels(states)
             ax.legend(['Actual', 'Prediction'])
             plt.show()
+            exit()

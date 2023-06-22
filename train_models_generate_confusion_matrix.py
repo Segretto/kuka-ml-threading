@@ -6,9 +6,9 @@ import os
 
 class Trial: params = {}
 
-MODELS_NAMES = ['transf']
-DATASETS = ['quadruplicado']#, 'original_cw', 'nivelado', 'quadruplicado']
-PARAMETERS=['fx|fy|fz|mx|my|mz']#, 'rotx|fx|fy|fz|mx|my|mz']
+MODELS_NAMES = ['cnn']
+DATASETS = ['nivelado']#, 'original_cw', 'nivelado', 'quadruplicado']
+PARAMETERS=['fx|fy|fz|mx|my|mz', 'rotx|fx|fy|fz|mx|my|mz']
 
 N_TRIALS = 100
 TIMEOUT = None
